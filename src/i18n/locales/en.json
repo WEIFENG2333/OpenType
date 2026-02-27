@@ -234,6 +234,22 @@
       "noteDesc": "Disabling these features means the LLM will do less post-processing. The output will be closer to raw transcription. Self-correction detection is the most impactful feature for natural dictation."
     }
   },
+  "update": {
+    "title": "Software Update",
+    "checkNow": "Check for Updates",
+    "checking": "Checking...",
+    "upToDate": "You're up to date!",
+    "newAvailable": "A new version is available!",
+    "currentVersion": "Current version: v{version}",
+    "available": "v{version} is available",
+    "availableDesc": "A new version is ready to download.",
+    "download": "Download",
+    "later": "Later",
+    "downloading": "Downloading update...",
+    "ready": "Update ready to install",
+    "readyDesc": "Restart to complete the update.",
+    "restart": "Restart Now"
+  },
   "common": {
     "ok": "OK",
     "cancel": "Cancel",

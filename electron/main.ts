@@ -4,6 +4,7 @@ import {
   session, systemPreferences,
 } from 'electron';
 import path from 'path';
+import { autoUpdater } from 'electron-updater';
 import { ConfigStore } from './config-store';
 import { STTService } from './stt-service';
 import { LLMService } from './llm-service';
@@ -249,6 +250,15 @@ function setupIPC() {
   ipcMain.handle('window:close', () => mainWindow?.hide());
   ipcMain.handle('window:hideOverlay', () => overlayWindow?.hide());
 
+  // Auto updater
+  ipcMain.handle('updater:check', () => autoUpdater.checkForUpdates().catch(() => null));
+  ipcMain.handle('updater:download', () => autoUpdater.downloadUpdate().catch(() => null));
+  ipcMain.handle('updater:install', () => {
+    quitting = true;
+    autoUpdater.quitAndInstall();
+  });
+  ipcMain.handle('updater:getVersion', () => app.getVersion());
+
   // API test
   ipcMain.handle('api:test', async (_e, provider: string) => {
     try {
@@ -258,6 +268,47 @@ function setupIPC() {
       return { success: false, error: e.message };
     }
   });
+}
+
+// ─── Auto Updater ──────────────────────────────────────────────────────────
+
+function setupAutoUpdater() {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('[Updater] update available:', info.version);
+    mainWindow?.webContents.send('updater:update-available', {
+      version: info.version,
+      releaseNotes: info.releaseNotes,
+    });
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    console.log('[Updater] no update available');
+    mainWindow?.webContents.send('updater:update-not-available');
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    mainWindow?.webContents.send('updater:download-progress', {
+      percent: Math.round(progress.percent),
+    });
+  });
+
+  autoUpdater.on('update-downloaded', () => {
+    console.log('[Updater] update downloaded');
+    mainWindow?.webContents.send('updater:update-downloaded');
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('[Updater] error:', err.message);
+    mainWindow?.webContents.send('updater:error', err.message);
+  });
+
+  // Check for updates 3 seconds after launch (non-blocking)
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch(() => {});
+  }, 3000);
 }
 
 // ─── App Lifecycle ──────────────────────────────────────────────────────────
@@ -273,6 +324,7 @@ app.whenReady().then(() => {
   createTray();
   registerShortcuts();
   setupIPC();
+  if (!isDev) setupAutoUpdater();
 
   app.on('activate', () => mainWindow?.show());
 });

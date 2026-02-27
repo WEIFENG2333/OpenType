@@ -9,6 +9,7 @@ import { DictionaryPage } from './pages/DictionaryPage';
 import { SettingsLayout } from './pages/settings/SettingsLayout';
 import { FeedbackPage } from './pages/FeedbackPage';
 import { OverlayPage } from './pages/OverlayPage';
+import { UpdateNotification } from './components/UpdateNotification';
 
 function applyTheme(theme: string) {
   const root = document.documentElement;
@@ -85,6 +86,7 @@ export default function App() {
           {renderPage()}
         </main>
       </div>
+      <UpdateNotification />
     </div>
   );
 }

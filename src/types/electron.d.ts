@@ -73,6 +73,17 @@ export interface ElectronAPI {
   // ─── Audio devices ────────────────────────────────────
   getAudioDevices: () => Promise<MediaDeviceInfo[]>;
 
+  // ─── Auto Updater ───────────────────────────────────────
+  checkForUpdates: () => Promise<any>;
+  downloadUpdate: () => Promise<any>;
+  installUpdate: () => Promise<void>;
+  getVersion: () => Promise<string>;
+  onUpdateAvailable: (callback: (info: { version: string; releaseNotes?: string }) => void) => () => void;
+  onUpdateNotAvailable: (callback: () => void) => () => void;
+  onDownloadProgress: (callback: (progress: { percent: number }) => void) => () => void;
+  onUpdateDownloaded: (callback: () => void) => () => void;
+  onUpdateError: (callback: (message: string) => void) => () => void;
+
   // ─── Events from main process ─────────────────────────
   onToggleRecording: (callback: () => void) => () => void;
   onRecordingState: (callback: (state: string) => void) => () => void;

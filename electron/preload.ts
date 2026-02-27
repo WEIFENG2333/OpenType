@@ -44,6 +44,33 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Audio devices
   getAudioDevices: () => ipcRenderer.invoke('audio:devices'),
 
+  // Auto updater
+  checkForUpdates: () => ipcRenderer.invoke('updater:check'),
+  downloadUpdate: () => ipcRenderer.invoke('updater:download'),
+  installUpdate: () => ipcRenderer.invoke('updater:install'),
+  getVersion: () => ipcRenderer.invoke('updater:getVersion'),
+
+  onUpdateAvailable: (cb: (info: { version: string; releaseNotes?: string }) => void) => {
+    ipcRenderer.on('updater:update-available', (_e, info) => cb(info));
+    return () => { ipcRenderer.removeAllListeners('updater:update-available'); };
+  },
+  onUpdateNotAvailable: (cb: () => void) => {
+    ipcRenderer.on('updater:update-not-available', () => cb());
+    return () => { ipcRenderer.removeAllListeners('updater:update-not-available'); };
+  },
+  onDownloadProgress: (cb: (progress: { percent: number }) => void) => {
+    ipcRenderer.on('updater:download-progress', (_e, progress) => cb(progress));
+    return () => { ipcRenderer.removeAllListeners('updater:download-progress'); };
+  },
+  onUpdateDownloaded: (cb: () => void) => {
+    ipcRenderer.on('updater:update-downloaded', () => cb());
+    return () => { ipcRenderer.removeAllListeners('updater:update-downloaded'); };
+  },
+  onUpdateError: (cb: (msg: string) => void) => {
+    ipcRenderer.on('updater:error', (_e, msg) => cb(msg));
+    return () => { ipcRenderer.removeAllListeners('updater:error'); };
+  },
+
   // Events
   onToggleRecording: (cb: () => void) => {
     ipcRenderer.on('toggle-recording', () => cb());

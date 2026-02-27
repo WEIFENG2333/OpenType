@@ -1,10 +1,33 @@
+import { useState, useEffect } from 'react';
 import { useConfigStore } from '../../stores/configStore';
-import { Select, Toggle } from '../../components/ui';
+import { Select, Toggle, Button } from '../../components/ui';
 import { useTranslation } from '../../i18n';
 
 export function GeneralSettings() {
   const { config, set } = useConfigStore();
   const { t } = useTranslation();
+  const [checkStatus, setCheckStatus] = useState<'idle' | 'checking' | 'up-to-date' | 'available'>('idle');
+  const [currentVersion, setCurrentVersion] = useState('');
+
+  useEffect(() => {
+    window.electronAPI?.getVersion().then(setCurrentVersion);
+    const unsubs = [
+      window.electronAPI?.onUpdateAvailable(() => setCheckStatus('available')),
+      window.electronAPI?.onUpdateNotAvailable(() => {
+        setCheckStatus('up-to-date');
+        setTimeout(() => setCheckStatus('idle'), 3000);
+      }),
+      window.electronAPI?.onUpdateError(() => {
+        setCheckStatus('idle');
+      }),
+    ];
+    return () => unsubs.forEach((fn) => fn?.());
+  }, []);
+
+  const handleCheckUpdate = async () => {
+    setCheckStatus('checking');
+    await window.electronAPI?.checkForUpdates();
+  };
 
   return (
     <div className="space-y-6">
@@ -56,6 +79,29 @@ export function GeneralSettings() {
           ]}
           hint={t('settings.general.outputModeHint')}
         />
+      </div>
+
+      <div>
+        <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200 mb-3">{t('update.title')}</h3>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            loading={checkStatus === 'checking'}
+            onClick={handleCheckUpdate}
+          >
+            {checkStatus === 'checking' ? t('update.checking') : t('update.checkNow')}
+          </Button>
+          {checkStatus === 'up-to-date' && (
+            <span className="text-xs text-green-600 dark:text-green-400">{t('update.upToDate')}</span>
+          )}
+          {checkStatus === 'available' && (
+            <span className="text-xs text-brand-500">{t('update.newAvailable')}</span>
+          )}
+        </div>
+        {currentVersion && (
+          <p className="text-xs text-surface-500 mt-2">{t('update.currentVersion', { version: currentVersion })}</p>
+        )}
       </div>
     </div>
   );

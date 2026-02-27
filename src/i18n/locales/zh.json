@@ -234,6 +234,22 @@
       "noteDesc": "禁用这些功能意味着 LLM 会减少后处理。输出将更接近原始转录。自我纠正检测是自然听写中影响最大的功能。"
     }
   },
+  "update": {
+    "title": "软件更新",
+    "checkNow": "检查更新",
+    "checking": "检查中...",
+    "upToDate": "已是最新版本！",
+    "newAvailable": "有新版本可用！",
+    "currentVersion": "当前版本：v{version}",
+    "available": "v{version} 可用",
+    "availableDesc": "新版本已准备好下载。",
+    "download": "下载",
+    "later": "稍后",
+    "downloading": "正在下载更新...",
+    "ready": "更新已准备好安装",
+    "readyDesc": "重启即可完成更新。",
+    "restart": "立即重启"
+  },
   "common": {
     "ok": "确定",
     "cancel": "取消",
