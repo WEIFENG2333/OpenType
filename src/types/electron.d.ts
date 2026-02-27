@@ -87,6 +87,7 @@ export interface ElectronAPI {
   // ─── Events from main process ─────────────────────────
   onToggleRecording: (callback: () => void) => () => void;
   onRecordingState: (callback: (state: string) => void) => () => void;
+  onNavigate: (callback: (page: string) => void) => () => void;
 }
 
 declare global {

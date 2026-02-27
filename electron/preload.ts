@@ -80,4 +80,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('recording-state', (_e, state) => cb(state));
     return () => { ipcRenderer.removeAllListeners('recording-state'); };
   },
+  onNavigate: (cb: (page: string) => void) => {
+    ipcRenderer.on('navigate', (_e, page) => cb(page));
+    return () => { ipcRenderer.removeAllListeners('navigate'); };
+  },
 });

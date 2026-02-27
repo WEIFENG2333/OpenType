@@ -1,7 +1,7 @@
 import {
   app, BrowserWindow, globalShortcut, ipcMain,
   Tray, Menu, nativeImage, clipboard,
-  session, systemPreferences,
+  session, systemPreferences, screen,
 } from 'electron';
 import path from 'path';
 import { autoUpdater } from 'electron-updater';
@@ -60,15 +60,23 @@ function createMainWindow() {
 }
 
 function createOverlayWindow() {
+  const display = screen.getPrimaryDisplay();
+  const { width: screenW, height: screenH } = display.workAreaSize;
+  const overlayW = 280;
+  const overlayH = 56;
+
   overlayWindow = new BrowserWindow({
-    width: 380,
-    height: 100,
+    width: overlayW,
+    height: overlayH,
+    x: Math.round((screenW - overlayW) / 2),
+    y: screenH - overlayH - 16,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
     resizable: false,
     skipTaskbar: true,
     focusable: false,
+    hasShadow: false,
     backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -149,9 +157,8 @@ function registerShortcuts() {
 function toggleRecording() {
   mainWindow?.webContents.send('toggle-recording');
   if (overlayWindow) {
-    if (overlayWindow.isVisible()) overlayWindow.hide();
-    else overlayWindow.show();
     overlayWindow.webContents.send('toggle-recording');
+    if (!overlayWindow.isVisible()) overlayWindow.show();
   }
 }
 
@@ -325,6 +332,16 @@ app.whenReady().then(() => {
   registerShortcuts();
   setupIPC();
   if (!isDev) setupAutoUpdater();
+
+  // macOS Dock menu
+  if (isMac && app.dock) {
+    const dockMenu = Menu.buildFromTemplate([
+      { label: 'Start Dictation', click: toggleRecording },
+      { type: 'separator' },
+      { label: 'Settings', click: () => { mainWindow?.show(); mainWindow?.focus(); mainWindow?.webContents.send('navigate', 'settings'); } },
+    ]);
+    app.dock.setMenu(dockMenu);
+  }
 
   app.on('activate', () => mainWindow?.show());
 });

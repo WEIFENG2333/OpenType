@@ -28,6 +28,12 @@ export default function App() {
 
   useEffect(() => { load(); }, []);
 
+  // Listen for navigation events from main process (e.g. Dock menu)
+  useEffect(() => {
+    if (!window.electronAPI) return;
+    return window.electronAPI.onNavigate((p) => setPage(p as PageID));
+  }, []);
+
   // Sync UI language from config to i18n context
   useEffect(() => {
     if (!loaded) return;
