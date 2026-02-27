@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { GeneralSettings } from './GeneralSettings';
 import { HotkeySettings } from './HotkeySettings';
 import { AudioSettings } from './AudioSettings';
-import { PersonalizationSettings } from './PersonalizationSettings';
 import { ToneRulesSettings } from './ToneRulesSettings';
 import { LanguageSettings } from './LanguageSettings';
 import { PrivacySettings } from './PrivacySettings';
@@ -11,7 +10,7 @@ import { ProviderSettings } from './ProviderSettings';
 import { ContextSettings } from './ContextSettings';
 import { useTranslation } from '../../i18n';
 
-type SettingsTab = 'providers' | 'general' | 'context' | 'hotkey' | 'audio' | 'personalization' | 'tones' | 'language' | 'privacy' | 'advanced';
+type SettingsTab = 'providers' | 'general' | 'context' | 'hotkey' | 'audio' | 'tones' | 'language' | 'privacy' | 'advanced';
 
 const tabs: Array<{ id: SettingsTab; i18nKey: string }> = [
   { id: 'providers', i18nKey: 'settings.tabs.providers' },
@@ -19,7 +18,6 @@ const tabs: Array<{ id: SettingsTab; i18nKey: string }> = [
   { id: 'context', i18nKey: 'settings.tabs.context' },
   { id: 'hotkey', i18nKey: 'settings.tabs.hotkey' },
   { id: 'audio', i18nKey: 'settings.tabs.audio' },
-  { id: 'personalization', i18nKey: 'settings.tabs.personalization' },
   { id: 'tones', i18nKey: 'settings.tabs.tones' },
   { id: 'language', i18nKey: 'settings.tabs.language' },
   { id: 'privacy', i18nKey: 'settings.tabs.privacy' },
@@ -52,7 +50,6 @@ export function SettingsModal({ onClose }: SettingsModalProps) {
       case 'context': return <ContextSettings />;
       case 'hotkey': return <HotkeySettings />;
       case 'audio': return <AudioSettings />;
-      case 'personalization': return <PersonalizationSettings />;
       case 'tones': return <ToneRulesSettings />;
       case 'language': return <LanguageSettings />;
       case 'privacy': return <PrivacySettings />;

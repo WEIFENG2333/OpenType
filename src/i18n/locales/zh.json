@@ -22,7 +22,13 @@
     "autoDetect": "自动检测语言",
     "outputSameAsInput": "输出：与输入相同",
     "outputLang": "输出：{lang}",
-    "noSpeech": "未检测到语音"
+    "noSpeech": "未检测到语音",
+    "avgSpeed": "平均速度",
+    "recent": "最近转录",
+    "checkUpdate": "检查更新",
+    "checking": "检查中...",
+    "upToDate": "已是最新",
+    "feedback": "反馈"
   },
   "history": {
     "title": "历史记录",
@@ -42,7 +48,17 @@
     "today": "今天",
     "yesterday": "昨天",
     "retry": "重试",
-    "delete": "删除"
+    "delete": "删除",
+    "hasContext": "上下文",
+    "downloadAudio": "下载音频",
+    "detailTitle": "转录详情",
+    "finalOutput": "最终输出",
+    "error": "错误",
+    "contextPipeline": "上下文流水线",
+    "systemPrompt": "系统提示词",
+    "audio": "音频录制",
+    "audioAvailable": "可下载音频文件",
+    "noOutput": "无输出"
   },
   "dictionary": {
     "title": "个人词典",
@@ -110,15 +126,23 @@
       "advanced": "高级"
     },
     "providers": {
-      "sttProvider": "语音识别提供商",
-      "llmProvider": "LLM 提供商",
+      "provider": "提供商",
       "apiKey": "API 密钥",
       "baseUrl": "基础 URL",
       "sttModel": "语音识别模型",
       "llmModel": "LLM 模型",
+      "vlmModel": "VLM 模型",
       "testConnection": "测试连接",
       "custom": "自定义",
-      "presets": "预设"
+      "presets": "预设",
+      "sttTitle": "语音转文字",
+      "sttTooltip": "将您的语音录音转换为原始文字。这是听写流水线的第一步。",
+      "llmTitle": "语言模型",
+      "llmTooltip": "润色和格式化原始转录——移除填充词、修正语法，并应用您的语气偏好。",
+      "vlmTitle": "视觉语言模型",
+      "vlmTooltip": "读取屏幕内容以理解您正在做什么，为转录提供更好的上下文。",
+      "vlmNote": "使用与 LLM 提供商相同的 API 凭据。仅在上下文设置中启用屏幕 OCR 时激活。",
+      "sharedCredentials": "与 STT 共享凭据（选择了相同的提供商）"
     },
     "general": {
       "appearance": "外观",
@@ -151,6 +175,7 @@
       "microphone": "麦克风",
       "micHint": "选择您偏好的麦克风。留空则使用系统默认。",
       "micPlaceholder": "系统默认麦克风",
+      "autoDetect": "自动检测（系统默认）",
       "inputVolume": "输入音量",
       "soundEffects": "音效",
       "startSound": "录音开始提示音",

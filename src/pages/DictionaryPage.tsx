@@ -93,7 +93,7 @@ export function DictionaryPage() {
                 key={word}
                 className="group flex items-center gap-2 bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800 rounded-lg px-3 py-2.5 hover:border-surface-300 dark:hover:border-surface-700 transition-colors"
               >
-                <span className="text-surface-400 text-[11px] flex-shrink-0">✏️</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-surface-400 flex-shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
                 <span className="flex-1 text-sm text-surface-700 dark:text-surface-300 truncate">{word}</span>
                 <button
                   onClick={() => removeWord(word)}
@@ -106,20 +106,6 @@ export function DictionaryPage() {
           </div>
         )}
 
-        {/* Info box */}
-        {dict.length > 0 && (
-          <div className="mt-6 bg-brand-500/5 border border-brand-500/10 rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-brand-400 flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-              <div>
-                <p className="text-[13px] text-brand-300 font-medium">{t('dictionary.howItWorks')}</p>
-                <p className="text-[13px] text-surface-600 dark:text-surface-400 mt-1 leading-relaxed">
-                  {t('dictionary.howItWorksDesc')}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

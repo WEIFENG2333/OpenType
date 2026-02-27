@@ -17,11 +17,8 @@ export function TitleBar() {
 
   return (
     <div className="drag-region flex items-center h-10 bg-white dark:bg-surface-950 border-b border-surface-200 dark:border-surface-800/60 select-none">
-      {/* On macOS, leave space for native traffic light buttons */}
-      <div className={`flex items-center gap-2 flex-1 ${isMac ? 'pl-20' : 'px-4'}`}>
-        <Logo />
-        <span className="text-xs font-semibold text-surface-500 tracking-wide uppercase">OpenType</span>
-      </div>
+      {/* On macOS, leave space for native traffic light buttons; on Windows, keep left padding */}
+      <div className={`flex-1 ${isMac ? 'pl-20' : 'px-4'}`} />
 
       {/* Show custom window controls only on Windows/Linux */}
       {!isMac && (

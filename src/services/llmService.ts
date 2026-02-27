@@ -45,16 +45,6 @@ function buildCleanupPrompt(config: AppConfig, context?: { appName?: string }): 
     parts.push(`10. Output the text in ${outLang}, translating if needed while keeping it natural and idiomatic`);
   }
 
-  // Personalization
-  const p = config.personalization;
-  if (p.enabled) {
-    if (p.formalitySetting < -0.3) parts.push(`\n## Style: Use a casual, conversational tone.`);
-    else if (p.formalitySetting > 0.3) parts.push(`\n## Style: Use a formal, polished tone.`);
-
-    if (p.verbositySetting < -0.3) parts.push(`Be concise. Tighten sentences.`);
-    else if (p.verbositySetting > 0.3) parts.push(`Be detailed. Preserve elaboration.`);
-  }
-
   // Personal dictionary
   if (config.personalDictionary.length > 0) {
     parts.push(`\n## Personal Dictionary (use these exact spellings when recognized):\n${config.personalDictionary.join(', ')}`);

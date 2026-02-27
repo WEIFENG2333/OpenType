@@ -20,10 +20,10 @@ module.exports = {
         },
         surface: {
           0: '#ffffff',
-          50: '#fafafa',
-          100: '#f4f4f5',
-          200: '#e4e4e7',
-          300: '#d4d4d8',
+          50: '#faf8f5',   // warm beige sidebar
+          100: '#f5f3f0',
+          200: '#e8e5e1',
+          300: '#d4d1cd',
           400: '#a1a1aa',
           500: '#71717a',
           600: '#52525b',

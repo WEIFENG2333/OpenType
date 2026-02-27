@@ -7,7 +7,6 @@ import { DashboardPage } from './pages/DashboardPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { DictionaryPage } from './pages/DictionaryPage';
 import { SettingsModal } from './pages/settings/SettingsLayout';
-import { FeedbackPage } from './pages/FeedbackPage';
 import { OverlayPage } from './pages/OverlayPage';
 import { UpdateNotification } from './components/UpdateNotification';
 
@@ -81,7 +80,6 @@ export default function App() {
       case 'dashboard': return <DashboardPage />;
       case 'history': return <HistoryPage />;
       case 'dictionary': return <DictionaryPage />;
-      case 'feedback': return <FeedbackPage />;
     }
   };
 

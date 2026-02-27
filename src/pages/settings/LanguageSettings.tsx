@@ -72,12 +72,6 @@ export function LanguageSettings() {
         description={t('settings.language.multiLangDesc')}
       />
 
-      <div className="bg-brand-500/5 border border-brand-500/10 rounded-xl p-4">
-        <p className="text-sm text-brand-300 font-medium">{t('settings.language.translationMode')}</p>
-        <p className="text-sm text-surface-600 dark:text-surface-400 mt-1 leading-relaxed">
-          {t('settings.language.translationModeDesc')}
-        </p>
-      </div>
     </div>
   );
 }

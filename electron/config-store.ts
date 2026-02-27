@@ -30,7 +30,6 @@ const DEFAULT_CONFIG: Record<string, any> = {
   repetitionElimination: true,
   toneRules: [],
   defaultTone: 'professional',
-  personalization: { enabled: true, totalWordsProcessed: 0, matchScore: 0, formalitySetting: 0, verbositySetting: 0 },
   history: [],
   totalWordsThisWeek: 0,
 };

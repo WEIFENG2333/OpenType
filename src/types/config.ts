@@ -78,6 +78,18 @@ export interface ToneRule {
 
 export type HistoryRetention = 'forever' | '30d' | '7d' | '24h' | '1h';
 
+export interface HistoryContext {
+  appName?: string;
+  windowTitle?: string;
+  selectedText?: string;
+  screenContext?: string;
+  screenshotDataUrl?: string;
+  contextL0Enabled?: boolean;
+  contextL1Enabled?: boolean;
+  contextOcrEnabled?: boolean;
+  systemPrompt?: string;
+}
+
 export interface HistoryItem {
   id: string;
   timestamp: number;
@@ -88,16 +100,9 @@ export interface HistoryItem {
   windowTitle?: string;
   language?: string;
   wordCount: number;
-}
-
-// ─── Personalization ────────────────────────────────────────────────────────
-
-export interface PersonalizationState {
-  enabled: boolean;
-  totalWordsProcessed: number;
-  matchScore: number;           // 0-100, "how well OpenType knows your style"
-  formalitySetting: number;     // -1 (casual) to 1 (formal), 0 = neutral
-  verbositySetting: number;     // -1 (concise) to 1 (detailed), 0 = neutral
+  audioBase64?: string;      // base64 WAV for replay / retry
+  error?: string;            // error message if transcription failed
+  context?: HistoryContext;   // full pipeline context for detail view
 }
 
 // ─── Full App Config ────────────────────────────────────────────────────────
@@ -143,9 +148,6 @@ export interface AppConfig {
   recordEndSound: boolean;
   whisperMode: boolean;
   whisperSensitivity: number;      // 0-100
-
-  // Personalization
-  personalization: PersonalizationState;
 
   // Tone Rules
   toneRules: ToneRule[];
@@ -219,14 +221,6 @@ export const DEFAULT_CONFIG: AppConfig = {
   recordEndSound: true,
   whisperMode: false,
   whisperSensitivity: 50,
-
-  personalization: {
-    enabled: true,
-    totalWordsProcessed: 0,
-    matchScore: 0,
-    formalitySetting: 0,
-    verbositySetting: 0,
-  },
 
   toneRules: [
     { appPattern: 'gmail', tone: 'professional' },

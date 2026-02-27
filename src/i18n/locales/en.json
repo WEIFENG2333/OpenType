@@ -22,7 +22,13 @@
     "autoDetect": "Auto-detect language",
     "outputSameAsInput": "Output: same as input",
     "outputLang": "Output: {lang}",
-    "noSpeech": "No speech detected"
+    "noSpeech": "No speech detected",
+    "avgSpeed": "Avg Speed",
+    "recent": "Recent Transcriptions",
+    "checkUpdate": "Check for updates",
+    "checking": "Checking...",
+    "upToDate": "Up to date",
+    "feedback": "Feedback"
   },
   "history": {
     "title": "History",
@@ -42,7 +48,18 @@
     "today": "Today",
     "yesterday": "Yesterday",
     "retry": "Retry",
-    "delete": "Delete"
+    "delete": "Delete",
+    "hasContext": "Context",
+    "downloadAudio": "Download audio",
+    "detailTitle": "Transcription Detail",
+    "finalOutput": "Final Output",
+    "rawTranscription": "Raw Transcription",
+    "error": "Error",
+    "contextPipeline": "Context Pipeline",
+    "systemPrompt": "System Prompt",
+    "audio": "Audio Recording",
+    "audioAvailable": "Audio file available for download",
+    "noOutput": "No output"
   },
   "dictionary": {
     "title": "Personal Dictionary",
@@ -110,15 +127,23 @@
       "advanced": "Advanced"
     },
     "providers": {
-      "sttProvider": "STT Provider",
-      "llmProvider": "LLM Provider",
+      "provider": "Provider",
       "apiKey": "API Key",
       "baseUrl": "Base URL",
       "sttModel": "STT Model",
       "llmModel": "LLM Model",
+      "vlmModel": "VLM Model",
       "testConnection": "Test Connection",
       "custom": "Custom",
-      "presets": "Presets"
+      "presets": "Presets",
+      "sttTitle": "Speech-to-Text",
+      "sttTooltip": "Converts your voice recording into raw text. This is the first step in the dictation pipeline.",
+      "llmTitle": "Language Model",
+      "llmTooltip": "Polishes and formats the raw transcription — removes fillers, fixes grammar, and applies your tone preferences.",
+      "vlmTitle": "Vision Language Model",
+      "vlmTooltip": "Reads your screen to understand what you're working on, providing better context for transcription.",
+      "vlmNote": "Uses the same API credentials as your LLM provider. Only active when Screen OCR is enabled in Context settings.",
+      "sharedCredentials": "Shares credentials with STT (same provider selected)"
     },
     "general": {
       "appearance": "Appearance",
@@ -151,7 +176,7 @@
       "microphone": "Microphone",
       "micHint": "Select your preferred microphone. Leave empty to use the system default.",
       "micPlaceholder": "Default system microphone",
-      "inputVolume": "Input Volume",
+      "autoDetect": "Auto-detect (system default)",
       "soundEffects": "Sound Effects",
       "startSound": "Recording start sound",
       "startSoundDesc": "Play a sound when recording begins",

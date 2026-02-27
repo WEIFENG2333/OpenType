@@ -42,7 +42,7 @@ export function OverlayPage() {
             hover:bg-white/10 active:bg-white/15 transition-colors group"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-            className="text-surface-400 group-hover:text-white transition-colors">
+            className="text-white/70 group-hover:text-white transition-colors">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
         </button>
@@ -60,7 +60,7 @@ export function OverlayPage() {
                   return (
                     <div
                       key={i}
-                      className="w-[3px] rounded-full bg-brand-400 transition-all duration-100"
+                      className="w-[3px] rounded-full bg-white transition-all duration-100"
                       style={{
                         height: `${h}px`,
                         opacity: 0.5 + base * 0.5,
@@ -75,7 +75,7 @@ export function OverlayPage() {
             </>
           ) : rec.status === 'processing' ? (
             <>
-              <div className="w-4 h-4 border-2 border-brand-400 border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
               <p className="text-[10px] text-surface-400 font-medium tracking-wide">
                 {t('overlay.processing')}
               </p>
@@ -102,10 +102,10 @@ export function OverlayPage() {
           className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center
             transition-colors group
             disabled:opacity-30 disabled:cursor-default
-            hover:bg-brand-500/20 active:bg-brand-500/30"
+            hover:bg-white/10 active:bg-white/15"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-            className="text-brand-400 group-hover:text-brand-300 transition-colors">
+            className="text-white/70 group-hover:text-white transition-colors">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
         </button>

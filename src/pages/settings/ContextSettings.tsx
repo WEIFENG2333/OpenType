@@ -32,7 +32,7 @@ export function ContextSettings() {
       {/* L0: Active Window Detection */}
       <div className="bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800 rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-base">🪟</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-brand-500"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
           <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200">{t('context.activeWindow')}</h3>
         </div>
         <Toggle
@@ -46,7 +46,7 @@ export function ContextSettings() {
       {/* L1: Selected Text */}
       <div className="bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800 rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-base">📝</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-brand-500"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
           <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200">{t('context.selectedText')}</h3>
         </div>
         <Toggle
@@ -71,7 +71,7 @@ export function ContextSettings() {
       {/* Screen OCR */}
       <div className="bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800 rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-base">📸</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-brand-500"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
           <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200">{t('context.screenOcr')}</h3>
         </div>
         <Toggle
