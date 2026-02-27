@@ -79,15 +79,45 @@ export interface ToneRule {
 export type HistoryRetention = 'forever' | '30d' | '7d' | '24h' | '1h';
 
 export interface HistoryContext {
+  // L0: Basic window info (no special permissions)
   appName?: string;
   windowTitle?: string;
-  selectedText?: string;
-  screenContext?: string;
-  screenshotDataUrl?: string;
+  bundleId?: string;           // macOS bundle identifier
+  url?: string;                // browser URL if applicable
+
+  // L1: Accessibility data (requires accessibility permission)
+  selectedText?: string;       // AXSelectedText
+  fieldText?: string;          // AXValue — full content of focused input field
+  fieldRole?: string;          // AXRole — TextField, TextArea, WebArea, etc.
+
+  // Clipboard
+  clipboardText?: string;      // clipboard content at capture time
+
+  // Recent transcriptions (last few for continuity context)
+  recentTranscriptions?: string[];
+
+  // OCR: Screen analysis
+  screenContext?: string;      // VLM description of screen content
+  screenshotDataUrl?: string;  // screenshot thumbnail
+
+  // Feature flags at capture time
   contextL0Enabled?: boolean;
   contextL1Enabled?: boolean;
   contextOcrEnabled?: boolean;
-  systemPrompt?: string;
+
+  // LLM pipeline
+  systemPrompt?: string;       // the system prompt sent to LLM
+  sttProvider?: string;        // which STT provider was used
+  llmProvider?: string;        // which LLM provider was used
+  sttModel?: string;           // STT model name
+  llmModel?: string;           // LLM model name
+
+  // Pipeline timing
+  sttDurationMs?: number;      // how long STT took
+  llmDurationMs?: number;      // how long LLM post-processing took
+
+  // Auto-learned dictionary terms
+  autoLearnedTerms?: string[]; // terms auto-added in this transcription
 }
 
 export interface HistoryItem {
@@ -174,6 +204,12 @@ export interface AppConfig {
   contextOcrEnabled: boolean;      // Screen OCR via VLM
   contextOcrModel: string;         // VLM model for OCR
 
+  // Audio behavior
+  autoMuteOnRecord: boolean;       // mute system audio during recording
+
+  // Auto-learning
+  autoLearnDictionary: boolean;    // auto-add corrected terms to dictionary
+
   // Personal dictionary
   personalDictionary: string[];
 
@@ -250,6 +286,9 @@ export const DEFAULT_CONFIG: AppConfig = {
   contextL1Enabled: false,
   contextOcrEnabled: false,
   contextOcrModel: 'Qwen/Qwen2-VL-7B-Instruct',
+
+  autoMuteOnRecord: false,
+  autoLearnDictionary: true,
 
   personalDictionary: [],
 

@@ -13,12 +13,21 @@ export interface PipelineResult {
   processedText: string;
   skipped?: boolean;
   error?: string;
+  // Pipeline metadata for history
+  systemPrompt?: string;
+  sttProvider?: string;
+  llmProvider?: string;
+  sttModel?: string;
+  llmModel?: string;
+  sttDurationMs?: number;
+  llmDurationMs?: number;
+  autoLearnedTerms?: string[];
 }
 
 export async function runPipeline(
   audioBuffer: ArrayBuffer,
   config: AppConfig,
-  context?: { appName?: string },
+  context?: Record<string, any>,
 ): Promise<PipelineResult> {
   // If Electron is available, delegate the whole pipeline to main process
   if (window.electronAPI) {
@@ -29,34 +38,43 @@ export async function runPipeline(
       processedText: r.processedText ?? '',
       skipped: r.skipped,
       error: r.error,
+      systemPrompt: r.systemPrompt,
+      sttProvider: r.sttProvider,
+      llmProvider: r.llmProvider,
+      sttModel: r.sttModel,
+      llmModel: r.llmModel,
+      sttDurationMs: r.sttDurationMs,
+      llmDurationMs: r.llmDurationMs,
+      autoLearnedTerms: r.autoLearnedTerms,
     };
   }
 
-  // Browser-mode pipeline
+  // Browser-mode pipeline (no timing / auto-learn in browser)
   console.log('[Pipeline] Stage 1: STT...');
+  const sttStart = Date.now();
   const stt = await transcribeAudio(audioBuffer, config, {
     language: config.inputLanguage,
   });
+  const sttDurationMs = Date.now() - sttStart;
 
   if (!stt.success) {
-    return { success: false, rawText: '', processedText: '', error: stt.error };
+    return { success: false, rawText: '', processedText: '', error: stt.error, sttDurationMs };
   }
 
   const rawText = stt.text ?? '';
   if (!rawText.trim()) {
-    return { success: true, rawText: '', processedText: '', skipped: true };
+    return { success: true, rawText: '', processedText: '', skipped: true, sttDurationMs };
   }
 
-  console.log('[Pipeline] Stage 1 result:', rawText);
   console.log('[Pipeline] Stage 2: LLM post-processing...');
-
+  const llmStart = Date.now();
   const llm = await processText(rawText, config, context);
+  const llmDurationMs = Date.now() - llmStart;
+
   if (!llm.success) {
-    return { success: false, rawText, processedText: '', error: llm.error };
+    return { success: false, rawText, processedText: '', error: llm.error, sttDurationMs, llmDurationMs };
   }
 
   const processedText = llm.text ?? rawText;
-  console.log('[Pipeline] Stage 2 result:', processedText);
-
-  return { success: true, rawText, processedText };
+  return { success: true, rawText, processedText, sttDurationMs, llmDurationMs };
 }

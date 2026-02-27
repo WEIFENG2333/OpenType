@@ -82,6 +82,19 @@ export function AudioSettings() {
           description={t('settings.audio.endSoundDesc')}
         />
       </div>
+
+      {/* Auto-mute */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200">
+          {t('settings.audio.autoMute')}
+        </h3>
+        <Toggle
+          checked={config.autoMuteOnRecord}
+          onChange={(v) => set('autoMuteOnRecord', v)}
+          label={t('settings.audio.autoMuteToggle')}
+          description={t('settings.audio.autoMuteDesc')}
+        />
+      </div>
     </div>
   );
 }

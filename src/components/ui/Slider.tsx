@@ -36,7 +36,7 @@ export function Slider({
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
         style={{
-          background: `linear-gradient(to right, #6366f1 0%, #6366f1 ${pct}%, var(--slider-track) ${pct}%, var(--slider-track) 100%)`,
+          background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${pct}%, var(--slider-track) ${pct}%, var(--slider-track) 100%)`,
         }}
       />
     </div>

@@ -9,6 +9,14 @@ export interface PipelineResult {
   processedText?: string;
   skipped?: boolean;
   error?: string;
+  systemPrompt?: string;
+  sttProvider?: string;
+  llmProvider?: string;
+  sttModel?: string;
+  llmModel?: string;
+  sttDurationMs?: number;
+  llmDurationMs?: number;
+  autoLearnedTerms?: string[];
 }
 
 export interface APITestResult {
@@ -60,11 +68,15 @@ export interface ElectronAPI {
   // ─── Clipboard ────────────────────────────────────────
   writeClipboard: (text: string) => Promise<boolean>;
 
+  // ─── Type at cursor ──────────────────────────────────
+  typeAtCursor: (text: string) => Promise<{ success: boolean; error?: string }>;
+
   // ─── Window controls ─────────────────────────────────
   minimize: () => Promise<void>;
   maximize: () => Promise<void>;
   close: () => Promise<void>;
   hideOverlay: () => Promise<void>;
+  resizeOverlay: (w: number, h: number) => Promise<void>;
 
   // ─── API testing ──────────────────────────────────────
   testAPI: (provider: string) => Promise<APITestResult>;
@@ -88,8 +100,15 @@ export interface ElectronAPI {
   getLastContext: () => Promise<{
     appName?: string;
     windowTitle?: string;
+    bundleId?: string;
+    url?: string;
     selectedText?: string;
+    fieldText?: string;
+    fieldRole?: string;
+    clipboardText?: string;
+    recentTranscriptions?: string[];
     screenContext?: string;
+    screenshotDataUrl?: string;
   }>;
   checkAccessibility: () => Promise<'granted' | 'not-determined'>;
   requestAccessibility: () => Promise<boolean>;
@@ -100,6 +119,7 @@ export interface ElectronAPI {
   onToggleRecording: (callback: () => void) => () => void;
   onRecordingState: (callback: (state: string) => void) => () => void;
   onNavigate: (callback: (page: string) => void) => () => void;
+  onDictionaryAutoAdded: (callback: (words: string[]) => void) => () => void;
 }
 
 declare global {
