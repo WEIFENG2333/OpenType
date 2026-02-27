@@ -89,6 +89,19 @@ export class LLMService {
         friendly: 'Warm, friendly tone.',
       };
       parts.push(`\nContext: Active app "${context.appName}". ${desc[tone] || ''}`);
+
+      if (context.windowTitle) {
+        parts.push(`Window title: "${context.windowTitle}"`);
+      }
+    }
+
+    if (context?.selectedText) {
+      const snippet = context.selectedText.slice(0, 500);
+      parts.push(`\nThe user was editing/viewing this text:\n"""\n${snippet}\n"""\nEnsure the dictation output is consistent and coherent with this context.`);
+    }
+
+    if (context?.screenContext) {
+      parts.push(`\nScreen context (from OCR): ${context.screenContext}`);
     }
 
     return this.call({
@@ -121,6 +134,36 @@ export class LLMService {
       ],
       maxTokens: 20,
     });
+  }
+
+  async analyzeScreenshot(dataUrl: string, config: Record<string, any>): Promise<string> {
+    const model = config.contextOcrModel || 'Qwen/Qwen2-VL-7B-Instruct';
+    const opts = this.getOpts(config);
+
+    const res = await fetch(`${opts.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${opts.apiKey}`,
+        ...(opts as any).extraHeaders,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: dataUrl } },
+            { type: 'text', text: 'Briefly describe the content visible on screen in 1-2 sentences. Focus on what app is open and what the user is working on. Be concise.' },
+          ],
+        }],
+        max_tokens: 200,
+        temperature: 0.2,
+      }),
+    });
+
+    if (!res.ok) throw new Error(`VLM ${res.status}`);
+    const json = await res.json();
+    return json.choices?.[0]?.message?.content?.trim() || '';
   }
 
   private resolveTone(config: Record<string, any>, appName: string): string {

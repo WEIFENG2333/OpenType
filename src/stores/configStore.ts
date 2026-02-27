@@ -20,6 +20,9 @@ interface ConfigStore {
   /** Clear all history */
   clearHistory: () => void;
 
+  /** Delete a single history item */
+  deleteHistoryItem: (id: string) => void;
+
   /** Add a word to personal dictionary */
   addDictionaryWord: (word: string) => void;
 
@@ -100,6 +103,15 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
     set((state) => {
       const next = { ...state.config, history: [] };
       persist('history', []);
+      return { config: next };
+    });
+  },
+
+  deleteHistoryItem: (id: string) => {
+    set((state) => {
+      const history = state.config.history.filter((h) => h.id !== id);
+      const next = { ...state.config, history };
+      persist('history', history);
       return { config: next };
     });
   },

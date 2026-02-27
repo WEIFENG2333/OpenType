@@ -1,9 +1,10 @@
 import {
   app, BrowserWindow, globalShortcut, ipcMain,
   Tray, Menu, nativeImage, clipboard,
-  session, systemPreferences, screen,
+  session, systemPreferences, screen, desktopCapturer,
 } from 'electron';
 import path from 'path';
+import { execSync } from 'child_process';
 import { autoUpdater } from 'electron-updater';
 import { ConfigStore } from './config-store';
 import { STTService } from './stt-service';
@@ -22,6 +23,68 @@ let llmService: LLMService;
 
 const isDev = !app.isPackaged;
 const isMac = process.platform === 'darwin';
+
+// ─── Context Awareness ─────────────────────────────────────────────────────
+
+interface CapturedContext {
+  appName?: string;
+  windowTitle?: string;
+  selectedText?: string;
+  screenContext?: string;
+}
+
+let lastCapturedContext: CapturedContext = {};
+
+/** L0: Capture active window metadata (sync, ~50ms) */
+function captureL0(): { appName?: string; windowTitle?: string } {
+  try {
+    if (isMac) {
+      const script = `tell application "System Events" to set fp to first process whose frontmost is true
+set appName to name of fp
+set winTitle to ""
+try
+set winTitle to name of first window of fp
+end try
+return appName & "|||" & winTitle`;
+      const raw = execSync(`osascript -e '${script}'`, { timeout: 1000 }).toString().trim();
+      const sep = raw.indexOf('|||');
+      return {
+        appName: sep >= 0 ? raw.slice(0, sep).trim() : raw.trim(),
+        windowTitle: sep >= 0 ? raw.slice(sep + 3).trim() : '',
+      };
+    }
+    if (process.platform === 'win32') {
+      const ps = `(Get-Process | Where-Object {$_.MainWindowHandle -eq (Add-Type -MemberDefinition '[DllImport("user32.dll")]public static extern IntPtr GetForegroundWindow();' -Name W -Namespace N -PassThru)::GetForegroundWindow()}).MainWindowTitle`;
+      const title = execSync(`powershell -Command "${ps}"`, { timeout: 2000 }).toString().trim();
+      return { appName: title.split(' - ').pop() || title, windowTitle: title };
+    }
+    // Linux
+    const title = execSync('xdotool getactivewindow getwindowname 2>/dev/null', { timeout: 1000 }).toString().trim();
+    return { appName: title, windowTitle: title };
+  } catch {
+    return {};
+  }
+}
+
+/** L1: Capture selected text via Accessibility API (macOS only) */
+function captureL1(appName: string): string | null {
+  if (!isMac) return null;
+  try {
+    if (!systemPreferences.isTrustedAccessibilityClient(false)) return null;
+    const escaped = appName.replace(/"/g, '\\"');
+    const script = `tell application "System Events"
+tell process "${escaped}"
+try
+return value of attribute "AXSelectedText" of focused UI element
+end try
+end tell
+end tell`;
+    const result = execSync(`osascript -e '${script}'`, { timeout: 1000 }).toString().trim();
+    return result || null;
+  } catch {
+    return null;
+  }
+}
 
 // ─── Window Creation ────────────────────────────────────────────────────────
 
@@ -155,6 +218,20 @@ function registerShortcuts() {
 }
 
 function toggleRecording() {
+  // Capture context BEFORE overlay steals focus
+  const cfg = configStore.getAll();
+  if (cfg.contextL0Enabled !== false) {
+    const l0 = captureL0();
+    lastCapturedContext = { ...l0 };
+
+    if (cfg.contextL1Enabled && l0.appName) {
+      const sel = captureL1(l0.appName);
+      if (sel) lastCapturedContext.selectedText = sel;
+    }
+  } else {
+    lastCapturedContext = {};
+  }
+
   mainWindow?.webContents.send('toggle-recording');
   if (overlayWindow) {
     overlayWindow.webContents.send('toggle-recording');
@@ -265,6 +342,44 @@ function setupIPC() {
     autoUpdater.quitAndInstall();
   });
   ipcMain.handle('updater:getVersion', () => app.getVersion());
+
+  // Context awareness
+  ipcMain.handle('context:getLastContext', () => lastCapturedContext);
+
+  ipcMain.handle('context:checkAccessibility', () => {
+    if (!isMac) return 'granted';
+    return systemPreferences.isTrustedAccessibilityClient(false) ? 'granted' : 'not-determined';
+  });
+
+  ipcMain.handle('context:requestAccessibility', () => {
+    if (!isMac) return true;
+    return systemPreferences.isTrustedAccessibilityClient(true);
+  });
+
+  ipcMain.handle('context:checkScreenPermission', () => {
+    if (!isMac) return 'granted';
+    return systemPreferences.getMediaAccessStatus('screen');
+  });
+
+  ipcMain.handle('context:captureAndOcr', async () => {
+    const cfg = configStore.getAll();
+    if (!cfg.contextOcrEnabled) return null;
+    try {
+      const sources = await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width: 1280, height: 720 },
+      });
+      if (!sources.length) return null;
+      const thumbnail = sources[0].thumbnail;
+      const base64 = thumbnail.toJPEG(80).toString('base64');
+      const dataUrl = `data:image/jpeg;base64,${base64}`;
+      const ocrResult = await llmService.analyzeScreenshot(dataUrl, cfg);
+      return ocrResult;
+    } catch (e: any) {
+      console.error('[Context OCR] error:', e.message);
+      return null;
+    }
+  });
 
   // API test
   ipcMain.handle('api:test', async (_e, provider: string) => {

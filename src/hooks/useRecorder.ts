@@ -81,7 +81,12 @@ export function useRecorder() {
       const audioBuffer = await recorderRef.current.stop();
       recorderRef.current = null;
 
-      const result = await runPipeline(audioBuffer, config);
+      // Get context captured at hotkey press time
+      const context = window.electronAPI
+        ? await window.electronAPI.getLastContext()
+        : {};
+
+      const result = await runPipeline(audioBuffer, config, context);
 
       if (result.success && !result.skipped) {
         setState((s) => ({
@@ -91,7 +96,7 @@ export function useRecorder() {
           processedText: result.processedText,
         }));
 
-        // Save to history
+        // Save to history with context
         const wordCount = result.processedText.split(/\s+/).filter(Boolean).length;
         const item: HistoryItem = {
           id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -100,6 +105,8 @@ export function useRecorder() {
           processedText: result.processedText,
           durationMs,
           wordCount,
+          sourceApp: context.appName,
+          windowTitle: context.windowTitle,
         };
         addHistoryItem(item);
       } else if (result.skipped) {

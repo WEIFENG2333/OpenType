@@ -84,6 +84,18 @@ export interface ElectronAPI {
   onUpdateDownloaded: (callback: () => void) => () => void;
   onUpdateError: (callback: (message: string) => void) => () => void;
 
+  // ─── Context Awareness ──────────────────────────────────
+  getLastContext: () => Promise<{
+    appName?: string;
+    windowTitle?: string;
+    selectedText?: string;
+    screenContext?: string;
+  }>;
+  checkAccessibility: () => Promise<'granted' | 'not-determined'>;
+  requestAccessibility: () => Promise<boolean>;
+  checkScreenPermission: () => Promise<string>;
+  captureAndOcr: () => Promise<string | null>;
+
   // ─── Events from main process ─────────────────────────
   onToggleRecording: (callback: () => void) => () => void;
   onRecordingState: (callback: (state: string) => void) => () => void;

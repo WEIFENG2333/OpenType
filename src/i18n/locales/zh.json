@@ -38,7 +38,11 @@
     "rawTranscription": "原始转录",
     "justNow": "刚刚",
     "mAgo": "{n}分钟前",
-    "hAgo": "{n}小时前"
+    "hAgo": "{n}小时前",
+    "today": "今天",
+    "yesterday": "昨天",
+    "retry": "重试",
+    "delete": "删除"
   },
   "dictionary": {
     "title": "个人词典",
@@ -48,7 +52,9 @@
     "noTerms": "暂无自定义词条",
     "noTermsHint": "这里的词汇帮助 AI 正确拼写领域专用词汇",
     "howItWorks": "工作原理",
-    "howItWorksDesc": "词典中的词条会在后处理阶段注入到 LLM 上下文中。这有助于正确拼写品牌名称、技术术语、缩写和标准语音识别可能遗漏的领域特定词汇。"
+    "howItWorksDesc": "词典中的词条会在后处理阶段注入到 LLM 上下文中。这有助于正确拼写品牌名称、技术术语、缩写和标准语音识别可能遗漏的领域特定词汇。",
+    "newWord": "新增词条",
+    "search": "搜索词条..."
   },
   "recording": {
     "copy": "复制",
@@ -100,6 +106,7 @@
       "tones": "语气规则",
       "language": "语言",
       "privacy": "隐私",
+      "context": "上下文",
       "advanced": "高级"
     },
     "providers": {
@@ -233,6 +240,25 @@
       "note": "注意",
       "noteDesc": "禁用这些功能意味着 LLM 会减少后处理。输出将更接近原始转录。自我纠正检测是自然听写中影响最大的功能。"
     }
+  },
+  "context": {
+    "description": "上下文感知帮助 OpenType 理解您正在做什么，以获得更好的转录结果。",
+    "activeWindow": "活跃窗口检测",
+    "activeWindowToggle": "检测当前应用",
+    "activeWindowDesc": "自动检测您正在使用的应用程序，并相应调整写作风格",
+    "selectedText": "选中文本上下文",
+    "selectedTextToggle": "读取选中文本",
+    "selectedTextDesc": "读取当前应用中高亮的文本，以提供更好的上下文感知",
+    "screenOcr": "屏幕 OCR",
+    "screenOcrToggle": "捕获屏幕上下文",
+    "screenOcrDesc": "截屏并使用视觉语言模型理解您正在进行的工作",
+    "vlmModel": "VLM 模型",
+    "accessibilityPermission": "辅助功能权限",
+    "screenPermission": "屏幕录制权限",
+    "permissionGranted": "已授权",
+    "grantPermission": "授予权限",
+    "accessibilityHelp": "打开系统偏好设置 → 隐私与安全性 → 辅助功能，然后添加 OpenType",
+    "screenHelp": "打开系统偏好设置 → 隐私与安全性 → 屏幕录制，然后添加 OpenType"
   },
   "update": {
     "title": "软件更新",

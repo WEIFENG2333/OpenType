@@ -4,7 +4,6 @@ import { useRecorder } from '../hooks/useRecorder';
 import { PageHeader } from '../components/layout/PageHeader';
 import { RecordButton } from '../components/recording/RecordButton';
 import { ResultPanel } from '../components/recording/ResultPanel';
-import { Badge } from '../components/ui';
 import { useTranslation } from '../i18n';
 
 export function DashboardPage() {
@@ -26,17 +25,11 @@ export function DashboardPage() {
       <PageHeader
         title={t('dashboard.title')}
         subtitle={t('dashboard.subtitle')}
-        actions={
-          <div className="flex items-center gap-2">
-            <Badge variant="brand">STT: {config.sttProvider}</Badge>
-            <Badge>LLM: {config.llmProvider}</Badge>
-          </div>
-        }
       />
 
       <div className="flex-1 flex flex-col overflow-y-auto">
         {/* Stats cards */}
-        <div className="grid grid-cols-3 gap-3 px-6 pt-5">
+        <div className="grid grid-cols-3 gap-4 px-6 pt-4">
           <StatCard label={t('dashboard.thisWeek')} value={`${config.totalWordsThisWeek}`} unit={t('dashboard.wordsUnit')} />
           <StatCard label={t('dashboard.timeSaved')} value={`${savedMinutes}`} unit={t('dashboard.minUnit')} />
           <StatCard label={t('dashboard.styleMatch')} value={`${matchPct}%`} accent />
@@ -63,7 +56,7 @@ export function DashboardPage() {
       </div>
 
       {/* Status bar */}
-      <div className="px-6 py-2 border-t border-surface-200 dark:border-surface-800/40 flex items-center justify-between text-[11px] text-surface-400 dark:text-surface-600 flex-shrink-0">
+      <div className="px-6 py-2 border-t border-surface-100 dark:border-surface-800/30 flex items-center justify-between text-[11px] text-surface-400 dark:text-surface-600 flex-shrink-0">
         <span>{config.inputLanguage === 'auto' ? t('dashboard.autoDetect') : config.inputLanguage}</span>
         <span>{config.outputLanguage === 'auto' ? t('dashboard.outputSameAsInput') : t('dashboard.outputLang', { lang: config.outputLanguage })}</span>
       </div>
@@ -73,10 +66,10 @@ export function DashboardPage() {
 
 function StatCard({ label, value, unit, accent }: { label: string; value: string; unit?: string; accent?: boolean }) {
   return (
-    <div className="bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800/60 rounded-xl px-4 py-3">
-      <p className="text-[11px] text-surface-500 font-medium">{label}</p>
-      <div className="flex items-baseline gap-1 mt-1">
-        <span className={`text-xl font-semibold ${accent ? 'text-brand-400' : 'text-surface-800 dark:text-surface-200'}`}>{value}</span>
+    <div className="bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800/60 rounded-xl px-5 py-4">
+      <p className="text-[11px] text-surface-500 font-medium uppercase tracking-wider">{label}</p>
+      <div className="flex items-baseline gap-1.5 mt-1.5">
+        <span className={`text-2xl font-bold ${accent ? 'text-brand-400' : 'text-surface-800 dark:text-surface-200'}`}>{value}</span>
         {unit && <span className="text-xs text-surface-500">{unit}</span>}
       </div>
     </div>

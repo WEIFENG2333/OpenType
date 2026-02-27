@@ -85,6 +85,7 @@ export interface HistoryItem {
   processedText: string;
   durationMs: number;
   sourceApp?: string;
+  windowTitle?: string;
   language?: string;
   wordCount: number;
 }
@@ -165,6 +166,12 @@ export interface AppConfig {
   fillerWordRemoval: boolean;
   repetitionElimination: boolean;
 
+  // Context Awareness
+  contextL0Enabled: boolean;       // L0: active window metadata
+  contextL1Enabled: boolean;       // L1: selected text via Accessibility
+  contextOcrEnabled: boolean;      // Screen OCR via VLM
+  contextOcrModel: string;         // VLM model for OCR
+
   // Personal dictionary
   personalDictionary: string[];
 
@@ -244,6 +251,11 @@ export const DEFAULT_CONFIG: AppConfig = {
   selfCorrectionDetection: true,
   fillerWordRemoval: true,
   repetitionElimination: true,
+
+  contextL0Enabled: true,
+  contextL1Enabled: false,
+  contextOcrEnabled: false,
+  contextOcrModel: 'Qwen/Qwen2-VL-7B-Instruct',
 
   personalDictionary: [],
 

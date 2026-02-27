@@ -71,6 +71,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => { ipcRenderer.removeAllListeners('updater:error'); };
   },
 
+  // Context awareness
+  getLastContext: () => ipcRenderer.invoke('context:getLastContext'),
+  checkAccessibility: () => ipcRenderer.invoke('context:checkAccessibility'),
+  requestAccessibility: () => ipcRenderer.invoke('context:requestAccessibility'),
+  checkScreenPermission: () => ipcRenderer.invoke('context:checkScreenPermission'),
+  captureAndOcr: () => ipcRenderer.invoke('context:captureAndOcr'),
+
   // Events
   onToggleRecording: (cb: () => void) => {
     ipcRenderer.on('toggle-recording', () => cb());

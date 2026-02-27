@@ -6,7 +6,7 @@ import { Sidebar, PageID } from './components/layout/Sidebar';
 import { DashboardPage } from './pages/DashboardPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { DictionaryPage } from './pages/DictionaryPage';
-import { SettingsLayout } from './pages/settings/SettingsLayout';
+import { SettingsModal } from './pages/settings/SettingsLayout';
 import { FeedbackPage } from './pages/FeedbackPage';
 import { OverlayPage } from './pages/OverlayPage';
 import { UpdateNotification } from './components/UpdateNotification';
@@ -23,6 +23,7 @@ function applyTheme(theme: string) {
 
 export default function App() {
   const [page, setPage] = useState<PageID>('dashboard');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const { config, loaded, load } = useConfigStore();
   const { setLocale } = useTranslation();
 
@@ -31,7 +32,13 @@ export default function App() {
   // Listen for navigation events from main process (e.g. Dock menu)
   useEffect(() => {
     if (!window.electronAPI) return;
-    return window.electronAPI.onNavigate((p) => setPage(p as PageID));
+    return window.electronAPI.onNavigate((p) => {
+      if (p === 'settings') {
+        setSettingsOpen(true);
+      } else {
+        setPage(p as PageID);
+      }
+    });
   }, []);
 
   // Sync UI language from config to i18n context
@@ -74,7 +81,6 @@ export default function App() {
       case 'dashboard': return <DashboardPage />;
       case 'history': return <HistoryPage />;
       case 'dictionary': return <DictionaryPage />;
-      case 'settings': return <SettingsLayout />;
       case 'feedback': return <FeedbackPage />;
     }
   };
@@ -86,12 +92,16 @@ export default function App() {
         <Sidebar
           current={page}
           onNavigate={setPage}
-          weeklyWords={config.totalWordsThisWeek}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
         <main className="flex-1 flex flex-col overflow-hidden bg-surface-50 dark:bg-surface-900">
           {renderPage()}
         </main>
       </div>
+
+      {/* Settings Modal */}
+      {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
+
       <UpdateNotification />
     </div>
   );

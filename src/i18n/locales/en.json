@@ -38,7 +38,11 @@
     "rawTranscription": "Raw transcription",
     "justNow": "Just now",
     "mAgo": "{n}m ago",
-    "hAgo": "{n}h ago"
+    "hAgo": "{n}h ago",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "retry": "Retry",
+    "delete": "Delete"
   },
   "dictionary": {
     "title": "Personal Dictionary",
@@ -48,7 +52,9 @@
     "noTerms": "No custom terms yet",
     "noTermsHint": "Words here help the AI spell domain-specific vocabulary correctly",
     "howItWorks": "How it works",
-    "howItWorksDesc": "Dictionary terms are injected into the LLM context during post-processing. This helps correctly spell brand names, technical jargon, abbreviations, and domain-specific vocabulary that standard speech recognition might miss."
+    "howItWorksDesc": "Dictionary terms are injected into the LLM context during post-processing. This helps correctly spell brand names, technical jargon, abbreviations, and domain-specific vocabulary that standard speech recognition might miss.",
+    "newWord": "New Word",
+    "search": "Search terms..."
   },
   "recording": {
     "copy": "Copy",
@@ -100,6 +106,7 @@
       "tones": "Tone Rules",
       "language": "Language",
       "privacy": "Privacy",
+      "context": "Context",
       "advanced": "Advanced"
     },
     "providers": {
@@ -233,6 +240,25 @@
       "note": "Note",
       "noteDesc": "Disabling these features means the LLM will do less post-processing. The output will be closer to raw transcription. Self-correction detection is the most impactful feature for natural dictation."
     }
+  },
+  "context": {
+    "description": "Context awareness helps OpenType understand what you're working on for better transcription results.",
+    "activeWindow": "Active Window Detection",
+    "activeWindowToggle": "Detect active application",
+    "activeWindowDesc": "Automatically detects which app you're using and adjusts the writing tone accordingly",
+    "selectedText": "Selected Text Context",
+    "selectedTextToggle": "Read selected text",
+    "selectedTextDesc": "Reads highlighted text in your current app for better context awareness",
+    "screenOcr": "Screen OCR",
+    "screenOcrToggle": "Capture screen context",
+    "screenOcrDesc": "Takes a screenshot and uses a VLM model to understand what you're working on",
+    "vlmModel": "VLM Model",
+    "accessibilityPermission": "Accessibility Permission",
+    "screenPermission": "Screen Recording Permission",
+    "permissionGranted": "Permission granted",
+    "grantPermission": "Grant Permission",
+    "accessibilityHelp": "Open System Preferences → Privacy & Security → Accessibility, then add OpenType",
+    "screenHelp": "Open System Preferences → Privacy & Security → Screen Recording, then add OpenType"
   },
   "update": {
     "title": "Software Update",
