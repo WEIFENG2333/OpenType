@@ -4,3 +4,4 @@ export { Select } from './Select';
 export { Toggle } from './Toggle';
 export { Slider } from './Slider';
 export { Badge } from './Badge';
+export { HotkeyCapture } from './HotkeyCapture';

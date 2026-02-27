@@ -3,11 +3,13 @@ import { useConfigStore } from '../../stores/configStore';
 import { PROVIDERS } from '../../types/config';
 import { testLLMConnection } from '../../services/llmService';
 import { Button, Select, PasswordInput, Input, Badge } from '../../components/ui';
+import { useTranslation } from '../../i18n';
 
 export function ProviderSettings() {
   const { config, set } = useConfigStore();
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ provider: string; ok: boolean; msg: string } | null>(null);
+  const { t } = useTranslation();
 
   const handleTest = async (provider: string) => {
     setTesting(provider);
@@ -29,13 +31,13 @@ export function ProviderSettings() {
       <Section title="Provider Selection">
         <div className="grid grid-cols-2 gap-4">
           <Select
-            label="STT Provider"
+            label={t('settings.providers.sttProvider')}
             value={config.sttProvider}
             onChange={(e) => set('sttProvider', e.target.value as any)}
             options={sttProviders.map((p) => ({ value: p.id, label: p.name }))}
           />
           <Select
-            label="LLM Provider"
+            label={t('settings.providers.llmProvider')}
             value={config.llmProvider}
             onChange={(e) => set('llmProvider', e.target.value as any)}
             options={PROVIDERS.map((p) => ({ value: p.id, label: p.name }))}
@@ -43,21 +45,21 @@ export function ProviderSettings() {
         </div>
       </Section>
 
-      <hr className="border-surface-800/40" />
+      <hr className="border-surface-200 dark:border-surface-800/40" />
 
       {/* SiliconFlow */}
       <Section title="SiliconFlow" badge="STT + LLM">
         <div className="space-y-3">
-          <PasswordInput label="API Key" value={config.siliconflowApiKey} onChange={(e) => set('siliconflowApiKey', e.target.value)} placeholder="sk-..." />
-          <Input label="Base URL" value={config.siliconflowBaseUrl} onChange={(e) => set('siliconflowBaseUrl', e.target.value)} />
+          <PasswordInput label={t('settings.providers.apiKey')} value={config.siliconflowApiKey} onChange={(e) => set('siliconflowApiKey', e.target.value)} placeholder="sk-..." />
+          <Input label={t('settings.providers.baseUrl')} value={config.siliconflowBaseUrl} onChange={(e) => set('siliconflowBaseUrl', e.target.value)} />
           <Select
-            label="STT Model"
+            label={t('settings.providers.sttModel')}
             value={config.siliconflowSttModel}
             onChange={(e) => set('siliconflowSttModel', e.target.value)}
             options={PROVIDERS.find((p) => p.id === 'siliconflow')!.sttModels.map((m) => ({ value: m, label: m }))}
           />
           <ModelInput
-            label="LLM Model"
+            label={t('settings.providers.llmModel')}
             value={config.siliconflowLlmModel}
             onChange={(v) => set('siliconflowLlmModel', v)}
             presets={PROVIDERS.find((p) => p.id === 'siliconflow')!.llmModels}
@@ -66,15 +68,15 @@ export function ProviderSettings() {
         </div>
       </Section>
 
-      <hr className="border-surface-800/40" />
+      <hr className="border-surface-200 dark:border-surface-800/40" />
 
       {/* OpenRouter */}
       <Section title="OpenRouter" badge="LLM only">
         <div className="space-y-3">
-          <PasswordInput label="API Key" value={config.openrouterApiKey} onChange={(e) => set('openrouterApiKey', e.target.value)} placeholder="sk-or-..." />
-          <Input label="Base URL" value={config.openrouterBaseUrl} onChange={(e) => set('openrouterBaseUrl', e.target.value)} />
+          <PasswordInput label={t('settings.providers.apiKey')} value={config.openrouterApiKey} onChange={(e) => set('openrouterApiKey', e.target.value)} placeholder="sk-or-..." />
+          <Input label={t('settings.providers.baseUrl')} value={config.openrouterBaseUrl} onChange={(e) => set('openrouterBaseUrl', e.target.value)} />
           <ModelInput
-            label="LLM Model"
+            label={t('settings.providers.llmModel')}
             value={config.openrouterLlmModel}
             onChange={(v) => set('openrouterLlmModel', v)}
             presets={PROVIDERS.find((p) => p.id === 'openrouter')!.llmModels}
@@ -83,21 +85,21 @@ export function ProviderSettings() {
         </div>
       </Section>
 
-      <hr className="border-surface-800/40" />
+      <hr className="border-surface-200 dark:border-surface-800/40" />
 
       {/* OpenAI */}
       <Section title="OpenAI" badge="STT + LLM">
         <div className="space-y-3">
-          <PasswordInput label="API Key" value={config.openaiApiKey} onChange={(e) => set('openaiApiKey', e.target.value)} placeholder="sk-..." />
-          <Input label="Base URL" value={config.openaiBaseUrl} onChange={(e) => set('openaiBaseUrl', e.target.value)} />
+          <PasswordInput label={t('settings.providers.apiKey')} value={config.openaiApiKey} onChange={(e) => set('openaiApiKey', e.target.value)} placeholder="sk-..." />
+          <Input label={t('settings.providers.baseUrl')} value={config.openaiBaseUrl} onChange={(e) => set('openaiBaseUrl', e.target.value)} />
           <Select
-            label="STT Model"
+            label={t('settings.providers.sttModel')}
             value={config.openaiSttModel}
             onChange={(e) => set('openaiSttModel', e.target.value)}
             options={PROVIDERS.find((p) => p.id === 'openai')!.sttModels.map((m) => ({ value: m, label: m }))}
           />
           <ModelInput
-            label="LLM Model"
+            label={t('settings.providers.llmModel')}
             value={config.openaiLlmModel}
             onChange={(v) => set('openaiLlmModel', v)}
             presets={PROVIDERS.find((p) => p.id === 'openai')!.llmModels}
@@ -113,7 +115,7 @@ function Section({ title, badge, children }: { title: string; badge?: string; ch
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <h3 className="text-sm font-semibold text-surface-200">{title}</h3>
+        <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200">{title}</h3>
         {badge && <Badge>{badge}</Badge>}
       </div>
       {children}
@@ -124,20 +126,21 @@ function Section({ title, badge, children }: { title: string; badge?: string; ch
 function ModelInput({ label, value, onChange, presets }: {
   label: string; value: string; onChange: (v: string) => void; presets: string[];
 }) {
+  const { t } = useTranslation();
   const [custom, setCustom] = useState(false);
 
   if (custom) {
     return (
       <div className="space-y-1.5">
-        <label className="block text-sm font-medium text-surface-400">{label}</label>
+        <label className="block text-sm font-medium text-surface-600 dark:text-surface-400">{label}</label>
         <div className="flex gap-2">
           <input
             value={value}
             onChange={(e) => onChange(e.target.value)}
             placeholder="Custom model name"
-            className="flex-1 bg-surface-850 border border-surface-700 rounded-lg px-3.5 py-2 text-sm text-surface-200 font-mono focus:outline-none focus:border-brand-500"
+            className="flex-1 bg-white dark:bg-surface-850 border border-surface-300 dark:border-surface-700 rounded-lg px-3.5 py-2 text-sm text-surface-800 dark:text-surface-200 font-mono focus:outline-none focus:border-brand-500"
           />
-          <Button variant="ghost" size="sm" onClick={() => setCustom(false)}>Presets</Button>
+          <Button variant="ghost" size="sm" onClick={() => setCustom(false)}>{t('settings.providers.presets')}</Button>
         </div>
       </div>
     );
@@ -145,7 +148,7 @@ function ModelInput({ label, value, onChange, presets }: {
 
   return (
     <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-surface-400">{label}</label>
+      <label className="block text-sm font-medium text-surface-600 dark:text-surface-400">{label}</label>
       <div className="flex gap-2">
         <Select
           value={value}
@@ -153,7 +156,7 @@ function ModelInput({ label, value, onChange, presets }: {
           options={presets.map((m) => ({ value: m, label: m }))}
           className="flex-1"
         />
-        <Button variant="ghost" size="sm" onClick={() => setCustom(true)}>Custom</Button>
+        <Button variant="ghost" size="sm" onClick={() => setCustom(true)}>{t('settings.providers.custom')}</Button>
       </div>
     </div>
   );

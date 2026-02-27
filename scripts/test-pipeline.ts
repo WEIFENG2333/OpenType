@@ -45,7 +45,7 @@ async function main() {
   for (const text of CASES) {
     console.log(`\nInput: "${text.slice(0, 60)}..."`);
     await run('SiliconFlow', 'https://api.siliconflow.cn/v1', SF, 'Qwen/Qwen2.5-7B-Instruct', text);
-    await run('OpenRouter', 'https://openrouter.ai/api/v1', OR, 'google/gemini-2.0-flash-001', text,
+    await run('OpenRouter', 'https://openrouter.ai/api/v1', OR, 'google/gemini-2.5-flash', text,
       { 'HTTP-Referer': 'https://opentype.app', 'X-Title': 'OpenType' });
   }
 

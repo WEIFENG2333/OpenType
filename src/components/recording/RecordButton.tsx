@@ -1,3 +1,5 @@
+import { useTranslation } from '../../i18n';
+
 interface RecordButtonProps {
   status: 'idle' | 'recording' | 'processing';
   audioLevel: number;
@@ -6,6 +8,7 @@ interface RecordButtonProps {
 }
 
 export function RecordButton({ status, audioLevel, duration, onClick }: RecordButtonProps) {
+  const { t } = useTranslation();
   const fmt = (s: number) => {
     const m = Math.floor(s / 60);
     const sec = Math.floor(s % 60);
@@ -33,7 +36,7 @@ export function RecordButton({ status, audioLevel, duration, onClick }: RecordBu
             ${status === 'recording'
               ? 'bg-red-500 hover:bg-red-600 shadow-red-500/25 scale-110'
               : status === 'processing'
-              ? 'bg-surface-700 cursor-wait'
+              ? 'bg-surface-200 dark:bg-surface-700 cursor-wait'
               : 'bg-gradient-to-br from-brand-500 to-brand-700 hover:from-brand-400 hover:to-brand-600 shadow-brand-600/25 hover:scale-105 active:scale-95'
             }`}
         >
@@ -61,9 +64,9 @@ export function RecordButton({ status, audioLevel, duration, onClick }: RecordBu
           <div className="flex flex-col items-center gap-3 animate-fade-in">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-red-400 text-sm font-medium">Recording</span>
+              <span className="text-red-400 text-sm font-medium">{t('dashboard.recording')}</span>
             </div>
-            <span className="text-2xl font-mono text-surface-300 tracking-wider">{fmt(duration)}</span>
+            <span className="text-2xl font-mono text-surface-700 dark:text-surface-300 tracking-wider">{fmt(duration)}</span>
             {/* Audio waveform */}
             <div className="flex items-end gap-[3px] h-6">
               {Array.from({ length: 16 }).map((_, i) => (
@@ -82,15 +85,15 @@ export function RecordButton({ status, audioLevel, duration, onClick }: RecordBu
 
         {status === 'processing' && (
           <div className="flex flex-col items-center gap-2 animate-fade-in">
-            <span className="text-brand-400 text-sm font-medium">Processing...</span>
-            <span className="text-xs text-surface-500">Transcribing & polishing your text</span>
+            <span className="text-brand-400 text-sm font-medium">{t('dashboard.processing')}</span>
+            <span className="text-xs text-surface-500">{t('dashboard.transcribing')}</span>
           </div>
         )}
 
         {status === 'idle' && (
           <div className="flex flex-col items-center gap-2">
-            <span className="text-surface-400 text-sm font-medium">Click to start dictation</span>
-            <kbd className="px-2 py-0.5 bg-surface-800 rounded text-[11px] text-surface-500 border border-surface-700 font-mono">
+            <span className="text-surface-600 dark:text-surface-400 text-sm font-medium">{t('dashboard.clickToStart')}</span>
+            <kbd className="px-2 py-0.5 bg-surface-100 dark:bg-surface-800 rounded text-[11px] text-surface-500 border border-surface-300 dark:border-surface-700 font-mono">
               Ctrl+Shift+Space
             </kbd>
           </div>

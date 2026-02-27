@@ -19,7 +19,7 @@ export function Slider({
     <div className="space-y-2">
       {(label || showValue) && (
         <div className="flex items-center justify-between">
-          {label && <span className="text-sm font-medium text-surface-400">{label}</span>}
+          {label && <span className="text-sm font-medium text-surface-600 dark:text-surface-400">{label}</span>}
           {showValue && (
             <span className="text-xs text-surface-500 font-mono">
               {formatValue ? formatValue(value) : value}
@@ -36,7 +36,7 @@ export function Slider({
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
         style={{
-          background: `linear-gradient(to right, #6366f1 0%, #6366f1 ${pct}%, #3f3f46 ${pct}%, #3f3f46 100%)`,
+          background: `linear-gradient(to right, #6366f1 0%, #6366f1 ${pct}%, var(--slider-track) ${pct}%, var(--slider-track) 100%)`,
         }}
       />
     </div>

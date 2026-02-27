@@ -1,10 +1,20 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
+  // Platform (sync)
+  platform: process.platform,
+
   // Config
   getConfig: (key: string) => ipcRenderer.invoke('config:get', key),
   setConfig: (key: string, value: any) => ipcRenderer.invoke('config:set', key, value),
   getAllConfig: () => ipcRenderer.invoke('config:getAll'),
+
+  // Microphone permission
+  checkMicPermission: () => ipcRenderer.invoke('mic:checkPermission'),
+  requestMicPermission: () => ipcRenderer.invoke('mic:requestPermission'),
+
+  // Shortcuts
+  reregisterShortcuts: () => ipcRenderer.invoke('shortcuts:reregister'),
 
   // STT
   transcribe: (buf: ArrayBuffer, opts?: any) => ipcRenderer.invoke('stt:transcribe', buf, opts),

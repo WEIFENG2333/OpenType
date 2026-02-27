@@ -83,8 +83,21 @@ export class AudioRecorder {
 
   private async toWav(webmBlob: Blob): Promise<ArrayBuffer> {
     const ab = await webmBlob.arrayBuffer();
+    if (ab.byteLength === 0) {
+      throw new Error('Empty audio recording — no data captured from microphone');
+    }
     const ctx = new AudioContext({ sampleRate: 16000 });
-    const decoded = await ctx.decodeAudioData(ab);
+    let decoded: AudioBuffer;
+    try {
+      decoded = await ctx.decodeAudioData(ab);
+    } catch {
+      ctx.close();
+      throw new Error('Failed to decode audio. The browser may not support the recording format.');
+    }
+    if (decoded.length === 0) {
+      ctx.close();
+      throw new Error('Decoded audio is empty — microphone may not be capturing audio');
+    }
     const wav = this.encodeWav(decoded);
     ctx.close();
     return wav;

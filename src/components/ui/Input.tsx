@@ -9,17 +9,17 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ label, hint, error, className = '', ...props }, ref) => (
     <div className="space-y-1.5">
-      {label && <label className="block text-sm font-medium text-surface-400">{label}</label>}
+      {label && <label className="block text-sm font-medium text-surface-600 dark:text-surface-400">{label}</label>}
       <input
         ref={ref}
-        className={`w-full bg-surface-850 border border-surface-700 rounded-lg px-3.5 py-2 text-sm
-          text-surface-200 placeholder-surface-600
+        className={`w-full bg-white dark:bg-surface-850 border border-surface-300 dark:border-surface-700 rounded-lg px-3.5 py-2 text-sm
+          text-surface-800 dark:text-surface-200 placeholder-surface-400 dark:placeholder-surface-600
           focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30
           transition-colors ${error ? 'border-red-500/50' : ''} ${className}`}
         {...props}
       />
-      {hint && !error && <p className="text-xs text-surface-600">{hint}</p>}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {hint && !error && <p className="text-xs text-surface-400 dark:text-surface-600">{hint}</p>}
+      {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
     </div>
   ),
 );
@@ -38,7 +38,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
         <button
           type="button"
           onClick={() => setVisible(!visible)}
-          className="absolute right-2.5 top-[calc(50%+2px)] -translate-y-1/2 text-surface-500 hover:text-surface-300 p-1"
+          className="absolute right-2.5 top-[calc(50%+2px)] -translate-y-1/2 text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 p-1"
           tabIndex={-1}
         >
           {visible ? (

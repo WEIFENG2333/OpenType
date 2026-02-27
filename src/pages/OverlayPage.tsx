@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
 import { useRecorder } from '../hooks/useRecorder';
+import { useTranslation } from '../i18n';
 
 export function OverlayPage() {
   const rec = useRecorder();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (!window.electronAPI) return;
@@ -24,7 +26,7 @@ export function OverlayPage() {
             <div className="absolute inset-0 rounded-full bg-red-500/20 animate-pulse-ring" />
           )}
           <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors
-            ${rec.status === 'recording' ? 'bg-red-500' : rec.status === 'processing' ? 'bg-brand-500' : 'bg-surface-700'}`}>
+            ${rec.status === 'recording' ? 'bg-red-500' : rec.status === 'processing' ? 'bg-brand-500' : 'bg-surface-200 dark:bg-surface-700'}`}>
             {rec.status === 'recording' ? (
               <div className="flex items-end gap-[2px] h-4">
                 {[0,1,2,3,4].map((i) => (
@@ -42,22 +44,22 @@ export function OverlayPage() {
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-surface-200 truncate">
-            {rec.status === 'recording' ? 'Listening...' :
-             rec.status === 'processing' ? 'Processing...' :
+          <p className="text-sm font-medium text-surface-800 dark:text-surface-200 truncate">
+            {rec.status === 'recording' ? t('overlay.listening') :
+             rec.status === 'processing' ? t('overlay.processing') :
              rec.processedText || 'OpenType'}
           </p>
           <p className="text-[11px] text-surface-500 truncate">
             {rec.status === 'recording' ? fmt(rec.duration) :
-             rec.status === 'processing' ? 'Transcribing & polishing' :
-             rec.error || 'Press hotkey to start'}
+             rec.status === 'processing' ? t('overlay.transcribing') :
+             rec.error || t('overlay.pressHotkey')}
           </p>
         </div>
 
         {/* Close */}
         <button
           onClick={() => window.electronAPI?.hideOverlay()}
-          className="text-surface-600 hover:text-surface-300 p-1"
+          className="text-surface-400 dark:text-surface-600 hover:text-surface-700 dark:hover:text-surface-300 p-1"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>

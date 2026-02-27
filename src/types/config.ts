@@ -27,14 +27,13 @@ export const PROVIDERS: ProviderMeta[] = [
     defaultBaseUrl: 'https://api.siliconflow.cn/v1',
     sttModels: ['FunAudioLLM/SenseVoiceSmall'],
     llmModels: [
-      'Qwen/Qwen2.5-7B-Instruct',
-      'Qwen/Qwen2.5-14B-Instruct',
-      'Qwen/Qwen2.5-72B-Instruct',
+      'Qwen/Qwen3-235B-A22B-Instruct-2507',
+      'Qwen/Qwen3-30B-A3B-Instruct-2507',
+      'deepseek-ai/DeepSeek-V3.2',
       'deepseek-ai/DeepSeek-V3',
       'deepseek-ai/DeepSeek-R1',
-      'THUDM/glm-4-9b-chat',
-      'meta-llama/Meta-Llama-3.1-8B-Instruct',
-      'Pro/Qwen/Qwen2.5-7B-Instruct',
+      'Qwen/Qwen2.5-7B-Instruct',
+      'THUDM/GLM-4-9B-0414',
     ],
   },
   {
@@ -45,13 +44,13 @@ export const PROVIDERS: ProviderMeta[] = [
     defaultBaseUrl: 'https://openrouter.ai/api/v1',
     sttModels: [],
     llmModels: [
-      'google/gemini-2.0-flash-001',
-      'anthropic/claude-3.5-sonnet',
-      'openai/gpt-4o-mini',
+      'google/gemini-2.5-flash',
+      'google/gemini-2.5-flash-lite',
+      'deepseek/deepseek-v3.2',
+      'anthropic/claude-sonnet-4.5',
+      'anthropic/claude-haiku-4.5',
       'openai/gpt-4o',
-      'meta-llama/llama-3.1-70b-instruct',
-      'deepseek/deepseek-chat-v3-0324',
-      'qwen/qwen-2.5-72b-instruct',
+      'openai/gpt-4o-mini',
     ],
   },
   {
@@ -60,8 +59,8 @@ export const PROVIDERS: ProviderMeta[] = [
     supportsSTT: true,
     supportsLLM: true,
     defaultBaseUrl: 'https://api.openai.com/v1',
-    sttModels: ['whisper-1'],
-    llmModels: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+    sttModels: ['whisper-1', 'gpt-4o-mini-transcribe'],
+    llmModels: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4o', 'gpt-4o-mini'],
   },
 ];
 
@@ -125,6 +124,8 @@ export interface AppConfig {
   openaiLlmModel: string;
 
   // General
+  theme: 'system' | 'dark' | 'light';
+  uiLanguage: string;           // 'auto', 'en', 'zh'
   launchOnStartup: boolean;
   inputMode: 'push-to-talk' | 'toggle';
   outputMode: 'cursor' | 'clipboard';
@@ -188,13 +189,15 @@ export const DEFAULT_CONFIG: AppConfig = {
 
   openrouterApiKey: '',
   openrouterBaseUrl: 'https://openrouter.ai/api/v1',
-  openrouterLlmModel: 'google/gemini-2.0-flash-001',
+  openrouterLlmModel: 'google/gemini-2.5-flash',
 
   openaiApiKey: '',
   openaiBaseUrl: 'https://api.openai.com/v1',
   openaiSttModel: 'whisper-1',
   openaiLlmModel: 'gpt-4o-mini',
 
+  theme: 'dark',
+  uiLanguage: 'auto',
   launchOnStartup: false,
   inputMode: 'toggle',
   outputMode: 'cursor',

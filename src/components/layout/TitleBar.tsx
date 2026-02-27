@@ -3,38 +3,43 @@ import { useState } from 'react';
 export function TitleBar() {
   const [maximized, setMaximized] = useState(false);
   const isElectron = !!window.electronAPI;
+  const isMac = window.electronAPI?.platform === 'darwin';
 
-  // In web mode, render a simple header instead
+  // In web mode, render a simple header
   if (!isElectron) {
     return (
-      <div className="flex items-center h-12 bg-surface-950 border-b border-surface-800/60 px-4">
+      <div className="flex items-center h-12 bg-white dark:bg-surface-950 border-b border-surface-200 dark:border-surface-800/60 px-4">
         <Logo />
-        <span className="text-sm font-semibold text-surface-300 ml-2">OpenType</span>
+        <span className="text-sm font-semibold text-surface-700 dark:text-surface-300 ml-2">OpenType</span>
       </div>
     );
   }
 
   return (
-    <div className="drag-region flex items-center h-10 bg-surface-950 border-b border-surface-800/60 select-none">
-      <div className="flex items-center gap-2 px-4 flex-1">
+    <div className="drag-region flex items-center h-10 bg-white dark:bg-surface-950 border-b border-surface-200 dark:border-surface-800/60 select-none">
+      {/* On macOS, leave space for native traffic light buttons */}
+      <div className={`flex items-center gap-2 flex-1 ${isMac ? 'pl-20' : 'px-4'}`}>
         <Logo />
         <span className="text-xs font-semibold text-surface-500 tracking-wide uppercase">OpenType</span>
       </div>
 
-      <div className="no-drag flex">
-        <WinBtn onClick={() => window.electronAPI?.minimize()}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-        </WinBtn>
-        <WinBtn onClick={() => { window.electronAPI?.maximize(); setMaximized(!maximized); }}>
-          {maximized
-            ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="9" width="10" height="10" rx="1"/><path d="M9 9V6a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-3"/></svg>
-            : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
-          }
-        </WinBtn>
-        <WinBtn onClick={() => window.electronAPI?.close()} hoverClass="hover:bg-red-600 hover:text-white">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
-        </WinBtn>
-      </div>
+      {/* Show custom window controls only on Windows/Linux */}
+      {!isMac && (
+        <div className="no-drag flex">
+          <WinBtn onClick={() => window.electronAPI?.minimize()}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </WinBtn>
+          <WinBtn onClick={() => { window.electronAPI?.maximize(); setMaximized(!maximized); }}>
+            {maximized
+              ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="9" width="10" height="10" rx="1"/><path d="M9 9V6a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-3"/></svg>
+              : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+            }
+          </WinBtn>
+          <WinBtn onClick={() => window.electronAPI?.close()} hoverClass="hover:bg-red-600 hover:text-white">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="6" y1="6" x2="18" y2="18"/><line x1="6" y1="18" x2="18" y2="6"/></svg>
+          </WinBtn>
+        </div>
+      )}
     </div>
   );
 }
@@ -60,7 +65,7 @@ function WinBtn({ children, onClick, hoverClass }: {
     <button
       onClick={onClick}
       className={`w-10 h-10 flex items-center justify-center text-surface-500 transition-colors
-        ${hoverClass ?? 'hover:bg-surface-800 hover:text-surface-300'}`}
+        ${hoverClass ?? 'hover:bg-surface-100 dark:hover:bg-surface-800 hover:text-surface-700 dark:hover:text-surface-300'}`}
     >
       {children}
     </button>

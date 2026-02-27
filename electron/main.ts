@@ -1,6 +1,7 @@
 import {
   app, BrowserWindow, globalShortcut, ipcMain,
   Tray, Menu, nativeImage, clipboard,
+  session, systemPreferences,
 } from 'electron';
 import path from 'path';
 import { ConfigStore } from './config-store';
@@ -19,6 +20,7 @@ let sttService: STTService;
 let llmService: LLMService;
 
 const isDev = !app.isPackaged;
+const isMac = process.platform === 'darwin';
 
 // ─── Window Creation ────────────────────────────────────────────────────────
 
@@ -29,7 +31,8 @@ function createMainWindow() {
     minWidth: 820,
     minHeight: 560,
     frame: false,
-    titleBarStyle: 'hiddenInset',
+    titleBarStyle: isMac ? 'hiddenInset' : 'default',
+    ...(isMac ? { trafficLightPosition: { x: 12, y: 12 } } : {}),
     backgroundColor: '#09090b',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -84,6 +87,21 @@ function createOverlayWindow() {
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 }
 
+// ─── Microphone Permissions ─────────────────────────────────────────────────
+
+function setupPermissions() {
+  // Grant microphone / audio capture to renderer process
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    const allowed = ['media', 'mediaKeySystem'];
+    callback(allowed.includes(permission));
+  });
+
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    if (permission === 'media') return true;
+    return false;
+  });
+}
+
 // ─── System Tray ────────────────────────────────────────────────────────────
 
 function createTray() {
@@ -116,11 +134,14 @@ function createTray() {
 // ─── Global Shortcut ────────────────────────────────────────────────────────
 
 function registerShortcuts() {
+  globalShortcut.unregisterAll();
+
   const key = configStore.get('globalHotkey') || 'CommandOrControl+Shift+Space';
   try {
     globalShortcut.register(key, toggleRecording);
+    console.log('[Shortcut] registered:', key);
   } catch (e) {
-    console.error('[Shortcut] register failed:', e);
+    console.error('[Shortcut] register failed:', key, e);
   }
 }
 
@@ -140,6 +161,30 @@ function setupIPC() {
   ipcMain.handle('config:get', (_e, key: string) => configStore.get(key));
   ipcMain.handle('config:set', (_e, key: string, val: any) => { configStore.set(key, val); return true; });
   ipcMain.handle('config:getAll', () => configStore.getAll());
+
+  // Microphone permission
+  ipcMain.handle('mic:checkPermission', async () => {
+    if (isMac) {
+      return systemPreferences.getMediaAccessStatus('microphone');
+    }
+    return 'granted';
+  });
+
+  ipcMain.handle('mic:requestPermission', async () => {
+    if (isMac) {
+      return systemPreferences.askForMediaAccess('microphone');
+    }
+    return true;
+  });
+
+  // Shortcuts re-registration
+  ipcMain.handle('shortcuts:reregister', () => {
+    registerShortcuts();
+    return true;
+  });
+
+  // Platform info
+  ipcMain.handle('app:platform', () => process.platform);
 
   // STT
   ipcMain.handle('stt:transcribe', async (_e, buf: ArrayBuffer, opts: any) => {
@@ -222,6 +267,7 @@ app.whenReady().then(() => {
   sttService = new STTService();
   llmService = new LLMService();
 
+  setupPermissions();
   createMainWindow();
   createOverlayWindow();
   createTray();

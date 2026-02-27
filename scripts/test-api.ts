@@ -39,7 +39,7 @@ async function main() {
   const results: Result[] = [];
 
   results.push(await testLLM('SiliconFlow', 'https://api.siliconflow.cn/v1', SF_KEY, 'Qwen/Qwen2.5-7B-Instruct'));
-  results.push(await testLLM('OpenRouter', 'https://openrouter.ai/api/v1', OR_KEY, 'google/gemini-2.0-flash-001',
+  results.push(await testLLM('OpenRouter', 'https://openrouter.ai/api/v1', OR_KEY, 'google/gemini-2.5-flash',
     { 'HTTP-Referer': 'https://opentype.app', 'X-Title': 'OpenType' }));
   if (OA_KEY) results.push(await testLLM('OpenAI', 'https://api.openai.com/v1', OA_KEY, 'gpt-4o-mini'));
 

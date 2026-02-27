@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useConfigStore } from './stores/configStore';
+import { useTranslation, detectLocale, Locale } from './i18n';
 import { TitleBar } from './components/layout/TitleBar';
 import { Sidebar, PageID } from './components/layout/Sidebar';
 import { DashboardPage } from './pages/DashboardPage';
@@ -9,11 +10,44 @@ import { SettingsLayout } from './pages/settings/SettingsLayout';
 import { FeedbackPage } from './pages/FeedbackPage';
 import { OverlayPage } from './pages/OverlayPage';
 
+function applyTheme(theme: string) {
+  const root = document.documentElement;
+  if (theme === 'system') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.classList.toggle('dark', prefersDark);
+  } else {
+    root.classList.toggle('dark', theme === 'dark');
+  }
+}
+
 export default function App() {
   const [page, setPage] = useState<PageID>('dashboard');
   const { config, loaded, load } = useConfigStore();
+  const { setLocale } = useTranslation();
 
   useEffect(() => { load(); }, []);
+
+  // Sync UI language from config to i18n context
+  useEffect(() => {
+    if (!loaded) return;
+    const lang = config.uiLanguage === 'auto' ? detectLocale() : config.uiLanguage as Locale;
+    setLocale(lang);
+  }, [loaded, config.uiLanguage, setLocale]);
+
+  // Apply theme on config change
+  useEffect(() => {
+    if (!loaded) return;
+    applyTheme(config.theme);
+  }, [loaded, config.theme]);
+
+  // Listen for system theme changes when in 'system' mode
+  useEffect(() => {
+    if (!loaded || config.theme !== 'system') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = () => applyTheme('system');
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, [loaded, config.theme]);
 
   // Check if this is the overlay window
   if (window.location.hash === '#/overlay') {
@@ -22,7 +56,7 @@ export default function App() {
 
   if (!loaded) {
     return (
-      <div className="h-screen flex items-center justify-center bg-surface-950">
+      <div className="h-screen flex items-center justify-center bg-white dark:bg-surface-950">
         <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
@@ -39,7 +73,7 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-surface-950">
+    <div className="h-screen flex flex-col bg-white dark:bg-surface-950">
       <TitleBar />
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
@@ -47,7 +81,7 @@ export default function App() {
           onNavigate={setPage}
           weeklyWords={config.totalWordsThisWeek}
         />
-        <main className="flex-1 flex flex-col overflow-hidden bg-surface-900">
+        <main className="flex-1 flex flex-col overflow-hidden bg-surface-50 dark:bg-surface-900">
           {renderPage()}
         </main>
       </div>

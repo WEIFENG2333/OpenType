@@ -16,7 +16,7 @@ export function Toggle({ checked, onChange, label, description, disabled }: Togg
     >
       <div
         className={`relative w-10 h-[22px] rounded-full flex-shrink-0 transition-colors mt-0.5
-          ${checked ? 'bg-brand-600' : 'bg-surface-700'}
+          ${checked ? 'bg-brand-600' : 'bg-surface-300 dark:bg-surface-700'}
           ${!disabled ? 'group-hover:brightness-110' : ''}`}
       >
         <div
@@ -26,7 +26,7 @@ export function Toggle({ checked, onChange, label, description, disabled }: Togg
       </div>
       {(label || description) && (
         <div className="min-w-0">
-          {label && <p className="text-sm font-medium text-surface-200">{label}</p>}
+          {label && <p className="text-sm font-medium text-surface-800 dark:text-surface-200">{label}</p>}
           {description && <p className="text-xs text-surface-500 mt-0.5">{description}</p>}
         </div>
       )}

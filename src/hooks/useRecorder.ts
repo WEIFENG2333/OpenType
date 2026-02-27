@@ -34,6 +34,22 @@ export function useRecorder() {
     try {
       setState((s) => ({ ...s, error: null, rawText: '', processedText: '', status: 'recording', duration: 0 }));
 
+      // Pre-flight: check microphone permission in Electron
+      if (window.electronAPI) {
+        const status = await window.electronAPI.checkMicPermission();
+        if (status === 'denied' || status === 'restricted') {
+          setState((s) => ({ ...s, status: 'idle', error: 'Microphone access denied. Please grant microphone permission in System Settings.' }));
+          return;
+        }
+        if (status === 'not-determined') {
+          const granted = await window.electronAPI.requestMicPermission();
+          if (!granted) {
+            setState((s) => ({ ...s, status: 'idle', error: 'Microphone permission is required for voice dictation.' }));
+            return;
+          }
+        }
+      }
+
       const recorder = new AudioRecorder();
       recorderRef.current = recorder;
 

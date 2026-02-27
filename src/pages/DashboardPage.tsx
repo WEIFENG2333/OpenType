@@ -5,10 +5,12 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { RecordButton } from '../components/recording/RecordButton';
 import { ResultPanel } from '../components/recording/ResultPanel';
 import { Badge } from '../components/ui';
+import { useTranslation } from '../i18n';
 
 export function DashboardPage() {
   const config = useConfigStore((s) => s.config);
   const recorder = useRecorder();
+  const { t } = useTranslation();
 
   // Listen for global hotkey from Electron
   useEffect(() => {
@@ -22,8 +24,8 @@ export function DashboardPage() {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <PageHeader
-        title="Voice Dictation"
-        subtitle="Speak naturally, get polished text"
+        title={t('dashboard.title')}
+        subtitle={t('dashboard.subtitle')}
         actions={
           <div className="flex items-center gap-2">
             <Badge variant="brand">STT: {config.sttProvider}</Badge>
@@ -35,9 +37,9 @@ export function DashboardPage() {
       <div className="flex-1 flex flex-col overflow-y-auto">
         {/* Stats cards */}
         <div className="grid grid-cols-3 gap-3 px-6 pt-5">
-          <StatCard label="This week" value={`${config.totalWordsThisWeek}`} unit="words" />
-          <StatCard label="Time saved" value={`${savedMinutes}`} unit="min" />
-          <StatCard label="Style match" value={`${matchPct}%`} accent />
+          <StatCard label={t('dashboard.thisWeek')} value={`${config.totalWordsThisWeek}`} unit={t('dashboard.wordsUnit')} />
+          <StatCard label={t('dashboard.timeSaved')} value={`${savedMinutes}`} unit={t('dashboard.minUnit')} />
+          <StatCard label={t('dashboard.styleMatch')} value={`${matchPct}%`} accent />
         </div>
 
         {/* Main recording area */}
@@ -61,9 +63,9 @@ export function DashboardPage() {
       </div>
 
       {/* Status bar */}
-      <div className="px-6 py-2 border-t border-surface-800/40 flex items-center justify-between text-[11px] text-surface-600 flex-shrink-0">
-        <span>{config.inputLanguage === 'auto' ? 'Auto-detect language' : config.inputLanguage}</span>
-        <span>{config.outputLanguage === 'auto' ? 'Output: same as input' : `Output: ${config.outputLanguage}`}</span>
+      <div className="px-6 py-2 border-t border-surface-200 dark:border-surface-800/40 flex items-center justify-between text-[11px] text-surface-400 dark:text-surface-600 flex-shrink-0">
+        <span>{config.inputLanguage === 'auto' ? t('dashboard.autoDetect') : config.inputLanguage}</span>
+        <span>{config.outputLanguage === 'auto' ? t('dashboard.outputSameAsInput') : t('dashboard.outputLang', { lang: config.outputLanguage })}</span>
       </div>
     </div>
   );
@@ -71,10 +73,10 @@ export function DashboardPage() {
 
 function StatCard({ label, value, unit, accent }: { label: string; value: string; unit?: string; accent?: boolean }) {
   return (
-    <div className="bg-surface-850 border border-surface-800/60 rounded-xl px-4 py-3">
+    <div className="bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800/60 rounded-xl px-4 py-3">
       <p className="text-[11px] text-surface-500 font-medium">{label}</p>
       <div className="flex items-baseline gap-1 mt-1">
-        <span className={`text-xl font-semibold ${accent ? 'text-brand-400' : 'text-surface-200'}`}>{value}</span>
+        <span className={`text-xl font-semibold ${accent ? 'text-brand-400' : 'text-surface-800 dark:text-surface-200'}`}>{value}</span>
         {unit && <span className="text-xs text-surface-500">{unit}</span>}
       </div>
     </div>

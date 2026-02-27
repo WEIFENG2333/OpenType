@@ -18,10 +18,20 @@ export interface APITestResult {
 }
 
 export interface ElectronAPI {
+  // ─── Platform (sync) ────────────────────────────────────
+  platform: string; // 'darwin' | 'win32' | 'linux'
+
   // ─── Config ───────────────────────────────────────────
   getConfig: (key: string) => Promise<any>;
   setConfig: (key: string, value: any) => Promise<boolean>;
   getAllConfig: () => Promise<any>;
+
+  // ─── Microphone Permission ──────────────────────────────
+  checkMicPermission: () => Promise<string>;
+  requestMicPermission: () => Promise<boolean>;
+
+  // ─── Shortcuts ──────────────────────────────────────────
+  reregisterShortcuts: () => Promise<boolean>;
 
   // ─── STT ──────────────────────────────────────────────
   transcribe: (audioBuffer: ArrayBuffer, options?: any) => Promise<{
