@@ -2,6 +2,11 @@
   "name": "opentype",
   "version": "1.0.0",
   "description": "OpenType - Intelligent voice dictation. Speak naturally, get polished text.",
+  "author": {
+    "name": "WEIFENG2333",
+    "email": "liangweifeng@bytedance.com"
+  },
+  "license": "MIT",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
