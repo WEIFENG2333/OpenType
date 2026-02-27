@@ -99,7 +99,7 @@ export function ToneRulesSettings() {
           />
         </div>
         <Select value={newTone} onChange={(e) => setNewTone(e.target.value as TonePreset)} options={toneOptions} />
-        <Button variant="primary" onClick={addRule} disabled={!newApp.trim()}>Add</Button>
+        <Button variant="primary" onClick={addRule} disabled={!newApp.trim()}>{t('dictionary.add')}</Button>
       </div>
     </div>
   );
