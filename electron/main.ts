@@ -479,8 +479,8 @@ function createMainWindow() {
 function createOverlayWindow() {
   const display = screen.getPrimaryDisplay();
   const { width: screenW, height: screenH } = display.workAreaSize;
-  const overlayW = 220;
-  const overlayH = 48;
+  const overlayW = 170;
+  const overlayH = 38;
 
   overlayWindow = new BrowserWindow({
     width: overlayW,
@@ -787,7 +787,7 @@ function setupIPC() {
     // Reset overlay size back to pill
     const display = screen.getPrimaryDisplay();
     const { width: screenW, height: screenH } = display.workAreaSize;
-    const pillW = 220, pillH = 48;
+    const pillW = 170, pillH = 38;
     overlayWindow.setBounds({
       width: pillW, height: pillH,
       x: Math.round((screenW - pillW) / 2),

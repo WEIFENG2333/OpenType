@@ -99,17 +99,17 @@ export function OverlayPage() {
       ) : (
         /* ── Normal pill: recording / processing / result ── */
         <div
-          className="w-full h-full rounded-[24px] flex items-center gap-1.5 px-2"
-          style={{ background: 'rgba(20, 20, 20, 0.7)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
+          className="w-full h-full rounded-full flex items-center gap-1 px-1.5"
+          style={{ background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
         >
           {/* Left: Cancel button */}
           <button
             onClick={handleCancel}
-            className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center
-              bg-white/[0.08] hover:bg-white/15 active:bg-white/20 transition-colors group"
+            className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center
+              bg-white/[0.06] hover:bg-white/10 active:bg-white/15 transition-colors group"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-              className="text-white/80 group-hover:text-white transition-colors">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+              className="text-white/70 group-hover:text-white/90 transition-colors">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
@@ -117,51 +117,49 @@ export function OverlayPage() {
           {/* Center: Waveform / status */}
           <div className="flex-1 flex items-center justify-center min-w-0">
             {rec.status === 'recording' ? (
-              <div className="flex items-center justify-center gap-[3px] h-6">
+              <div className="flex items-center justify-center gap-[2.5px] h-5">
                 {Array.from({ length: 7 }).map((_, i) => {
                   const center = 3;
                   const dist = Math.abs(i - center);
                   // Static shape: center tall, edges short
-                  const shape = [4, 8, 12, 16, 12, 8, 4];
+                  const shape = [3, 6, 9, 12, 9, 6, 3];
                   const base = shape[i];
                   // Audio level adds dynamic variation
-                  const dynamic = level * 8 * (1 - dist * 0.12);
-                  const h = Math.min(22, base + dynamic);
+                  const dynamic = level * 6 * (1 - dist * 0.12);
+                  const h = Math.min(18, base + dynamic);
                   return (
                     <div
                       key={i}
-                      className="w-[3px] rounded-full bg-white/80 transition-all duration-75"
-                      style={{ height: `${h}px` }}
+                      className="w-[2px] rounded-full transition-all duration-75"
+                      style={{ height: `${h}px`, background: 'rgba(255, 255, 255, 0.5)' }}
                     />
                   );
                 })}
               </div>
             ) : rec.status === 'processing' ? (
-              <div className="flex items-center gap-2">
-                <div className="w-3.5 h-3.5 border-[1.5px] border-white/60 border-t-transparent rounded-full animate-spin" />
-                <span className="text-[10px] text-white/50 font-medium">{t('overlay.processing')}</span>
+              <div className="flex items-center gap-1.5">
+                <div className="w-3 h-3 border-[1.5px] border-white/50 border-t-transparent rounded-full animate-spin" />
+                <span className="text-[9px] text-white/40 font-medium">{t('overlay.processing')}</span>
               </div>
             ) : rec.processedText ? (
-              <span className="text-[11px] text-green-400 font-medium truncate max-w-[160px]">
-                ✓
-              </span>
+              <span className="text-[10px] text-green-400 font-medium">✓</span>
             ) : rec.error ? (
-              <span className="text-[10px] text-red-400 font-medium truncate max-w-[160px]">
+              <span className="text-[9px] text-red-400 font-medium truncate max-w-[100px]">
                 {rec.error}
               </span>
             ) : null}
           </div>
 
-          {/* Right: Confirm button */}
+          {/* Right: Confirm button — white circle, dark checkmark */}
           <button
             onClick={handleConfirm}
             disabled={rec.status !== 'recording'}
-            className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center
-              bg-white/[0.08] hover:bg-white/15 active:bg-white/20
+            className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center
+              bg-white hover:bg-white/90 active:bg-white/80
               transition-colors group disabled:opacity-20 disabled:cursor-default"
           >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-              className="text-white/80 group-hover:text-white transition-colors">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+              className="text-black/80">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </button>
