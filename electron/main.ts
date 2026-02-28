@@ -479,7 +479,7 @@ function createMainWindow() {
 function createOverlayWindow() {
   const display = screen.getPrimaryDisplay();
   const { width: screenW, height: screenH } = display.workAreaSize;
-  const overlayW = 155;
+  const overlayW = 140;
   const overlayH = 40;
 
   overlayWindow = new BrowserWindow({
@@ -604,7 +604,7 @@ function toggleRecording() {
   // Only send to overlay — main window recording is handled by its own RecordButton click
   if (overlayWindow) {
     overlayWindow.webContents.send('toggle-recording');
-    if (!overlayWindow.isVisible()) overlayWindow.show();
+    if (!overlayWindow.isVisible()) overlayWindow.showInactive();
   }
 }
 
@@ -791,7 +791,7 @@ function setupIPC() {
     // Reset overlay size back to pill
     const display = screen.getPrimaryDisplay();
     const { width: screenW, height: screenH } = display.workAreaSize;
-    const pillW = 155, pillH = 40;
+    const pillW = 140, pillH = 40;
     overlayWindow.setBounds({
       width: pillW, height: pillH,
       x: Math.round((screenW - pillW) / 2),
@@ -939,7 +939,10 @@ app.whenReady().then(() => {
     app.dock.setMenu(dockMenu);
   }
 
-  app.on('activate', () => mainWindow?.show());
+  app.on('activate', () => {
+    // Don't show main window during recording (overlay is active)
+    if (!isRecording) mainWindow?.show();
+  });
 });
 
 app.on('will-quit', () => globalShortcut.unregisterAll());

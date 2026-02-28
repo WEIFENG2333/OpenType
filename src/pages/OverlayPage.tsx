@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRecorder } from '../hooks/useRecorder';
 import { useTranslation } from '../i18n';
 
@@ -6,6 +6,12 @@ export function OverlayPage() {
   const rec = useRecorder();
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
+
+  // Make overlay window fully transparent (remove white body background)
+  useEffect(() => {
+    document.documentElement.style.background = 'transparent';
+    document.body.style.background = 'transparent';
+  }, []);
 
   useEffect(() => {
     if (!window.electronAPI) return;
@@ -66,12 +72,12 @@ export function OverlayPage() {
   }, [showFallback]);
 
   return (
-    <div className="w-full h-full flex items-end justify-center select-none">
+    <div className="w-full h-full flex items-center justify-center select-none" style={{ background: 'transparent' }}>
       {showFallback ? (
         /* ── Expanded fallback: show text + copy button ── */
         <div
-          className="w-full mx-1 mb-1 rounded-2xl flex flex-col gap-2 px-3 py-2.5"
-          style={{ background: 'rgba(20, 20, 20, 0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
+          className="w-full mx-1 rounded-2xl flex flex-col gap-2 px-3 py-2.5"
+          style={{ background: '#000' }}
         >
           <p className="text-[11px] text-white/90 leading-relaxed line-clamp-3">
             {rec.processedText}
@@ -100,16 +106,15 @@ export function OverlayPage() {
         /* ── Normal pill: recording / processing / result ── */
         <div
           className="w-full h-full rounded-full flex items-center gap-0.5 px-[5px]"
-          style={{ background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
+          style={{ background: '#000' }}
         >
           {/* Left: Cancel button */}
           <button
             onClick={handleCancel}
             className="flex-shrink-0 w-[30px] h-[30px] rounded-full flex items-center justify-center
-              bg-white/[0.06] hover:bg-white/10 active:bg-white/15 transition-colors group"
+              bg-white/[0.08] hover:bg-white/15 active:bg-white/20 transition-colors"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-              className="text-white/70 group-hover:text-white/90 transition-colors">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
@@ -117,23 +122,7 @@ export function OverlayPage() {
           {/* Center: Waveform / status */}
           <div className="flex-1 flex items-center justify-center min-w-0">
             {rec.status === 'recording' ? (
-              <div className="flex items-center justify-center gap-[2.5px] h-6">
-                {Array.from({ length: 5 }).map((_, i) => {
-                  const center = 2;
-                  const dist = Math.abs(i - center);
-                  const shape = [6, 12, 16, 12, 6];
-                  const base = shape[i];
-                  const dynamic = level * 6 * (1 - dist * 0.12);
-                  const h = Math.min(20, base + dynamic);
-                  return (
-                    <div
-                      key={i}
-                      className="w-[2px] rounded-full transition-all duration-75"
-                      style={{ height: `${h}px`, background: 'rgba(255, 255, 255, 0.5)' }}
-                    />
-                  );
-                })}
-              </div>
+              <EcgWaveform level={level} />
             ) : rec.status === 'processing' ? (
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 border-[1.5px] border-white/50 border-t-transparent rounded-full animate-spin" />
@@ -148,21 +137,84 @@ export function OverlayPage() {
             ) : null}
           </div>
 
-          {/* Right: Confirm button — white circle, dark checkmark */}
+          {/* Right: Confirm button — white circle, pure black checkmark */}
           <button
             onClick={handleConfirm}
             disabled={rec.status !== 'recording'}
             className="flex-shrink-0 w-[30px] h-[30px] rounded-full flex items-center justify-center
               bg-white hover:bg-white/90 active:bg-white/80
-              transition-colors group disabled:opacity-20 disabled:cursor-default"
+              transition-colors disabled:opacity-20 disabled:cursor-default"
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
-              className="text-black/80">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </button>
         </div>
       )}
     </div>
+  );
+}
+
+/** ECG-style waveform: flat when silent, animated when speaking */
+function EcgWaveform({ level }: { level: number }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const bufferRef = useRef<number[]>(new Array(60).fill(0));
+  const frameRef = useRef(0);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let raf: number;
+    const draw = () => {
+      const buf = bufferRef.current;
+      // Shift buffer left, push new sample
+      buf.shift();
+      // Add slight randomness scaled by audio level for organic look
+      const sample = level * (0.6 + Math.random() * 0.4);
+      buf.push(sample);
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const midY = h / 2;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw the waveform line
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+      ctx.lineWidth = 1.5;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      for (let i = 0; i < buf.length; i++) {
+        const x = (i / (buf.length - 1)) * w;
+        const amplitude = buf[i] * (h * 0.4);
+        // Alternate up/down for ECG-like appearance
+        const sign = Math.sin(i * 0.8 + frameRef.current * 0.02) > 0 ? 1 : -1;
+        const y = midY + sign * amplitude;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      frameRef.current++;
+      raf = requestAnimationFrame(draw);
+    };
+
+    draw();
+    return () => cancelAnimationFrame(raf);
+  }, [level]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={120}
+      height={24}
+      className="opacity-90"
+      style={{ width: '60px', height: '24px' }}
+    />
   );
 }
