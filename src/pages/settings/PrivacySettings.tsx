@@ -14,6 +14,10 @@ export function PrivacySettings() {
 
   return (
     <div className="space-y-6">
+      <p className="text-sm text-surface-500">
+        {t('settings.privacy.privacyDesc')}
+      </p>
+
       <Toggle
         checked={config.historyEnabled}
         onChange={(v) => set('historyEnabled', v)}

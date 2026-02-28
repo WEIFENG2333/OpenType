@@ -35,6 +35,10 @@ export function LanguageSettings() {
 
   return (
     <div className="space-y-6">
+      <p className="text-sm text-surface-500">
+        {t('settings.language.description')}
+      </p>
+
       <Select
         label={t('settings.language.uiLanguage')}
         value={config.uiLanguage}

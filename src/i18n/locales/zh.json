@@ -155,6 +155,7 @@
       "advanced": "高级"
     },
     "providers": {
+      "description": "配置语音识别、语言处理和屏幕分析的 API 服务商。",
       "provider": "提供商",
       "apiKey": "API 密钥",
       "baseUrl": "基础 URL",
@@ -174,6 +175,7 @@
       "sharedCredentials": "与 STT 共享凭据（选择了相同的提供商）"
     },
     "general": {
+      "description": "外观、启动行为和输入输出偏好设置。",
       "appearance": "外观",
       "themeHint": "选择应用配色方案",
       "dark": "深色",
@@ -201,6 +203,7 @@
       "pasteLastHint": "快速粘贴最近一次转录结果"
     },
     "audio": {
+      "description": "麦克风选择、提示音和录音行为设置。",
       "microphone": "麦克风",
       "micHint": "选择您偏好的麦克风。留空则使用系统默认。",
       "micPlaceholder": "系统默认麦克风",
@@ -253,6 +256,7 @@
       "customPlaceholder": "自定义语气指令..."
     },
     "language": {
+      "description": "界面语言、语音输入输出语言和翻译设置。",
       "uiLanguage": "界面语言",
       "uiLanguageHint": "选择应用界面的显示语言",
       "auto": "自动（跟随系统）",

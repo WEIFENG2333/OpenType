@@ -31,6 +31,10 @@ export function GeneralSettings() {
 
   return (
     <div className="space-y-6">
+      <p className="text-sm text-surface-500">
+        {t('settings.general.description')}
+      </p>
+
       <div>
         <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200 mb-3">{t('settings.general.appearance')}</h3>
         <Select

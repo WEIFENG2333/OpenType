@@ -155,6 +155,7 @@
       "advanced": "Advanced"
     },
     "providers": {
+      "description": "Configure API providers for speech recognition, language processing, and screen analysis.",
       "provider": "Provider",
       "apiKey": "API Key",
       "baseUrl": "Base URL",
@@ -174,6 +175,7 @@
       "sharedCredentials": "Shares credentials with STT (same provider selected)"
     },
     "general": {
+      "description": "Appearance, startup behavior, and input/output preferences.",
       "appearance": "Appearance",
       "themeHint": "Choose the application color scheme",
       "dark": "Dark",
@@ -201,6 +203,7 @@
       "pasteLastHint": "Quickly paste the most recent transcription result"
     },
     "audio": {
+      "description": "Microphone selection, sound feedback, and recording behavior.",
       "microphone": "Microphone",
       "micHint": "Select your preferred microphone. Leave empty to use the system default.",
       "micPlaceholder": "Default system microphone",
@@ -252,6 +255,7 @@
       "customPlaceholder": "Custom tone instruction..."
     },
     "language": {
+      "description": "Interface language, voice input/output language, and translation settings.",
       "uiLanguage": "Interface Language",
       "uiLanguageHint": "Choose the language for the application interface",
       "auto": "Auto (System)",
