@@ -99,16 +99,16 @@ export function OverlayPage() {
       ) : (
         /* ── Normal pill: recording / processing / result ── */
         <div
-          className="w-full h-full rounded-full flex items-center gap-1 px-1.5"
+          className="w-full h-full rounded-full flex items-center gap-0.5 px-[5px]"
           style={{ background: 'rgba(0, 0, 0, 0.85)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
         >
           {/* Left: Cancel button */}
           <button
             onClick={handleCancel}
-            className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center
+            className="flex-shrink-0 w-[30px] h-[30px] rounded-full flex items-center justify-center
               bg-white/[0.06] hover:bg-white/10 active:bg-white/15 transition-colors group"
           >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
               className="text-white/70 group-hover:text-white/90 transition-colors">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
@@ -117,16 +117,14 @@ export function OverlayPage() {
           {/* Center: Waveform / status */}
           <div className="flex-1 flex items-center justify-center min-w-0">
             {rec.status === 'recording' ? (
-              <div className="flex items-center justify-center gap-[2.5px] h-5">
-                {Array.from({ length: 7 }).map((_, i) => {
-                  const center = 3;
+              <div className="flex items-center justify-center gap-[2.5px] h-6">
+                {Array.from({ length: 5 }).map((_, i) => {
+                  const center = 2;
                   const dist = Math.abs(i - center);
-                  // Static shape: center tall, edges short
-                  const shape = [3, 6, 9, 12, 9, 6, 3];
+                  const shape = [6, 12, 16, 12, 6];
                   const base = shape[i];
-                  // Audio level adds dynamic variation
                   const dynamic = level * 6 * (1 - dist * 0.12);
-                  const h = Math.min(18, base + dynamic);
+                  const h = Math.min(20, base + dynamic);
                   return (
                     <div
                       key={i}
@@ -139,12 +137,12 @@ export function OverlayPage() {
             ) : rec.status === 'processing' ? (
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 border-[1.5px] border-white/50 border-t-transparent rounded-full animate-spin" />
-                <span className="text-[9px] text-white/40 font-medium">{t('overlay.processing')}</span>
+                <span className="text-[10px] text-white/40 font-medium">{t('overlay.processing')}</span>
               </div>
             ) : rec.processedText ? (
-              <span className="text-[10px] text-green-400 font-medium">✓</span>
+              <span className="text-[11px] text-green-400 font-medium">✓</span>
             ) : rec.error ? (
-              <span className="text-[9px] text-red-400 font-medium truncate max-w-[100px]">
+              <span className="text-[10px] text-red-400 font-medium truncate max-w-[80px]">
                 {rec.error}
               </span>
             ) : null}
@@ -154,11 +152,11 @@ export function OverlayPage() {
           <button
             onClick={handleConfirm}
             disabled={rec.status !== 'recording'}
-            className="flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center
+            className="flex-shrink-0 w-[30px] h-[30px] rounded-full flex items-center justify-center
               bg-white hover:bg-white/90 active:bg-white/80
               transition-colors group disabled:opacity-20 disabled:cursor-default"
           >
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"
               className="text-black/80">
               <polyline points="20 6 9 17 4 12"/>
             </svg>

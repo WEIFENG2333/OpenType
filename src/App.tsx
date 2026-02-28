@@ -77,7 +77,7 @@ export default function App() {
 
   const renderPage = () => {
     switch (page) {
-      case 'dashboard': return <DashboardPage />;
+      case 'dashboard': return <DashboardPage onNavigate={(p) => setPage(p as PageID)} />;
       case 'history': return <HistoryPage />;
       case 'dictionary': return <DictionaryPage />;
     }
