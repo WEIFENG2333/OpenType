@@ -31,11 +31,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Clipboard
   writeClipboard: (text: string) => ipcRenderer.invoke('clipboard:write', text),
 
+  // Type at cursor
+  typeAtCursor: (text: string) => ipcRenderer.invoke('text:typeAtCursor', text),
+
   // Window controls
   minimize: () => ipcRenderer.invoke('window:minimize'),
   maximize: () => ipcRenderer.invoke('window:maximize'),
   close: () => ipcRenderer.invoke('window:close'),
   hideOverlay: () => ipcRenderer.invoke('window:hideOverlay'),
+  resizeOverlay: (w: number, h: number) => ipcRenderer.invoke('window:resizeOverlay', w, h),
 
   // API testing
   testAPI: (provider: string) => ipcRenderer.invoke('api:test', provider),
@@ -90,5 +94,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onNavigate: (cb: (page: string) => void) => {
     ipcRenderer.on('navigate', (_e, page) => cb(page));
     return () => { ipcRenderer.removeAllListeners('navigate'); };
+  },
+  onDictionaryAutoAdded: (cb: (words: string[]) => void) => {
+    ipcRenderer.on('dictionary:auto-added', (_e, words) => cb(words));
+    return () => { ipcRenderer.removeAllListeners('dictionary:auto-added'); };
   },
 });

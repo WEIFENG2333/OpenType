@@ -30,6 +30,8 @@ const DEFAULT_CONFIG: Record<string, any> = {
   repetitionElimination: true,
   toneRules: [],
   defaultTone: 'professional',
+  autoMuteOnRecord: false,
+  autoLearnDictionary: true,
   history: [],
   totalWordsThisWeek: 0,
 };

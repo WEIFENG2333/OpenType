@@ -10,11 +10,11 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --slider-track: #d4d4d8;
+  --slider-track: #d4d1cd;
 }
 
 .dark {
-  --slider-track: #3f3f46;
+  --slider-track: #3d3a36;
 }
 
 *, *::before, *::after {
@@ -31,13 +31,13 @@ html, body, #root {
 /* Light mode base */
 body {
   background: #ffffff;
-  color: #09090b;
+  color: #0c0b0a;
 }
 
 /* Dark mode base */
 .dark body {
-  background: #09090b;
-  color: #f4f4f5;
+  background: #0c0b0a;
+  color: #f5f3f0;
 }
 
 /* Scrollbar — dark */
@@ -53,12 +53,12 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.2); }
 
 /* Selection */
-::selection { background: rgba(99,102,241,0.2); }
-.dark ::selection { background: rgba(99,102,241,0.3); }
+::selection { background: rgba(59,130,246,0.2); }
+.dark ::selection { background: rgba(59,130,246,0.3); }
 
 /* Focus */
 :focus:not(:focus-visible) { outline: none; }
-:focus-visible { outline: 2px solid rgba(99,102,241,0.5); outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 2px solid rgba(59,130,246,0.5); outline-offset: 2px; border-radius: 4px; }
 
 /* Electron drag region */
 .drag-region { -webkit-app-region: drag; }

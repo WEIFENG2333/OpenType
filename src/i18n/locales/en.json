@@ -55,11 +55,38 @@
     "finalOutput": "Final Output",
     "rawTranscription": "Raw Transcription",
     "error": "Error",
-    "contextPipeline": "Context Pipeline",
+    "contextCapture": "Context Capture",
+    "sttStage": "Speech-to-Text",
+    "llmStage": "LLM Post-processing",
     "systemPrompt": "System Prompt",
     "audio": "Audio Recording",
     "audioAvailable": "Audio file available for download",
-    "noOutput": "No output"
+    "noOutput": "No output",
+    "activeWindow": "Active Window",
+    "bundleId": "Bundle ID",
+    "browserUrl": "URL",
+    "focusedField": "Focused Input Field",
+    "selectedText": "Selected Text",
+    "fieldContent": "Field Content",
+    "screenOcr": "Screen Analysis (OCR)",
+    "disabled": "Disabled",
+    "noDataCaptured": "Enabled but no data captured",
+    "contextNotSaved": "No context data saved",
+    "showMore": "Show more",
+    "showLess": "Show less",
+    "provider": "Provider",
+    "model": "Model",
+    "clipboard": "Clipboard",
+    "clipboardContent": "Clipboard content at capture time",
+    "recentTranscriptions": "Recent Transcriptions",
+    "recentTranscriptionsDesc": "Previous transcriptions for continuity context",
+    "autoLearnedTerms": "Auto-learned terms",
+    "sttDuration": "STT Duration",
+    "llmDuration": "LLM Duration",
+    "cursorAt": "Cursor at position",
+    "line": "line",
+    "chars": "chars",
+    "selectedRange": "Selection"
   },
   "dictionary": {
     "title": "Personal Dictionary",
@@ -85,7 +112,8 @@
     "listening": "Listening...",
     "processing": "Processing...",
     "transcribing": "Transcribing & polishing",
-    "pressHotkey": "Press hotkey to start"
+    "pressHotkey": "Press hotkey to start",
+    "copiedToClipboard": "Copied to clipboard"
   },
   "feedback": {
     "title": "Feedback & Help",
@@ -185,7 +213,10 @@
       "whisperMode": "Whisper Mode",
       "enableWhisper": "Enable Whisper Mode",
       "whisperDesc": "Increased sensitivity for quiet environments — speak softly and still be heard",
-      "whisperSensitivity": "Whisper Sensitivity"
+      "whisperSensitivity": "Whisper Sensitivity",
+      "autoMute": "Auto-Mute",
+      "autoMuteToggle": "Mute system audio during recording",
+      "autoMuteDesc": "Automatically mute other audio while recording to reduce background noise interference"
     },
     "personalization": {
       "enable": "Enable Personalization",
@@ -283,7 +314,10 @@
     "permissionGranted": "Permission granted",
     "grantPermission": "Grant Permission",
     "accessibilityHelp": "Open System Preferences → Privacy & Security → Accessibility, then add OpenType",
-    "screenHelp": "Open System Preferences → Privacy & Security → Screen Recording, then add OpenType"
+    "screenHelp": "Open System Preferences → Privacy & Security → Screen Recording, then add OpenType",
+    "autoLearn": "Auto-Learn Dictionary",
+    "autoLearnToggle": "Auto-learn terms from transcriptions",
+    "autoLearnDesc": "Automatically detect proper nouns, brand names, and technical terms from your transcriptions and add them to your personal dictionary"
   },
   "update": {
     "title": "Software Update",

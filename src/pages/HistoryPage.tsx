@@ -85,13 +85,13 @@ export function HistoryPage() {
     return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
-  // Detail panel
-  if (selectedItem) {
-    return <DetailView item={selectedItem} onBack={() => setSelectedItem(null)} t={t} />;
-  }
-
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Detail modal overlay */}
+      {selectedItem && (
+        <DetailModal item={selectedItem} onClose={() => setSelectedItem(null)} t={t} />
+      )}
+
       <PageHeader
         title={t('history.title')}
         actions={
@@ -210,150 +210,314 @@ export function HistoryPage() {
   );
 }
 
-function DetailView({ item, onBack, t }: { item: HistoryItem; onBack: () => void; t: (key: string) => string }) {
+function DetailModal({ item, onClose, t }: { item: HistoryItem; onClose: () => void; t: (key: string) => string }) {
   const ctx = item.context;
+  const isError = !!item.error;
+  const [expandedPrompt, setExpandedPrompt] = useState(false);
+  const [expandedField, setExpandedField] = useState(false);
 
-  return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="flex items-center gap-3 px-6 py-4 border-b border-surface-200 dark:border-surface-800/40 flex-shrink-0">
-        <button
-          onClick={onBack}
-          className="w-8 h-8 flex items-center justify-center rounded-lg text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
-        </button>
-        <div>
-          <h2 className="text-sm font-semibold text-surface-800 dark:text-surface-200">{t('history.detailTitle')}</h2>
-          <p className="text-[11px] text-surface-400">
-            {new Date(item.timestamp).toLocaleString()} {item.sourceApp && `· ${item.sourceApp}`}
-          </p>
-        </div>
-      </div>
+  const hasAnyContext = ctx && (ctx.appName || ctx.selectedText || ctx.fieldText || ctx.screenContext || ctx.url || ctx.clipboardText || ctx.recentTranscriptions?.length);
+  const contextStatus = ctx ? (hasAnyContext ? 'success' : 'partial') : 'skipped';
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-5">
-        {/* Final output */}
-        <Section title={t('history.finalOutput')} icon="output">
-          <p className="text-sm text-surface-800 dark:text-surface-200 leading-relaxed whitespace-pre-wrap">
-            {item.processedText || <span className="italic text-surface-400">{t('history.noOutput')}</span>}
-          </p>
-        </Section>
-
-        {/* Raw transcription */}
-        <Section title={t('history.rawTranscription')} icon="mic">
-          <p className="text-sm text-surface-600 dark:text-surface-400 leading-relaxed whitespace-pre-wrap">
-            {item.rawText || <span className="italic text-surface-400">{t('history.noOutput')}</span>}
-          </p>
-        </Section>
-
-        {/* Error if any */}
-        {item.error && (
-          <Section title={t('history.error')} icon="error">
-            <p className="text-sm text-red-400">{item.error}</p>
-          </Section>
-        )}
-
-        {/* Context pipeline */}
-        {ctx && (
-          <Section title={t('history.contextPipeline')} icon="context">
-            <div className="space-y-3">
-              <ContextRow
-                label="L0 — Active Window"
-                enabled={ctx.contextL0Enabled}
-                value={ctx.appName ? `${ctx.appName}${ctx.windowTitle ? ` — ${ctx.windowTitle}` : ''}` : undefined}
-              />
-              <ContextRow
-                label="L1 — Selected Text"
-                enabled={ctx.contextL1Enabled}
-                value={ctx.selectedText}
-              />
-              <ContextRow
-                label="OCR — Screen Context"
-                enabled={ctx.contextOcrEnabled}
-                value={ctx.screenContext}
-              />
-              {ctx.screenshotDataUrl && (
-                <div className="mt-2">
-                  <p className="text-[11px] text-surface-500 mb-1">Screenshot</p>
-                  <img src={ctx.screenshotDataUrl} alt="Screen capture" className="rounded-lg border border-surface-200 dark:border-surface-800 max-h-48 object-contain" />
-                </div>
-              )}
-            </div>
-          </Section>
-        )}
-
-        {/* System prompt sent to LLM */}
-        {ctx?.systemPrompt && (
-          <Section title={t('history.systemPrompt')} icon="prompt">
-            <pre className="text-[11px] text-surface-500 dark:text-surface-400 leading-relaxed whitespace-pre-wrap font-mono bg-surface-50 dark:bg-surface-900 rounded-lg p-3 border border-surface-200 dark:border-surface-800 max-h-48 overflow-y-auto">
-              {ctx.systemPrompt}
-            </pre>
-          </Section>
-        )}
-
-        {/* Audio */}
-        {item.audioBase64 && (
-          <Section title={t('history.audio')} icon="audio">
-            <p className="text-xs text-surface-500">{t('history.audioAvailable')}</p>
-          </Section>
-        )}
-
-        {/* Stats */}
-        <div className="flex gap-4 text-[11px] text-surface-400 pt-2">
-          <span>{item.wordCount} {t('dashboard.wordsUnit')}</span>
-          <span>{(item.durationMs / 1000).toFixed(1)}s</span>
-          {item.language && <span>{item.language}</span>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
-  const iconMap: Record<string, JSX.Element> = {
-    output: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>,
-    mic: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>,
-    error: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-400"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>,
-    context: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>,
-    prompt: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>,
-    audio: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>,
+  const formatDuration = (ms?: number) => {
+    if (!ms) return null;
+    return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
   };
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-surface-400">{iconMap[icon]}</span>
-        <h3 className="text-xs font-semibold text-surface-500 uppercase tracking-wider">{title}</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+
+      {/* Modal */}
+      <div className="relative w-full max-w-2xl max-h-[85vh] mx-4 bg-surface-50 dark:bg-surface-900 rounded-2xl shadow-2xl border border-surface-200 dark:border-surface-800 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-surface-200 dark:border-surface-800/40 flex-shrink-0">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-surface-800 dark:text-surface-200">{t('history.detailTitle')}</h2>
+              {isError && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 font-medium">
+                  {t('history.error')}
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-surface-400">
+              {new Date(item.timestamp).toLocaleString()}
+              {item.sourceApp && ` · ${item.sourceApp}`}
+              {item.windowTitle && ` · ${item.windowTitle}`}
+            </p>
+          </div>
+          {/* Stats badges */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-[10px] px-2 py-1 rounded-full bg-surface-100 dark:bg-surface-800 text-surface-500">
+              {item.wordCount} {t('dashboard.wordsUnit')}
+            </span>
+            <span className="text-[10px] px-2 py-1 rounded-full bg-surface-100 dark:bg-surface-800 text-surface-500">
+              {(item.durationMs / 1000).toFixed(1)}s
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors flex-shrink-0"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-0">
+          {/* ═══ Step 1: Context Capture ═══ */}
+          <PipelineStep number={1} title={t('history.contextCapture')} status={contextStatus} isLast={false}>
+            {ctx ? (
+              <div className="space-y-3">
+                <ContextSection title={t('history.activeWindow')} enabled={ctx.contextL0Enabled} hasData={!!ctx.appName} t={t}>
+                  {ctx.appName && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-xs text-surface-700 dark:text-surface-300">
+                        <span className="font-medium">{ctx.appName}</span>
+                        {ctx.bundleId && <span className="text-[10px] text-surface-400 font-mono">({ctx.bundleId})</span>}
+                      </div>
+                      {ctx.windowTitle && <p className="text-[11px] text-surface-500 truncate">{ctx.windowTitle}</p>}
+                      {ctx.url && <p className="text-[11px] text-brand-500 truncate">{ctx.url}</p>}
+                    </div>
+                  )}
+                </ContextSection>
+
+                <ContextSection title={t('history.focusedField')} enabled={ctx.contextL1Enabled} hasData={!!(ctx.selectedText || ctx.fieldText)} t={t}>
+                  {/* Field metadata badges */}
+                  <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                    {(ctx.fieldRoleDescription || ctx.fieldRole) && (
+                      <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500">{ctx.fieldRoleDescription || ctx.fieldRole}</span>
+                    )}
+                    {ctx.fieldLabel && (
+                      <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-400">{ctx.fieldLabel}</span>
+                    )}
+                    {ctx.fieldPlaceholder && (
+                      <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-400 italic">&ldquo;{ctx.fieldPlaceholder}&rdquo;</span>
+                    )}
+                  </div>
+                  {/* Cursor / selection position info */}
+                  {ctx.cursorPosition !== undefined && (
+                    <p className="text-[10px] text-surface-400 mb-1">
+                      {t('history.cursorAt')} {ctx.cursorPosition}
+                      {ctx.insertionLineNumber !== undefined && ` (${t('history.line')} ${ctx.insertionLineNumber})`}
+                      {ctx.numberOfCharacters !== undefined && ` / ${ctx.numberOfCharacters} ${t('history.chars')}`}
+                    </p>
+                  )}
+                  {ctx.selectionRange && ctx.selectionRange.length > 0 && (
+                    <p className="text-[10px] text-surface-400 mb-1">
+                      {t('history.selectedRange')}: {ctx.selectionRange.location}..{ctx.selectionRange.location + ctx.selectionRange.length} ({ctx.selectionRange.length} {t('history.chars')})
+                    </p>
+                  )}
+                  {ctx.selectedText && (
+                    <div className="mb-1.5">
+                      <p className="text-[10px] font-medium text-surface-400 mb-0.5">{t('history.selectedText')}</p>
+                      <p className="text-xs text-surface-700 dark:text-surface-300 bg-brand-500/5 border border-brand-500/10 rounded px-2 py-1.5 whitespace-pre-wrap break-words">{ctx.selectedText}</p>
+                    </div>
+                  )}
+                  {ctx.fieldText && ctx.fieldText !== ctx.selectedText && (
+                    <div>
+                      <p className="text-[10px] font-medium text-surface-400 mb-0.5">{t('history.fieldContent')}</p>
+                      <div className="text-xs text-surface-600 dark:text-surface-400 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded px-2 py-1.5 whitespace-pre-wrap break-words">
+                        {ctx.fieldText.length > 300 && !expandedField
+                          ? <>{ctx.fieldText.slice(0, 300)}... <button onClick={() => setExpandedField(true)} className="text-brand-500 hover:underline">{t('history.showMore')}</button></>
+                          : ctx.fieldText}
+                        {expandedField && ctx.fieldText.length > 300 && (
+                          <button onClick={() => setExpandedField(false)} className="block text-brand-500 hover:underline mt-1">{t('history.showLess')}</button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </ContextSection>
+
+                <ContextSection title={t('history.screenOcr')} enabled={ctx.contextOcrEnabled} hasData={!!ctx.screenContext} t={t}>
+                  {ctx.screenContext && (
+                    <p className="text-xs text-surface-600 dark:text-surface-400 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded px-2 py-1.5">{ctx.screenContext}</p>
+                  )}
+                </ContextSection>
+
+                <ContextSection title={t('history.clipboard')} enabled={true} hasData={!!ctx.clipboardText} t={t}>
+                  {ctx.clipboardText && (
+                    <p className="text-xs text-surface-600 dark:text-surface-400 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded px-2 py-1.5 whitespace-pre-wrap break-words line-clamp-4">{ctx.clipboardText}</p>
+                  )}
+                </ContextSection>
+
+                <ContextSection title={t('history.recentTranscriptions')} enabled={true} hasData={!!ctx.recentTranscriptions?.length} t={t}>
+                  {ctx.recentTranscriptions && ctx.recentTranscriptions.length > 0 && (
+                    <div className="space-y-1">
+                      {ctx.recentTranscriptions.map((text, i) => (
+                        <p key={i} className="text-xs text-surface-600 dark:text-surface-400 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded px-2 py-1.5 truncate">{text}</p>
+                      ))}
+                    </div>
+                  )}
+                </ContextSection>
+              </div>
+            ) : (
+              <p className="text-xs text-surface-400 italic">{t('history.contextNotSaved')}</p>
+            )}
+          </PipelineStep>
+
+          {/* ═══ Step 2: STT ═══ */}
+          <PipelineStep
+            number={2}
+            title={t('history.sttStage')}
+            status={item.rawText ? 'success' : (isError ? 'error' : 'skipped')}
+            isLast={false}
+            meta={ctx?.sttProvider ? `${ctx.sttProvider} · ${ctx.sttModel || ''}` : undefined}
+            duration={formatDuration(ctx?.sttDurationMs)}
+          >
+            {item.rawText ? (
+              <p className="text-sm text-surface-600 dark:text-surface-400 leading-relaxed whitespace-pre-wrap bg-surface-50 dark:bg-surface-900 rounded-lg p-3 border border-surface-200 dark:border-surface-800">{item.rawText}</p>
+            ) : (
+              <p className="text-xs text-surface-400 italic">{isError ? item.error : t('history.noOutput')}</p>
+            )}
+          </PipelineStep>
+
+          {/* ═══ Step 3: LLM Post-processing ═══ */}
+          <PipelineStep
+            number={3}
+            title={t('history.llmStage')}
+            status={item.processedText ? 'success' : (isError && item.rawText ? 'error' : 'skipped')}
+            isLast={true}
+            meta={ctx?.llmProvider ? `${ctx.llmProvider} · ${ctx.llmModel || ''}` : undefined}
+            duration={formatDuration(ctx?.llmDurationMs)}
+          >
+            {item.processedText ? (
+              <p className="text-sm text-surface-800 dark:text-surface-200 leading-relaxed whitespace-pre-wrap bg-surface-50 dark:bg-surface-900 rounded-lg p-3 border border-surface-200 dark:border-surface-800">{item.processedText}</p>
+            ) : isError ? (
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-500/5 border border-red-500/10">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-400 flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                <p className="text-xs text-red-400">{item.error}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-surface-400 italic">{t('history.noOutput')}</p>
+            )}
+
+            {/* Auto-learned terms */}
+            {ctx?.autoLearnedTerms && ctx.autoLearnedTerms.length > 0 && (
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-medium text-surface-400">{t('history.autoLearnedTerms')}:</span>
+                {ctx.autoLearnedTerms.map((term, i) => (
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">{term}</span>
+                ))}
+              </div>
+            )}
+
+            {/* System prompt (collapsible) */}
+            {ctx?.systemPrompt && (
+              <div className="mt-3">
+                <button
+                  onClick={() => setExpandedPrompt(!expandedPrompt)}
+                  className="flex items-center gap-1.5 text-[11px] font-medium text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 transition-colors"
+                >
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${expandedPrompt ? 'rotate-90' : ''}`}>
+                    <path d="m9 18 6-6-6-6"/>
+                  </svg>
+                  {t('history.systemPrompt')}
+                </button>
+                {expandedPrompt && (
+                  <pre className="mt-1.5 text-[11px] text-surface-500 dark:text-surface-400 leading-relaxed whitespace-pre-wrap font-mono bg-surface-50 dark:bg-surface-900 rounded-lg p-3 border border-surface-200 dark:border-surface-800 max-h-64 overflow-y-auto">{ctx.systemPrompt}</pre>
+                )}
+              </div>
+            )}
+          </PipelineStep>
+        </div>
       </div>
-      <div className="pl-6">{children}</div>
     </div>
   );
 }
 
-function ContextRow({ label, enabled, value }: { label: string; enabled?: boolean; value?: string }) {
+function PipelineStep({ number, title, status, isLast, meta, duration, children }: {
+  number: number;
+  title: string;
+  status: 'success' | 'error' | 'partial' | 'skipped';
+  isLast: boolean;
+  meta?: string;
+  duration?: string | null;
+  children: React.ReactNode;
+}) {
+  const statusColors = {
+    success: 'bg-green-500 border-green-500',
+    error: 'bg-red-500 border-red-500',
+    partial: 'bg-amber-500 border-amber-500',
+    skipped: 'bg-surface-300 dark:bg-surface-700 border-surface-300 dark:border-surface-700',
+  };
+
   return (
-    <div className="flex items-start gap-2">
-      {enabled === false || enabled === undefined ? (
-        <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 mt-0.5">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-surface-300"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
-        </span>
-      ) : value ? (
-        <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 mt-0.5">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-green-500"><polyline points="20 6 9 17 4 12"/></svg>
-        </span>
-      ) : (
-        <span className="w-4 h-4 flex items-center justify-center flex-shrink-0 mt-0.5">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
-        </span>
-      )}
-      <div className="min-w-0">
-        <p className="text-[11px] font-medium text-surface-500">{label}</p>
-        {value && (
-          <p className="text-xs text-surface-700 dark:text-surface-300 mt-0.5 break-words">{value}</p>
-        )}
-        {enabled && !value && (
-          <p className="text-[11px] text-surface-400 italic mt-0.5">No data captured</p>
+    <div className="flex gap-3">
+      {/* Timeline */}
+      <div className="flex flex-col items-center flex-shrink-0">
+        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-bold text-white ${statusColors[status]}`}>
+          {status === 'success' ? (
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+          ) : status === 'error' ? (
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          ) : (
+            <span>{number}</span>
+          )}
+        </div>
+        {!isLast && (
+          <div className="w-px flex-1 min-h-[16px] bg-surface-200 dark:bg-surface-800" />
         )}
       </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0 pb-5">
+        <div className="flex items-baseline gap-2 mb-2">
+          <h4 className="text-xs font-semibold text-surface-600 dark:text-surface-400 uppercase tracking-wider">
+            {title}
+          </h4>
+          {meta && (
+            <span className="text-[10px] text-surface-400 font-mono">{meta}</span>
+          )}
+          {duration && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-brand-500/10 text-brand-400 font-mono">{duration}</span>
+          )}
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Renders a context data section with enable/disable status indicator */
+function ContextSection({ title, enabled, hasData, t, children }: {
+  title: string;
+  enabled?: boolean;
+  hasData: boolean;
+  t: (key: string) => string;
+  children: React.ReactNode;
+}) {
+  const isDisabled = enabled === false || enabled === undefined;
+
+  return (
+    <div className={`rounded-lg border px-3 py-2.5 ${
+      isDisabled
+        ? 'border-surface-200/60 dark:border-surface-800/40 bg-surface-50/50 dark:bg-surface-900/30'
+        : hasData
+        ? 'border-surface-200 dark:border-surface-800 bg-white dark:bg-surface-850'
+        : 'border-amber-500/20 bg-amber-500/5'
+    }`}>
+      <div className="flex items-center gap-2 mb-1">
+        {isDisabled ? (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-surface-300 dark:text-surface-600 flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+        ) : hasData ? (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-green-500 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400 flex-shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+        )}
+        <span className={`text-[11px] font-medium ${isDisabled ? 'text-surface-400' : 'text-surface-600 dark:text-surface-400'}`}>
+          {title}
+        </span>
+        {isDisabled && (
+          <span className="text-[10px] text-surface-400 italic ml-auto">{t('history.disabled')}</span>
+        )}
+        {!isDisabled && !hasData && (
+          <span className="text-[10px] text-amber-400 italic ml-auto">{t('history.noDataCaptured')}</span>
+        )}
+      </div>
+      {!isDisabled && hasData && <div className="mt-1">{children}</div>}
     </div>
   );
 }

@@ -68,6 +68,20 @@ export function ContextSettings() {
         )}
       </div>
 
+      {/* Auto-Learn Dictionary */}
+      <div className="bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800 rounded-xl p-4 space-y-3">
+        <div className="flex items-center gap-2 mb-1">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-brand-500"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+          <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200">{t('context.autoLearn')}</h3>
+        </div>
+        <Toggle
+          checked={config.autoLearnDictionary}
+          onChange={(v) => set('autoLearnDictionary', v)}
+          label={t('context.autoLearnToggle')}
+          description={t('context.autoLearnDesc')}
+        />
+      </div>
+
       {/* Screen OCR */}
       <div className="bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800 rounded-xl p-4 space-y-3">
         <div className="flex items-center gap-2 mb-1">

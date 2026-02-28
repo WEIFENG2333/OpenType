@@ -53,12 +53,40 @@
     "downloadAudio": "下载音频",
     "detailTitle": "转录详情",
     "finalOutput": "最终输出",
+    "rawTranscription": "原始转录",
     "error": "错误",
-    "contextPipeline": "上下文流水线",
+    "contextCapture": "上下文捕获",
+    "sttStage": "语音转文本",
+    "llmStage": "LLM 后处理",
     "systemPrompt": "系统提示词",
     "audio": "音频录制",
     "audioAvailable": "可下载音频文件",
-    "noOutput": "无输出"
+    "noOutput": "无输出",
+    "activeWindow": "活动窗口",
+    "bundleId": "Bundle ID",
+    "browserUrl": "网页地址",
+    "focusedField": "焦点输入框",
+    "selectedText": "选中文本",
+    "fieldContent": "输入框内容",
+    "screenOcr": "屏幕分析 (OCR)",
+    "disabled": "未启用",
+    "noDataCaptured": "已启用但未捕获到数据",
+    "contextNotSaved": "无上下文数据",
+    "showMore": "展开",
+    "showLess": "收起",
+    "provider": "服务商",
+    "model": "模型",
+    "clipboard": "剪贴板",
+    "clipboardContent": "捕获时的剪贴板内容",
+    "recentTranscriptions": "最近转录",
+    "recentTranscriptionsDesc": "用于上下文连续性的近期转录记录",
+    "autoLearnedTerms": "自动学习词条",
+    "sttDuration": "STT 耗时",
+    "llmDuration": "LLM 耗时",
+    "cursorAt": "光标位于位置",
+    "line": "行",
+    "chars": "字符",
+    "selectedRange": "选区"
   },
   "dictionary": {
     "title": "个人词典",
@@ -84,7 +112,8 @@
     "listening": "正在收听...",
     "processing": "处理中...",
     "transcribing": "正在转录和润色",
-    "pressHotkey": "按快捷键开始"
+    "pressHotkey": "按快捷键开始",
+    "copiedToClipboard": "已复制到剪贴板"
   },
   "feedback": {
     "title": "反馈与帮助",
@@ -185,7 +214,10 @@
       "whisperMode": "耳语模式",
       "enableWhisper": "启用耳语模式",
       "whisperDesc": "提高安静环境下的灵敏度——轻声说话也能被识别",
-      "whisperSensitivity": "耳语灵敏度"
+      "whisperSensitivity": "耳语灵敏度",
+      "autoMute": "自动静音",
+      "autoMuteToggle": "录音时静音系统音频",
+      "autoMuteDesc": "录音时自动静音其他音频，减少背景噪音干扰"
     },
     "personalization": {
       "enable": "启用个性化",
@@ -283,7 +315,10 @@
     "permissionGranted": "已授权",
     "grantPermission": "授予权限",
     "accessibilityHelp": "打开系统偏好设置 → 隐私与安全性 → 辅助功能，然后添加 OpenType",
-    "screenHelp": "打开系统偏好设置 → 隐私与安全性 → 屏幕录制，然后添加 OpenType"
+    "screenHelp": "打开系统偏好设置 → 隐私与安全性 → 屏幕录制，然后添加 OpenType",
+    "autoLearn": "自动学习词典",
+    "autoLearnToggle": "自动从转录中学习词条",
+    "autoLearnDesc": "自动检测转录中的专有名词、品牌名称和技术术语，并将其添加到个人词典中"
   },
   "update": {
     "title": "软件更新",
