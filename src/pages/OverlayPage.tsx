@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, memo } from 'react';
 import { useRecorder } from '../hooks/useRecorder';
 import { useTranslation } from '../i18n';
 
@@ -122,7 +122,7 @@ export function OverlayPage() {
           {/* Center: Waveform / status */}
           <div className="flex-1 flex items-center justify-center min-w-0">
             {rec.status === 'recording' ? (
-              <EcgWaveform level={level} />
+              <WaveformBars level={level} />
             ) : rec.status === 'processing' ? (
               <div className="flex items-center gap-1.5">
                 <div className="w-3 h-3 border-[1.5px] border-white/50 border-t-transparent rounded-full animate-spin" />
@@ -155,66 +155,48 @@ export function OverlayPage() {
   );
 }
 
-/** ECG-style waveform: flat when silent, animated when speaking */
-function EcgWaveform({ level }: { level: number }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const bufferRef = useRef<number[]>(new Array(60).fill(0));
+/** Waveform bars: tiny dots when silent, smooth wave bars when speaking */
+const BAR_COUNT = 15;
+const WaveformBars = memo(function WaveformBars({ level }: { level: number }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef(0);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const bars = container.children;
 
     let raf: number;
-    const draw = () => {
-      const buf = bufferRef.current;
-      // Shift buffer left, push new sample
-      buf.shift();
-      // Add slight randomness scaled by audio level for organic look
-      const sample = level * (0.6 + Math.random() * 0.4);
-      buf.push(sample);
-
-      const w = canvas.width;
-      const h = canvas.height;
-      const midY = h / 2;
-
-      ctx.clearRect(0, 0, w, h);
-
-      // Draw the waveform line
-      ctx.beginPath();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
-      ctx.lineWidth = 1.5;
-      ctx.lineJoin = 'round';
-      ctx.lineCap = 'round';
-
-      for (let i = 0; i < buf.length; i++) {
-        const x = (i / (buf.length - 1)) * w;
-        const amplitude = buf[i] * (h * 0.4);
-        // Alternate up/down for ECG-like appearance
-        const sign = Math.sin(i * 0.8 + frameRef.current * 0.02) > 0 ? 1 : -1;
-        const y = midY + sign * amplitude;
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
+    const animate = () => {
       frameRef.current++;
-      raf = requestAnimationFrame(draw);
+      const t = frameRef.current * 0.06;
+      const center = (BAR_COUNT - 1) / 2;
+
+      for (let i = 0; i < bars.length; i++) {
+        const bar = bars[i] as HTMLDivElement;
+        const dist = Math.abs(i - center);
+        // Bell curve: taller in center, shorter at edges
+        const shape = Math.exp(-(dist * dist) / 16);
+        // Smooth wave motion
+        const wave = Math.sin(t + i * 0.55) * 0.35 + 0.65;
+        const minH = 2;
+        const maxH = 18;
+        const h = minH + (maxH - minH) * shape * level * wave;
+        bar.style.height = `${Math.max(minH, h)}px`;
+      }
+
+      raf = requestAnimationFrame(animate);
     };
 
-    draw();
+    animate();
     return () => cancelAnimationFrame(raf);
   }, [level]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={120}
-      height={24}
-      className="opacity-90"
-      style={{ width: '60px', height: '24px' }}
-    />
+    <div ref={containerRef} className="flex items-center justify-center gap-[2px] h-[24px]">
+      {Array.from({ length: BAR_COUNT }).map((_, i) => (
+        <div key={i} className="w-[2px] rounded-full bg-white/50" style={{ height: '2px' }} />
+      ))}
+    </div>
   );
-}
+});

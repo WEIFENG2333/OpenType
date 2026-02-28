@@ -32,6 +32,7 @@ export function useRecorder() {
   const recorderRef = useRef<AudioRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
   const startTimeRef = useRef(0);
+  const generationRef = useRef(0);
 
   const startRecording = useCallback(async () => {
     try {
@@ -78,6 +79,7 @@ export function useRecorder() {
     }
 
     const durationMs = Date.now() - startTimeRef.current;
+    const gen = generationRef.current;
     setState((s) => ({ ...s, status: 'processing', audioLevel: 0 }));
 
     try {
@@ -90,6 +92,9 @@ export function useRecorder() {
         : {};
 
       const result = await runPipeline(audioBuffer, config, context);
+
+      // Discard stale result if a new recording was started while processing
+      if (generationRef.current !== gen) return;
 
       if (result.success && !result.skipped) {
         const text = result.processedText;
@@ -174,8 +179,10 @@ export function useRecorder() {
         };
         addHistoryItem(item);
       } else if (result.skipped) {
+        if (generationRef.current !== gen) return;
         setState((s) => ({ ...s, status: 'idle', error: 'No speech detected' }));
       } else {
+        if (generationRef.current !== gen) return;
         const errorMsg = result.error || 'Processing failed';
         setState((s) => ({ ...s, status: 'idle', error: errorMsg }));
 
@@ -209,6 +216,7 @@ export function useRecorder() {
         addHistoryItem(failItem);
       }
     } catch (e: any) {
+      if (generationRef.current !== gen) return;
       setState((s) => ({ ...s, status: 'idle', error: e.message }));
     }
   }, [config, addHistoryItem]);
@@ -216,7 +224,12 @@ export function useRecorder() {
   const toggleRecording = useCallback(async () => {
     if (state.status === 'recording') {
       await stopRecording();
-    } else if (state.status === 'idle') {
+    } else {
+      // Works from both 'idle' and 'processing' — if processing, bump
+      // generation so the stale pipeline result gets discarded
+      if (state.status === 'processing') {
+        generationRef.current++;
+      }
       await startRecording();
     }
   }, [state.status, startRecording, stopRecording]);
