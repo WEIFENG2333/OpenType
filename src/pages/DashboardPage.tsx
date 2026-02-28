@@ -68,8 +68,8 @@ export function DashboardPage() {
           />
         </div>
 
-        {/* Main recording area */}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 py-6 gap-5">
+        {/* Main recording area — fixed height, no layout shift */}
+        <div className="flex items-center justify-center px-6 py-4">
           <RecordButton
             status={recorder.status}
             audioLevel={recorder.audioLevel}

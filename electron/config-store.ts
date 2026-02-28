@@ -16,7 +16,7 @@ const DEFAULT_CONFIG: Record<string, any> = {
   openaiBaseUrl: 'https://api.openai.com/v1',
   openaiSttModel: 'whisper-1',
   openaiLlmModel: 'gpt-4o-mini',
-  theme: 'dark',
+  theme: 'light',
   uiLanguage: 'auto',
   globalHotkey: 'CommandOrControl+Shift+Space',
   inputLanguage: 'auto',

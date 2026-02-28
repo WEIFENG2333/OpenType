@@ -248,7 +248,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   openaiSttModel: 'whisper-1',
   openaiLlmModel: 'gpt-4o-mini',
 
-  theme: 'dark',
+  theme: 'light',
   uiLanguage: 'auto',
   launchOnStartup: false,
   inputMode: 'toggle',
