@@ -105,6 +105,13 @@ export interface ElectronAPI {
     selectedText?: string;
     fieldText?: string;
     fieldRole?: string;
+    fieldRoleDescription?: string;
+    fieldLabel?: string;
+    fieldPlaceholder?: string;
+    cursorPosition?: number;
+    selectionRange?: { location: number; length: number };
+    numberOfCharacters?: number;
+    insertionLineNumber?: number;
     clipboardText?: string;
     recentTranscriptions?: string[];
     screenContext?: string;

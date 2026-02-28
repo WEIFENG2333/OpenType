@@ -89,6 +89,13 @@ export interface HistoryContext {
   selectedText?: string;       // AXSelectedText
   fieldText?: string;          // AXValue — full content of focused input field
   fieldRole?: string;          // AXRole — TextField, TextArea, WebArea, etc.
+  fieldRoleDescription?: string; // AXRoleDescription — "text field", "search field", "text area"
+  fieldLabel?: string;           // AXDescription or AXTitle — field's accessible label
+  fieldPlaceholder?: string;     // AXPlaceholderValue — "Type a message...", "Search..."
+  cursorPosition?: number;       // cursor position (from AXSelectedTextRange when length=0)
+  selectionRange?: { location: number; length: number }; // AXSelectedTextRange
+  numberOfCharacters?: number;   // AXNumberOfCharacters — total chars in field
+  insertionLineNumber?: number;  // AXInsertionPointLineNumber — cursor line number
 
   // Clipboard
   clipboardText?: string;      // clipboard content at capture time

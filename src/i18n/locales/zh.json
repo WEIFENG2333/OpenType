@@ -82,7 +82,11 @@
     "recentTranscriptionsDesc": "用于上下文连续性的近期转录记录",
     "autoLearnedTerms": "自动学习词条",
     "sttDuration": "STT 耗时",
-    "llmDuration": "LLM 耗时"
+    "llmDuration": "LLM 耗时",
+    "cursorAt": "光标位于位置",
+    "line": "行",
+    "chars": "字符",
+    "selectedRange": "选区"
   },
   "dictionary": {
     "title": "个人词典",

@@ -14,11 +14,86 @@ function smartTruncate(text: string, maxLen: number): string {
 const CONTEXT_LIMITS = {
   selectedText: 500,
   fieldText: 1500,
+  fieldTextWithMarker: 2000,  // higher to account for cursor/selection markers
   clipboardText: 500,
   screenContext: 400,
   recentTranscription: 200,  // per item
   recentTotal: 3,            // max items
 };
+
+/** Truncate text centered around the cursor position, keeping context on both sides */
+function cursorCenteredTruncate(text: string, cursorPos: number, maxLen: number): { text: string; adjustedPos: number } {
+  if (text.length <= maxLen) return { text, adjustedPos: cursorPos };
+
+  const ellipsis = '\n... [truncated] ...\n';
+  const halfWindow = Math.floor((maxLen - ellipsis.length * 2) / 2);
+  let start = Math.max(0, cursorPos - halfWindow);
+  let end = Math.min(text.length, cursorPos + halfWindow);
+
+  // If one side is shorter, give more to the other
+  if (start === 0) end = Math.min(text.length, maxLen - ellipsis.length);
+  if (end === text.length) start = Math.max(0, text.length - maxLen + ellipsis.length);
+
+  let result = '';
+  let adjustedPos = cursorPos;
+
+  if (start > 0) {
+    result = ellipsis;
+    adjustedPos = cursorPos - start + result.length;
+    result += text.slice(start, end);
+  } else {
+    result = text.slice(0, end);
+  }
+
+  if (end < text.length) {
+    result += ellipsis;
+  }
+
+  return { text: result, adjustedPos };
+}
+
+/** Build rich field context string with cursor/selection markers for the LLM */
+function buildFieldContext(context: any): string | null {
+  const fieldText: string | undefined = context.fieldText;
+  if (!fieldText) return null;
+
+  const range = context.selectionRange as { location: number; length: number } | undefined;
+  const placeholder = context.fieldPlaceholder as string | undefined;
+  const label = context.fieldLabel as string | undefined;
+  const roleDesc = context.fieldRoleDescription || context.fieldRole || 'input field';
+
+  // Build descriptor: ("Message body", text area)
+  const labelPart = label ? `"${label}", ` : '';
+  const descriptor = `(${labelPart}${roleDesc})`;
+
+  if (range && typeof range.location === 'number' && typeof range.length === 'number') {
+    const loc = range.location;
+    const len = range.length;
+
+    if (len > 0 && loc + len <= fieldText.length) {
+      // User has selected text — show [SELECTED: ...] marker
+      const { text: truncated, adjustedPos } = cursorCenteredTruncate(fieldText, loc, CONTEXT_LIMITS.fieldTextWithMarker - 30);
+      const before = truncated.slice(0, adjustedPos);
+      const selectedText = truncated.slice(adjustedPos, adjustedPos + len);
+      const after = truncated.slice(adjustedPos + len);
+      const markedText = before + '[SELECTED: ' + selectedText + ']' + after;
+
+      return `The user selected text to replace with dictation in the ${descriptor}:\n"""\n${markedText}\n"""\nThe dictated text should replace the [SELECTED: ...] portion.`;
+    } else if (len === 0 && loc <= fieldText.length) {
+      // Cursor position — show | marker
+      const { text: truncated, adjustedPos } = cursorCenteredTruncate(fieldText, loc, CONTEXT_LIMITS.fieldTextWithMarker - 10);
+      const before = truncated.slice(0, adjustedPos);
+      const after = truncated.slice(adjustedPos);
+      const markedText = before + '|' + after;
+
+      return `Existing text in the ${descriptor}:\n"""\n${markedText}\n"""\n(The "|" marks the cursor position where the dictated text will be inserted.)`;
+    }
+  }
+
+  // Fallback: no range info, show raw field text
+  const snippet = smartTruncate(fieldText, CONTEXT_LIMITS.fieldText);
+  return `Existing text in the ${descriptor}:\n"""\n${snippet}\n"""\nThe dictated text should flow naturally with this existing content.`;
+}
 
 export class LLMService {
   private getOpts(config: Record<string, any>, provider?: string) {
@@ -115,16 +190,19 @@ export class LLMService {
       }
     }
 
-    // L1: selected text (what the user highlighted)
-    if (context?.selectedText) {
+    // L1: Field context with cursor/selection position markers
+    const fieldCtx = buildFieldContext(context);
+    if (fieldCtx) {
+      parts.push(`\n${fieldCtx}`);
+    } else if (context?.selectedText) {
+      // Standalone selected text (no field text available)
       const snippet = smartTruncate(context.selectedText, CONTEXT_LIMITS.selectedText);
       parts.push(`\nThe user had selected this text:\n"""\n${snippet}\n"""\nEnsure the dictation output is consistent and coherent with this context.`);
     }
 
-    // L1: full field content (what's already in the input field)
-    if (context?.fieldText && context.fieldText !== context?.selectedText) {
-      const snippet = smartTruncate(context.fieldText, CONTEXT_LIMITS.fieldText);
-      parts.push(`\nExisting text in the input field (${context.fieldRole || 'unknown type'}):\n"""\n${snippet}\n"""\nThe dictated text should flow naturally with this existing content.`);
+    // Field placeholder hint
+    if (context?.fieldPlaceholder) {
+      parts.push(`The input field's placeholder reads: "${context.fieldPlaceholder}"`);
     }
 
     // Clipboard content

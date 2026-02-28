@@ -285,8 +285,30 @@ function DetailModal({ item, onClose, t }: { item: HistoryItem; onClose: () => v
                 </ContextSection>
 
                 <ContextSection title={t('history.focusedField')} enabled={ctx.contextL1Enabled} hasData={!!(ctx.selectedText || ctx.fieldText)} t={t}>
-                  {ctx.fieldRole && (
-                    <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 mb-1.5">{ctx.fieldRole}</span>
+                  {/* Field metadata badges */}
+                  <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+                    {(ctx.fieldRoleDescription || ctx.fieldRole) && (
+                      <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500">{ctx.fieldRoleDescription || ctx.fieldRole}</span>
+                    )}
+                    {ctx.fieldLabel && (
+                      <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-400">{ctx.fieldLabel}</span>
+                    )}
+                    {ctx.fieldPlaceholder && (
+                      <span className="inline-block text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-400 italic">&ldquo;{ctx.fieldPlaceholder}&rdquo;</span>
+                    )}
+                  </div>
+                  {/* Cursor / selection position info */}
+                  {ctx.cursorPosition !== undefined && (
+                    <p className="text-[10px] text-surface-400 mb-1">
+                      {t('history.cursorAt')} {ctx.cursorPosition}
+                      {ctx.insertionLineNumber !== undefined && ` (${t('history.line')} ${ctx.insertionLineNumber})`}
+                      {ctx.numberOfCharacters !== undefined && ` / ${ctx.numberOfCharacters} ${t('history.chars')}`}
+                    </p>
+                  )}
+                  {ctx.selectionRange && ctx.selectionRange.length > 0 && (
+                    <p className="text-[10px] text-surface-400 mb-1">
+                      {t('history.selectedRange')}: {ctx.selectionRange.location}..{ctx.selectionRange.location + ctx.selectionRange.length} ({ctx.selectionRange.length} {t('history.chars')})
+                    </p>
                   )}
                   {ctx.selectedText && (
                     <div className="mb-1.5">

@@ -142,6 +142,13 @@ export function useRecorder() {
             selectedText: context.selectedText,
             fieldText: context.fieldText,
             fieldRole: context.fieldRole,
+            fieldRoleDescription: context.fieldRoleDescription,
+            fieldLabel: context.fieldLabel,
+            fieldPlaceholder: context.fieldPlaceholder,
+            cursorPosition: context.cursorPosition,
+            selectionRange: context.selectionRange,
+            numberOfCharacters: context.numberOfCharacters,
+            insertionLineNumber: context.insertionLineNumber,
             // Clipboard & recent
             clipboardText: context.clipboardText,
             recentTranscriptions: context.recentTranscriptions,

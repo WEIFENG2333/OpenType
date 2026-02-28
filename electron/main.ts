@@ -105,6 +105,15 @@ interface CapturedContext {
   selectedText?: string;
   fieldText?: string;
   fieldRole?: string;
+  // Enhanced L1 accessibility attributes
+  fieldRoleDescription?: string;  // AXRoleDescription: "text field", "search field"
+  fieldLabel?: string;            // AXDescription/AXTitle: "Message body", "Subject"
+  fieldPlaceholder?: string;      // AXPlaceholderValue: "Type a message..."
+  cursorPosition?: number;        // from AXSelectedTextRange when selection length=0
+  selectionRange?: { location: number; length: number }; // AXSelectedTextRange
+  numberOfCharacters?: number;    // AXNumberOfCharacters
+  insertionLineNumber?: number;   // AXInsertionPointLineNumber
+  // Other context
   clipboardText?: string;
   recentTranscriptions?: string[];
   screenContext?: string;
@@ -143,6 +152,12 @@ tell application "System Events"
 
   set elRole to ""
   set selText to ""
+  set elRoleDesc to ""
+  set elLabel to ""
+  set elPlaceholder to ""
+  set selRange to ""
+  set charCount to ""
+  set lineNum to ""
   set fieldVal to ""
   ${enableL1 ? `
   try
@@ -154,6 +169,30 @@ tell application "System Events"
       set selText to value of attribute "AXSelectedText" of focusEl
     end try
     try
+      set elRoleDesc to value of attribute "AXRoleDescription" of focusEl
+    end try
+    try
+      set elLabel to value of attribute "AXDescription" of focusEl
+    end try
+    if elLabel is "" then
+      try
+        set elLabel to value of attribute "AXTitle" of focusEl
+      end try
+    end if
+    try
+      set elPlaceholder to value of attribute "AXPlaceholderValue" of focusEl
+    end try
+    try
+      set rng to value of attribute "AXSelectedTextRange" of focusEl
+      set selRange to ((item 1 of rng) as text) & "," & ((item 2 of rng) as text)
+    end try
+    try
+      set charCount to (value of attribute "AXNumberOfCharacters" of focusEl) as text
+    end try
+    try
+      set lineNum to (value of attribute "AXInsertionPointLineNumber" of focusEl) as text
+    end try
+    try
       set fieldVal to value of attribute "AXValue" of focusEl
       if (count of fieldVal) > 3000 then
         set fieldVal to text 1 thru 3000 of fieldVal
@@ -161,7 +200,7 @@ tell application "System Events"
     end try
   end try` : ''}
 
-  set output to output & d & elRole & d & selText & d & fieldVal
+  set output to output & d & elRole & d & selText & d & elRoleDesc & d & elLabel & d & elPlaceholder & d & selRange & d & charCount & d & lineNum & d & fieldVal
 end tell
 return output`;
 
@@ -173,8 +212,37 @@ return output`;
     ctx.windowTitle = parts[2] || undefined;
     ctx.fieldRole = parts[3] || undefined;
     ctx.selectedText = parts[4] || undefined;
-    // fieldText is last — may contain separators in theory, so join remainder
-    ctx.fieldText = parts.slice(5).join(SEP) || undefined;
+    ctx.fieldRoleDescription = parts[5] || undefined;
+    ctx.fieldLabel = parts[6] || undefined;
+    ctx.fieldPlaceholder = parts[7] || undefined;
+
+    // Parse AXSelectedTextRange from "location,length" format
+    if (parts[8]) {
+      const rangeMatch = parts[8].match(/(\d+)\D+(\d+)/);
+      if (rangeMatch) {
+        const location = parseInt(rangeMatch[1], 10);
+        const length = parseInt(rangeMatch[2], 10);
+        ctx.selectionRange = { location, length };
+        if (length === 0) {
+          ctx.cursorPosition = location;
+        }
+      }
+    }
+
+    // Parse AXNumberOfCharacters
+    if (parts[9]) {
+      const n = parseInt(parts[9], 10);
+      if (!isNaN(n)) ctx.numberOfCharacters = n;
+    }
+
+    // Parse AXInsertionPointLineNumber
+    if (parts[10]) {
+      const n = parseInt(parts[10], 10);
+      if (!isNaN(n)) ctx.insertionLineNumber = n;
+    }
+
+    // fieldText is always last — may contain separators, so join remainder
+    ctx.fieldText = parts.slice(11).join(SEP) || undefined;
 
     // Truncate fieldText for storage
     if (ctx.fieldText && ctx.fieldText.length > 3000) {
@@ -233,7 +301,13 @@ $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
 $role = ""
 $val = ""
 $sel = ""
+$label = ""
+$placeholder = ""
+$selStart = ""
+$selLen = ""
 try { $role = $focused.Current.ControlType.ProgrammaticName } catch {}
+try { $label = $focused.Current.Name } catch {}
+try { $placeholder = $focused.Current.HelpText } catch {}
 try {
   $vp = $focused.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
   $val = $vp.Current.Value
@@ -242,16 +316,35 @@ try {
 try {
   $tp = $focused.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern)
   $ranges = $tp.GetSelection()
-  if ($ranges.Length -gt 0) { $sel = $ranges[0].GetText(-1) }
+  if ($ranges.Length -gt 0) {
+    $sel = $ranges[0].GetText(-1)
+    $docRange = $tp.DocumentRange
+    $before = $docRange.Clone()
+    $before.MoveEndpointByRange([System.Windows.Automation.Text.TextPatternRangeEndpoint]::End, $ranges[0], [System.Windows.Automation.Text.TextPatternRangeEndpoint]::Start)
+    $selStart = $before.GetText(-1).Length
+    $selLen = $sel.Length
+  }
 } catch {}
-Write-Output "$name|||$title|||$role|||$sel|||$val"`;
+Write-Output "$name|||$title|||$role|||$sel|||$label|||$placeholder|||$selStart|||$selLen|||$val"`;
     const raw = execSync(`powershell -Command "${ps.replace(/"/g, '\\"')}"`, { timeout: 3000 }).toString().trim();
     const parts = raw.split('|||');
     ctx.appName = parts[0] || undefined;
     ctx.windowTitle = parts[1] || undefined;
     ctx.fieldRole = parts[2] || undefined;
     ctx.selectedText = parts[3] || undefined;
-    ctx.fieldText = parts[4] || undefined;
+    ctx.fieldLabel = parts[4] || undefined;
+    ctx.fieldPlaceholder = parts[5] || undefined;
+    // Parse selection range
+    if (parts[6] && parts[7]) {
+      const loc = parseInt(parts[6], 10);
+      const len = parseInt(parts[7], 10);
+      if (!isNaN(loc) && !isNaN(len)) {
+        ctx.selectionRange = { location: loc, length: len };
+        if (len === 0) ctx.cursorPosition = loc;
+      }
+    }
+    // fieldText is last (may contain separator)
+    ctx.fieldText = parts.slice(8).join('|||') || undefined;
   } catch (e) {
     console.error('[Context] Windows capture error:', e);
     // Fallback: just get window title

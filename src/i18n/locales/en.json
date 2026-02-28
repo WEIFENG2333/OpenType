@@ -82,7 +82,11 @@
     "recentTranscriptionsDesc": "Previous transcriptions for continuity context",
     "autoLearnedTerms": "Auto-learned terms",
     "sttDuration": "STT Duration",
-    "llmDuration": "LLM Duration"
+    "llmDuration": "LLM Duration",
+    "cursorAt": "Cursor at position",
+    "line": "line",
+    "chars": "chars",
+    "selectedRange": "Selection"
   },
   "dictionary": {
     "title": "Personal Dictionary",
