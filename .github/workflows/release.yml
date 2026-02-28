@@ -75,5 +75,18 @@ jobs:
         with:
           files: artifacts/**/*
           generate_release_notes: true
+          body: |
+            ## Download
+
+            | Platform | File |
+            |----------|------|
+            | **Windows** | `OpenType-Setup-*.exe` |
+            | **macOS (Apple Silicon)** | `OpenType-*-arm64.dmg` |
+            | **macOS (Intel)** | `OpenType-*.dmg` _(not arm64)_ |
+            | **Linux** | `OpenType-*.AppImage` |
+
+            > Other files (`.yml`, `.blockmap`) are used for auto-updates — you can ignore them.
+
+            ---
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

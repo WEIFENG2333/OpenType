@@ -92,7 +92,7 @@ export default function App() {
           onNavigate={setPage}
           onOpenSettings={() => setSettingsOpen(true)}
         />
-        <main className="flex-1 flex flex-col overflow-hidden bg-surface-50 dark:bg-surface-900">
+        <main className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-surface-900">
           {renderPage()}
         </main>
       </div>

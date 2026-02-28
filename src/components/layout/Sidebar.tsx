@@ -56,7 +56,7 @@ export function Sidebar({ current, onNavigate, onOpenSettings }: SidebarProps) {
               onClick={() => onNavigate(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] transition-all duration-150
                 ${active
-                  ? 'bg-surface-200/80 dark:bg-surface-800 text-surface-900 dark:text-surface-100 font-semibold'
+                  ? 'bg-brand-500/10 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300 font-semibold'
                   : 'text-surface-500 hover:text-surface-800 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-850'
                 }`}
             >

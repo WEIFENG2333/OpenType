@@ -36,7 +36,13 @@ export function DashboardPage() {
   };
 
   const savedMinutes = Math.round(config.totalTimeSavedSeconds / 60);
-  const recentHistory = (config.history || []).slice(0, 5);
+  const hasStats = config.totalWordsThisWeek > 0 || savedMinutes > 0 || (config.averageWPM || 0) > 0;
+
+  // Language display
+  const inputLang = config.inputLanguage === 'auto' ? t('dashboard.autoDetect') : config.inputLanguage;
+  const outputLang = config.outputLanguage === 'auto'
+    ? t('dashboard.outputSameAsInput')
+    : t('dashboard.outputLang', { lang: config.outputLanguage });
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -46,40 +52,32 @@ export function DashboardPage() {
       />
 
       <div className="flex-1 flex flex-col overflow-y-auto">
-        {/* Stats cards */}
-        <div className="grid grid-cols-3 gap-4 px-6 pt-4">
-          <StatCard
-            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
-            label={t('dashboard.thisWeek')}
-            value={`${config.totalWordsThisWeek}`}
-            unit={t('dashboard.wordsUnit')}
-          />
-          <StatCard
-            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>}
-            label={t('dashboard.timeSaved')}
-            value={`${savedMinutes}`}
-            unit={t('dashboard.minUnit')}
-          />
-          <StatCard
-            icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>}
-            label={t('dashboard.avgSpeed')}
-            value={`${config.averageWPM || 0}`}
-            unit="WPM"
-          />
-        </div>
-
-        {/* Main recording area — fixed height, no layout shift */}
-        <div className="flex items-center justify-center px-6 py-4">
-          <RecordButton
-            status={recorder.status}
-            audioLevel={recorder.audioLevel}
-            duration={recorder.duration}
-            onClick={recorder.toggleRecording}
-          />
+        {/* Recording Card — main focus */}
+        <div className="px-6 pt-4">
+          <div className="bg-surface-50 dark:bg-surface-850 border border-surface-200 dark:border-surface-800 rounded-xl overflow-hidden">
+            <RecordButton
+              status={recorder.status}
+              audioLevel={recorder.audioLevel}
+              duration={recorder.duration}
+              onClick={recorder.toggleRecording}
+            />
+            {/* Language info bar */}
+            <div className="flex items-center justify-center gap-4 px-4 py-2.5 border-t border-surface-200 dark:border-surface-800/60">
+              <div className="flex items-center gap-1.5 text-xs text-surface-400">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <span>{inputLang}</span>
+              </div>
+              <div className="w-px h-3 bg-surface-200 dark:bg-surface-700" />
+              <div className="flex items-center gap-1.5 text-xs text-surface-400">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                <span>{outputLang}</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Result panel */}
-        <div className="px-6 pb-4">
+        <div className="px-6 pt-4">
           <ResultPanel
             rawText={recorder.rawText}
             processedText={recorder.processedText}
@@ -87,31 +85,22 @@ export function DashboardPage() {
           />
         </div>
 
-        {/* Recent transcriptions */}
-        {recentHistory.length > 0 && (
-          <div className="px-6 pb-4">
-            <h3 className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2">
-              {t('dashboard.recent')}
-            </h3>
-            <div className="space-y-1.5">
-              {recentHistory.map((item) => (
-                <div key={item.id} className="flex items-start gap-3 px-3 py-2 rounded-lg bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800/60">
-                  <span className="text-[10px] text-surface-400 font-mono w-12 flex-shrink-0 pt-0.5">
-                    {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                  <p className="text-xs text-surface-700 dark:text-surface-300 leading-relaxed line-clamp-2">
-                    {item.processedText || item.rawText || item.error || '—'}
-                  </p>
-                </div>
-              ))}
-            </div>
+        {/* Stats — compact, hidden when all zero */}
+        {hasStats && (
+          <div className="flex items-center gap-3 px-6 pt-4">
+            <StatBadge label={t('dashboard.thisWeek')} value={config.totalWordsThisWeek} unit={t('dashboard.wordsUnit')} />
+            <StatBadge label={t('dashboard.timeSaved')} value={savedMinutes} unit={t('dashboard.minUnit')} />
+            <StatBadge label={t('dashboard.avgSpeed')} value={config.averageWPM || 0} unit="WPM" />
           </div>
         )}
+
+        {/* Spacer */}
+        <div className="flex-1" />
 
         {/* Footer: version + links */}
         <div className="px-6 py-3 border-t border-surface-100 dark:border-surface-800/30 flex items-center justify-between text-[11px] text-surface-400 dark:text-surface-600 flex-shrink-0">
           <div className="flex items-center gap-3">
-            <span>OpenType {version || 'v1.2.0'}</span>
+            <span>OpenType {version || 'v1.3.0'}</span>
             <button
               onClick={handleCheckUpdate}
               className="text-brand-500 hover:text-brand-400 transition-colors"
@@ -148,17 +137,12 @@ export function DashboardPage() {
   );
 }
 
-function StatCard({ icon, label, value, unit }: { icon: JSX.Element; label: string; value: string; unit?: string }) {
+function StatBadge({ label, value, unit }: { label: string; value: number; unit: string }) {
   return (
-    <div className="bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800/60 rounded-xl px-5 py-4">
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-surface-400">{icon}</span>
-        <p className="text-[11px] text-surface-500 font-medium uppercase tracking-wider">{label}</p>
-      </div>
-      <div className="flex items-baseline gap-1.5">
-        <span className="text-2xl font-bold text-surface-800 dark:text-surface-200">{value}</span>
-        {unit && <span className="text-xs text-surface-500">{unit}</span>}
-      </div>
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-50 dark:bg-surface-850 border border-surface-200 dark:border-surface-800 rounded-lg">
+      <span className="text-[11px] text-surface-400 uppercase tracking-wider">{label}</span>
+      <span className="text-sm font-semibold text-surface-700 dark:text-surface-300">{value}</span>
+      <span className="text-[11px] text-surface-400">{unit}</span>
     </div>
   );
 }

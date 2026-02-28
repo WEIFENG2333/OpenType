@@ -479,14 +479,14 @@ function createMainWindow() {
 function createOverlayWindow() {
   const display = screen.getPrimaryDisplay();
   const { width: screenW, height: screenH } = display.workAreaSize;
-  const overlayW = 280;
-  const overlayH = 56;
+  const overlayW = 220;
+  const overlayH = 48;
 
   overlayWindow = new BrowserWindow({
     width: overlayW,
     height: overlayH,
     x: Math.round((screenW - overlayW) / 2),
-    y: screenH - overlayH - 16,
+    y: screenH - overlayH - 8,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -787,11 +787,11 @@ function setupIPC() {
     // Reset overlay size back to pill
     const display = screen.getPrimaryDisplay();
     const { width: screenW, height: screenH } = display.workAreaSize;
-    const pillW = 280, pillH = 56;
+    const pillW = 220, pillH = 48;
     overlayWindow.setBounds({
       width: pillW, height: pillH,
       x: Math.round((screenW - pillW) / 2),
-      y: screenH - pillH - 16,
+      y: screenH - pillH - 8,
     });
   });
   ipcMain.handle('window:resizeOverlay', (_e, w: number, h: number) => {
@@ -801,7 +801,7 @@ function setupIPC() {
     overlayWindow.setBounds({
       width: w, height: h,
       x: Math.round((screenW - w) / 2),
-      y: screenH - h - 16,
+      y: screenH - h - 8,
     });
   });
 

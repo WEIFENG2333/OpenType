@@ -66,12 +66,12 @@ export function OverlayPage() {
   }, [showFallback]);
 
   return (
-    <div className="w-full h-full flex items-end justify-center select-none p-1">
+    <div className="w-full h-full flex items-end justify-center select-none">
       {showFallback ? (
         /* ── Expanded fallback: show text + copy button ── */
         <div
-          className="w-full rounded-2xl flex flex-col gap-2 px-3 py-2.5"
-          style={{ background: 'rgba(20, 20, 20, 0.95)' }}
+          className="w-full mx-1 mb-1 rounded-2xl flex flex-col gap-2 px-3 py-2.5"
+          style={{ background: 'rgba(20, 20, 20, 0.75)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
         >
           <p className="text-[11px] text-white/90 leading-relaxed line-clamp-3">
             {rec.processedText}
@@ -99,35 +99,39 @@ export function OverlayPage() {
       ) : (
         /* ── Normal pill: recording / processing / result ── */
         <div
-          className="w-full h-full rounded-[22px] flex items-center px-2"
-          style={{ background: 'rgba(20, 20, 20, 0.95)' }}
+          className="w-full h-full rounded-[24px] flex items-center gap-1.5 px-2"
+          style={{ background: 'rgba(20, 20, 20, 0.7)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
         >
           {/* Left: Cancel button */}
           <button
             onClick={handleCancel}
             className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center
-              hover:bg-white/10 active:bg-white/15 transition-colors group"
+              bg-white/[0.08] hover:bg-white/15 active:bg-white/20 transition-colors group"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-              className="text-white/70 group-hover:text-white transition-colors">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+              className="text-white/80 group-hover:text-white transition-colors">
               <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
           </button>
 
           {/* Center: Waveform / status */}
-          <div className="flex-1 flex items-center justify-center min-w-0 gap-1">
+          <div className="flex-1 flex items-center justify-center min-w-0">
             {rec.status === 'recording' ? (
-              <div className="flex items-end justify-center gap-[3px] h-5">
+              <div className="flex items-center justify-center gap-[3px] h-6">
                 {Array.from({ length: 7 }).map((_, i) => {
                   const center = 3;
                   const dist = Math.abs(i - center);
-                  const base = Math.max(0.15, 1 - dist * 0.2);
-                  const h = Math.max(4, level * 20 * base);
+                  // Static shape: center tall, edges short
+                  const shape = [4, 8, 12, 16, 12, 8, 4];
+                  const base = shape[i];
+                  // Audio level adds dynamic variation
+                  const dynamic = level * 8 * (1 - dist * 0.12);
+                  const h = Math.min(22, base + dynamic);
                   return (
                     <div
                       key={i}
-                      className="w-[2.5px] rounded-full bg-white transition-all duration-75"
-                      style={{ height: `${h}px`, opacity: 0.6 + base * 0.4 }}
+                      className="w-[3px] rounded-full bg-white/80 transition-all duration-75"
+                      style={{ height: `${h}px` }}
                     />
                   );
                 })}
@@ -153,11 +157,11 @@ export function OverlayPage() {
             onClick={handleConfirm}
             disabled={rec.status !== 'recording'}
             className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center
-              transition-colors group disabled:opacity-20 disabled:cursor-default
-              hover:bg-white/10 active:bg-white/15"
+              bg-white/[0.08] hover:bg-white/15 active:bg-white/20
+              transition-colors group disabled:opacity-20 disabled:cursor-default"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-              className="text-white/70 group-hover:text-white transition-colors">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+              className="text-white/80 group-hover:text-white transition-colors">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </button>
