@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AppConfig, DEFAULT_CONFIG, HistoryItem } from '../types/config';
+import { AppConfig, DEFAULT_CONFIG, DictionaryEntry, HistoryItem } from '../types/config';
 
 interface ConfigStore {
   config: AppConfig;
@@ -24,7 +24,7 @@ interface ConfigStore {
   deleteHistoryItem: (id: string) => void;
 
   /** Add a word to personal dictionary */
-  addDictionaryWord: (word: string) => void;
+  addDictionaryWord: (word: string, source?: 'manual' | 'auto') => void;
 
   /** Remove a word from personal dictionary */
   removeDictionaryWord: (word: string) => void;
@@ -63,6 +63,13 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
       } else {
         const raw = localStorage.getItem('opentype-config');
         if (raw) stored = JSON.parse(raw);
+      }
+      // Migrate personalDictionary from string[] to DictionaryEntry[]
+      if (Array.isArray(stored.personalDictionary) && stored.personalDictionary.length > 0
+          && typeof (stored.personalDictionary as any)[0] === 'string') {
+        stored.personalDictionary = (stored.personalDictionary as unknown as string[]).map((w) => ({
+          word: w, source: 'manual' as const, addedAt: Date.now(),
+        }));
       }
       set({ config: { ...DEFAULT_CONFIG, ...stored }, loaded: true });
     } catch (e) {
@@ -116,11 +123,12 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
     });
   },
 
-  addDictionaryWord: (word: string) => {
+  addDictionaryWord: (word: string, source: 'manual' | 'auto' = 'manual') => {
     set((state) => {
       const trimmed = word.trim();
-      if (!trimmed || state.config.personalDictionary.includes(trimmed)) return state;
-      const dict = [...state.config.personalDictionary, trimmed];
+      if (!trimmed || state.config.personalDictionary.some((e) => e.word === trimmed)) return state;
+      const entry: DictionaryEntry = { word: trimmed, source, addedAt: Date.now() };
+      const dict = [...state.config.personalDictionary, entry];
       const next = { ...state.config, personalDictionary: dict };
       persist('personalDictionary', dict);
       return { config: next };
@@ -129,7 +137,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 
   removeDictionaryWord: (word: string) => {
     set((state) => {
-      const dict = state.config.personalDictionary.filter((w) => w !== word);
+      const dict = state.config.personalDictionary.filter((e) => e.word !== word);
       const next = { ...state.config, personalDictionary: dict };
       persist('personalDictionary', dict);
       return { config: next };

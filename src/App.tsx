@@ -4,6 +4,7 @@ import { useTranslation, detectLocale, Locale } from './i18n';
 import { TitleBar } from './components/layout/TitleBar';
 import { Sidebar, PageID } from './components/layout/Sidebar';
 import { DashboardPage } from './pages/DashboardPage';
+import { DictationPage } from './pages/DictationPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { DictionaryPage } from './pages/DictionaryPage';
 import { SettingsModal } from './pages/settings/SettingsLayout';
@@ -21,7 +22,7 @@ function applyTheme(theme: string) {
 }
 
 export default function App() {
-  const [page, setPage] = useState<PageID>('dashboard');
+  const [page, setPage] = useState<PageID>('dictation');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { config, loaded, load } = useConfigStore();
   const { setLocale } = useTranslation();
@@ -78,6 +79,7 @@ export default function App() {
   const renderPage = () => {
     switch (page) {
       case 'dashboard': return <DashboardPage onNavigate={(p) => setPage(p as PageID)} />;
+      case 'dictation': return <DictationPage />;
       case 'history': return <HistoryPage />;
       case 'dictionary': return <DictionaryPage />;
     }

@@ -694,10 +694,14 @@ function setupIPC() {
       // Auto-dictionary: extract proper nouns
       let autoLearnedTerms: string[] = [];
       if (cfg.autoLearnDictionary !== false) {
-        const dict: string[] = cfg.personalDictionary || [];
-        autoLearnedTerms = extractDictionaryTerms(llmResult.text, dict);
+        const dictEntries: any[] = cfg.personalDictionary || [];
+        const dictWords: string[] = dictEntries.map((e: any) => typeof e === 'string' ? e : e.word);
+        autoLearnedTerms = extractDictionaryTerms(llmResult.text, dictWords);
         if (autoLearnedTerms.length > 0) {
-          const updated = [...dict, ...autoLearnedTerms];
+          const newEntries = autoLearnedTerms.map((w) => ({
+            word: w, source: 'auto' as const, addedAt: Date.now(),
+          }));
+          const updated = [...dictEntries, ...newEntries];
           configStore.set('personalDictionary', updated);
           console.log('[AutoDict] learned:', autoLearnedTerms);
           mainWindow?.webContents.send('dictionary:auto-added', autoLearnedTerms);

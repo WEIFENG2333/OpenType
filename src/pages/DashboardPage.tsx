@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
 import { useConfigStore } from '../stores/configStore';
-import { useRecorder } from '../hooks/useRecorder';
-import { ResultPanel } from '../components/recording/ResultPanel';
 import { useTranslation } from '../i18n';
 import type { HistoryItem } from '../types/config';
 
@@ -9,7 +7,6 @@ const GITHUB_URL = 'https://github.com/WEIFENG2333/OpenType';
 
 export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const config = useConfigStore((s) => s.config);
-  const recorder = useRecorder();
   const { t } = useTranslation();
   const [version, setVersion] = useState('');
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'latest'>('idle');
@@ -47,13 +44,6 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
     .replace('CommandOrControl', 'Ctrl')
     .replace('+', ' + ');
 
-  // Recording
-  const fmt = (s: number) => {
-    const m = Math.floor(s / 60);
-    const sec = Math.floor(s % 60);
-    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
-  };
-
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto">
@@ -82,100 +72,33 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
             </a>
           </div>
 
-          {/* ── Stats + Recording ── */}
-          <div className={`grid gap-4 ${hasStats ? 'grid-cols-[1fr_1fr]' : 'grid-cols-1'}`}>
-            {/* Left: Recording card */}
-            <div className={`${hasStats ? 'row-span-2' : ''} bg-surface-50 dark:bg-surface-850 border border-surface-200 dark:border-surface-800 rounded-2xl flex flex-col items-center justify-center p-6 min-h-[200px]`}>
-              {/* Mic button */}
-              <div className="relative flex items-center justify-center mb-4">
-                {recorder.status === 'recording' && (
-                  <div className="absolute w-[68px] h-[68px] rounded-full bg-red-500/15 animate-pulse" />
-                )}
-                {recorder.status === 'processing' && (
-                  <div className="absolute w-[68px] h-[68px] rounded-full border-2 border-brand-500/20 border-t-brand-500 animate-spin" />
-                )}
-                <button
-                  onClick={recorder.toggleRecording}
-                  disabled={recorder.status === 'processing'}
-                  className={`relative z-10 w-14 h-14 rounded-full flex items-center justify-center transition-all duration-200 shadow-md
-                    ${recorder.status === 'recording'
-                      ? 'bg-red-500 hover:bg-red-600 shadow-red-500/20'
-                      : recorder.status === 'processing'
-                      ? 'bg-surface-200 dark:bg-surface-700 cursor-wait'
-                      : 'bg-brand-500 hover:bg-brand-600 shadow-brand-500/20 hover:scale-105 active:scale-95'
-                    }`}
-                >
-                  {recorder.status === 'recording' ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
-                  ) : recorder.status === 'processing' ? (
-                    <div className="flex gap-1">
-                      <div className="w-1.5 h-1.5 rounded-full bg-surface-500 dark:bg-white animate-bounce" style={{ animationDelay: '0s' }} />
-                      <div className="w-1.5 h-1.5 rounded-full bg-surface-500 dark:bg-white animate-bounce" style={{ animationDelay: '0.15s' }} />
-                      <div className="w-1.5 h-1.5 rounded-full bg-surface-500 dark:bg-white animate-bounce" style={{ animationDelay: '0.3s' }} />
-                    </div>
-                  ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
-                      <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                      <line x1="12" y1="19" x2="12" y2="22"/>
-                    </svg>
-                  )}
-                </button>
-              </div>
-
-              {/* Status text */}
-              <div className="text-center h-8 flex items-center justify-center">
-                {recorder.status === 'recording' ? (
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                      <span className="text-red-500 dark:text-red-400 text-sm font-medium">{t('dashboard.recording')}</span>
-                    </div>
-                    <span className="text-lg font-mono text-surface-700 dark:text-surface-300 tracking-wider">{fmt(recorder.duration)}</span>
-                  </div>
-                ) : recorder.status === 'processing' ? (
-                  <span className="text-brand-500 dark:text-brand-400 text-sm font-medium">{t('dashboard.processing')}</span>
-                ) : (
-                  <span className="text-surface-400 text-sm">{t('dashboard.clickToStart')}</span>
-                )}
-              </div>
+          {/* ── Stats ── */}
+          {hasStats && (
+            <div className="grid grid-cols-2 gap-4">
+              <StatCard
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
+                label={t('dashboard.totalTime')}
+                value={totalHr > 0 ? `${totalHr} ${t('dashboard.hr')} ${totalMin} ${t('dashboard.min')}` : `${totalMin} ${t('dashboard.min')}`}
+              />
+              <StatCard
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>}
+                label={t('dashboard.totalWords')}
+                value={totalWords >= 1000 ? `${(totalWords / 1000).toFixed(1)}K` : `${totalWords}`}
+                unit={t('dashboard.wordsUnit')}
+              />
+              <StatCard
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>}
+                label={t('dashboard.timeSaved')}
+                value={savedMinutes > 60 ? `${Math.floor(savedMinutes / 60)} ${t('dashboard.hr')} ${savedMinutes % 60} ${t('dashboard.min')}` : `${savedMinutes} ${t('dashboard.min')}`}
+              />
+              <StatCard
+                icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>}
+                label={t('dashboard.avgSpeed')}
+                value={`${avgWPM}`}
+                unit="WPM"
+              />
             </div>
-
-            {/* Right: 2x2 stats grid (only when has data) */}
-            {hasStats && (
-              <>
-                <StatCard
-                  icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
-                  label={t('dashboard.totalTime')}
-                  value={totalHr > 0 ? `${totalHr} ${t('dashboard.hr')} ${totalMin} ${t('dashboard.min')}` : `${totalMin} ${t('dashboard.min')}`}
-                />
-                <StatCard
-                  icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>}
-                  label={t('dashboard.totalWords')}
-                  value={totalWords >= 1000 ? `${(totalWords / 1000).toFixed(1)}K` : `${totalWords}`}
-                  unit={t('dashboard.wordsUnit')}
-                />
-                <StatCard
-                  icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>}
-                  label={t('dashboard.timeSaved')}
-                  value={savedMinutes > 60 ? `${Math.floor(savedMinutes / 60)} ${t('dashboard.hr')} ${savedMinutes % 60} ${t('dashboard.min')}` : `${savedMinutes} ${t('dashboard.min')}`}
-                />
-                <StatCard
-                  icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>}
-                  label={t('dashboard.avgSpeed')}
-                  value={`${avgWPM}`}
-                  unit="WPM"
-                />
-              </>
-            )}
-          </div>
-
-          {/* ── Result panel (after recording) ── */}
-          <ResultPanel
-            rawText={recorder.rawText}
-            processedText={recorder.processedText}
-            error={recorder.error}
-          />
+          )}
 
           {/* ── GitHub promo cards ── */}
           <div className="grid grid-cols-2 gap-4">

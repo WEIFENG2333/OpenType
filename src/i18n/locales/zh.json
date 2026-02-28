@@ -1,5 +1,6 @@
 {
   "sidebar": {
+    "home": "首页",
     "dictation": "听写",
     "history": "历史记录",
     "dictionary": "词典",
@@ -44,6 +45,11 @@
     "checking": "检查中...",
     "upToDate": "已是最新",
     "feedback": "反馈"
+  },
+  "dictation": {
+    "title": "语音听写",
+    "subtitle": "自然说话，获得精炼文字",
+    "hotkeyHint": "或使用全局快捷键"
   },
   "history": {
     "title": "历史记录",
@@ -113,7 +119,10 @@
     "howItWorks": "工作原理",
     "howItWorksDesc": "词典中的词条会在后处理阶段注入到 LLM 上下文中。这有助于正确拼写品牌名称、技术术语、缩写和标准语音识别可能遗漏的领域特定词汇。",
     "newWord": "新增词条",
-    "search": "搜索词条..."
+    "search": "搜索词条...",
+    "filterAll": "全部",
+    "filterManual": "手动添加",
+    "filterAuto": "自动学习"
   },
   "recording": {
     "copy": "复制",

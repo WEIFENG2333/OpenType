@@ -169,8 +169,10 @@ export class LLMService {
     if (config.outputLanguage && config.outputLanguage !== 'auto')
       parts.push(`8. Output in ${config.outputLanguage}`);
 
-    if (config.personalDictionary?.length > 0)
-      parts.push(`\nPersonal Dictionary: ${config.personalDictionary.join(', ')}`);
+    if (config.personalDictionary?.length > 0) {
+      const words = config.personalDictionary.map((e: any) => typeof e === 'string' ? e : e.word);
+      parts.push(`\nPersonal Dictionary: ${words.join(', ')}`);
+    }
 
     if (context?.appName) {
       const tone = this.resolveTone(config, context.appName);

@@ -3,6 +3,9 @@ import { useConfigStore } from '../stores/configStore';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Button } from '../components/ui';
 import { useTranslation } from '../i18n';
+import type { DictionaryEntry } from '../types/config';
+
+type FilterTab = 'all' | 'manual' | 'auto';
 
 export function DictionaryPage() {
   const dict = useConfigStore((s) => s.config.personalDictionary);
@@ -11,19 +14,28 @@ export function DictionaryPage() {
   const [input, setInput] = useState('');
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
+  const [filter, setFilter] = useState<FilterTab>('all');
   const { t } = useTranslation();
 
+  const manualCount = dict.filter((e) => e.source === 'manual').length;
+  const autoCount = dict.filter((e) => e.source === 'auto').length;
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return dict;
-    const q = search.toLowerCase();
-    return dict.filter((w) => w.toLowerCase().includes(q));
-  }, [dict, search]);
+    let items = dict;
+    if (filter === 'manual') items = items.filter((e) => e.source === 'manual');
+    if (filter === 'auto') items = items.filter((e) => e.source === 'auto');
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      items = items.filter((e) => e.word.toLowerCase().includes(q));
+    }
+    return items;
+  }, [dict, search, filter]);
 
   const handleAdd = () => {
     if (!input.trim()) return;
     input.split(',').forEach((w) => {
       const trimmed = w.trim();
-      if (trimmed) addWord(trimmed);
+      if (trimmed) addWord(trimmed, 'manual');
     });
     setInput('');
     setShowAdd(false);
@@ -40,9 +52,8 @@ export function DictionaryPage() {
         }
       />
 
-      {/* Search + Add inline */}
       <div className="px-6 pt-2 pb-3 space-y-3">
-        {/* Add form (toggle) */}
+        {/* Add form */}
         {showAdd && (
           <div className="flex gap-2 animate-fade-in">
             <input
@@ -59,6 +70,13 @@ export function DictionaryPage() {
             <Button variant="primary" onClick={handleAdd} disabled={!input.trim()}>{t('dictionary.add')}</Button>
           </div>
         )}
+
+        {/* Filter chips */}
+        <div className="flex items-center gap-1">
+          <FilterChip active={filter === 'all'} onClick={() => setFilter('all')} label={t('dictionary.filterAll')} count={dict.length} />
+          <FilterChip active={filter === 'manual'} onClick={() => setFilter('manual')} label={t('dictionary.filterManual')} count={manualCount} />
+          <FilterChip active={filter === 'auto'} onClick={() => setFilter('auto')} label={t('dictionary.filterAuto')} count={autoCount} />
+        </div>
 
         {/* Search */}
         {dict.length > 3 && (
@@ -88,15 +106,24 @@ export function DictionaryPage() {
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-2">
-            {filtered.map((word) => (
+            {filtered.map((entry) => (
               <div
-                key={word}
+                key={entry.word}
                 className="group flex items-center gap-2 bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800 rounded-lg px-3 py-2.5 hover:border-surface-300 dark:hover:border-surface-700 transition-colors"
               >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-surface-400 flex-shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-                <span className="flex-1 text-sm text-surface-700 dark:text-surface-300 truncate">{word}</span>
+                {/* Source icon */}
+                {entry.source === 'auto' ? (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400 flex-shrink-0">
+                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                  </svg>
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-surface-400 flex-shrink-0">
+                    <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                  </svg>
+                )}
+                <span className="flex-1 text-sm text-surface-700 dark:text-surface-300 truncate">{entry.word}</span>
                 <button
-                  onClick={() => removeWord(word)}
+                  onClick={() => removeWord(entry.word)}
                   className="text-surface-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -105,8 +132,32 @@ export function DictionaryPage() {
             ))}
           </div>
         )}
-
       </div>
     </div>
+  );
+}
+
+/* ── Filter chip ── */
+function FilterChip({ active, onClick, label, count }: {
+  active: boolean; onClick: () => void; label: string; count: number;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5
+        ${active
+          ? 'bg-brand-500/10 text-brand-600 dark:bg-brand-500/15 dark:text-brand-300'
+          : 'text-surface-500 hover:text-surface-700 dark:hover:text-surface-400 hover:bg-surface-100 dark:hover:bg-surface-800/60'
+        }`}
+    >
+      {label}
+      <span className={`text-[10px] px-1.5 py-0.5 rounded-full min-w-[20px] text-center
+        ${active
+          ? 'bg-brand-500/15 text-brand-500 dark:text-brand-300'
+          : 'bg-surface-200 dark:bg-surface-800 text-surface-400'
+        }`}>
+        {count}
+      </span>
+    </button>
   );
 }

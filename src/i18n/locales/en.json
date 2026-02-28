@@ -1,5 +1,6 @@
 {
   "sidebar": {
+    "home": "Home",
     "dictation": "Dictation",
     "history": "History",
     "dictionary": "Dictionary",
@@ -44,6 +45,11 @@
     "checking": "Checking...",
     "upToDate": "Up to date",
     "feedback": "Feedback"
+  },
+  "dictation": {
+    "title": "Voice Dictation",
+    "subtitle": "Speak naturally, get polished text",
+    "hotkeyHint": "Or use the global shortcut"
   },
   "history": {
     "title": "History",
@@ -113,7 +119,10 @@
     "howItWorks": "How it works",
     "howItWorksDesc": "Dictionary terms are injected into the LLM context during post-processing. This helps correctly spell brand names, technical jargon, abbreviations, and domain-specific vocabulary that standard speech recognition might miss.",
     "newWord": "New Word",
-    "search": "Search terms..."
+    "search": "Search terms...",
+    "filterAll": "All",
+    "filterManual": "Manual",
+    "filterAuto": "Auto-learned"
   },
   "recording": {
     "copy": "Copy",

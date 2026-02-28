@@ -142,6 +142,14 @@ export interface HistoryItem {
   context?: HistoryContext;   // full pipeline context for detail view
 }
 
+// ─── Dictionary Entry ────────────────────────────────────────────────────────
+
+export interface DictionaryEntry {
+  word: string;
+  source: 'manual' | 'auto';
+  addedAt?: number;  // Unix timestamp ms
+}
+
 // ─── Full App Config ────────────────────────────────────────────────────────
 
 export interface AppConfig {
@@ -218,7 +226,7 @@ export interface AppConfig {
   autoLearnDictionary: boolean;    // auto-add corrected terms to dictionary
 
   // Personal dictionary
-  personalDictionary: string[];
+  personalDictionary: DictionaryEntry[];
 
   // History data
   history: HistoryItem[];

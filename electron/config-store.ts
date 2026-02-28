@@ -39,17 +39,31 @@ const DEFAULT_CONFIG: Record<string, any> = {
 export class ConfigStore {
   private filePath: string;
   private data: Record<string, any>;
+  private _needsSave = false;
 
   constructor() {
     const userDir = app?.getPath?.('userData') ?? path.join(process.env.HOME || '.', '.opentype');
     this.filePath = path.join(userDir, 'config.json');
     this.data = this.load();
+    if (this._needsSave) {
+      this.save();
+      this._needsSave = false;
+    }
   }
 
   private load(): Record<string, any> {
     try {
       if (fs.existsSync(this.filePath)) {
-        return { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(this.filePath, 'utf-8')) };
+        const raw = { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(this.filePath, 'utf-8')) };
+        // Migrate personalDictionary from string[] to DictionaryEntry[]
+        if (Array.isArray(raw.personalDictionary) && raw.personalDictionary.length > 0
+            && typeof raw.personalDictionary[0] === 'string') {
+          raw.personalDictionary = raw.personalDictionary.map((w: string) => ({
+            word: w, source: 'manual', addedAt: Date.now(),
+          }));
+          this._needsSave = true;
+        }
+        return raw;
       }
     } catch (e) {
       console.error('[ConfigStore] load error:', e);
