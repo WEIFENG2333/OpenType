@@ -49,7 +49,12 @@
   "dictation": {
     "title": "语音听写",
     "subtitle": "自然说话，获得精炼文字",
-    "hotkeyHint": "或使用全局快捷键"
+    "clickOrPress": "点击开始或按下",
+    "hotkeyHint": "或使用全局快捷键",
+    "recent": "最近转录",
+    "statTranscriptions": "转录次数",
+    "statWords": "总字数",
+    "statTimeSaved": "节省时间"
   },
   "history": {
     "title": "历史记录",

@@ -49,7 +49,12 @@
   "dictation": {
     "title": "Voice Dictation",
     "subtitle": "Speak naturally, get polished text",
-    "hotkeyHint": "Or use the global shortcut"
+    "clickOrPress": "Click to start or press",
+    "hotkeyHint": "Or use the global shortcut",
+    "recent": "Recent",
+    "statTranscriptions": "Transcriptions",
+    "statWords": "Words",
+    "statTimeSaved": "Time saved"
   },
   "history": {
     "title": "History",

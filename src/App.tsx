@@ -22,7 +22,7 @@ function applyTheme(theme: string) {
 }
 
 export default function App() {
-  const [page, setPage] = useState<PageID>('dictation');
+  const [page, setPage] = useState<PageID>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { config, loaded, load } = useConfigStore();
   const { setLocale } = useTranslation();
