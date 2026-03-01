@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useConfigStore } from '../../stores/configStore';
-import { Select, Toggle, Button } from '../../components/ui';
+import { Select, Toggle, Button, SettingRow } from '../../components/ui';
 import { useTranslation } from '../../i18n';
+
+interface AudioDevice { deviceId: string; label: string; }
 
 export function GeneralSettings() {
   const { config, set } = useConfigStore();
   const { t } = useTranslation();
   const [checkStatus, setCheckStatus] = useState<'idle' | 'checking' | 'up-to-date' | 'available'>('idle');
   const [currentVersion, setCurrentVersion] = useState('');
+  const [audioDevices, setAudioDevices] = useState<AudioDevice[]>([]);
 
   useEffect(() => {
     window.electronAPI?.getVersion().then(setCurrentVersion);
@@ -17,11 +20,27 @@ export function GeneralSettings() {
         setCheckStatus('up-to-date');
         setTimeout(() => setCheckStatus('idle'), 3000);
       }),
-      window.electronAPI?.onUpdateError(() => {
-        setCheckStatus('idle');
-      }),
+      window.electronAPI?.onUpdateError(() => setCheckStatus('idle')),
     ];
     return () => unsubs.forEach((fn) => fn?.());
+  }, []);
+
+  useEffect(() => {
+    const load = async () => {
+      if (window.electronAPI?.getAudioDevices) {
+        try {
+          const devs = await window.electronAPI.getAudioDevices();
+          setAudioDevices(devs.filter((d: AudioDevice) => d.deviceId && d.label));
+          return;
+        } catch {}
+      }
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        const all = await navigator.mediaDevices.enumerateDevices();
+        setAudioDevices(all.filter((d) => d.kind === 'audioinput' && d.label).map((d) => ({ deviceId: d.deviceId, label: d.label })));
+      } catch {}
+    };
+    load();
   }, []);
 
   const handleCheckUpdate = async () => {
@@ -30,13 +49,9 @@ export function GeneralSettings() {
   };
 
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-surface-500">
-        {t('settings.general.description')}
-      </p>
-
-      <div>
-        <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200 mb-3">{t('settings.general.appearance')}</h3>
+    <div className="space-y-4">
+      {/* 外观与语言 */}
+      <SettingRow label={t('settings.general.appearance')} description={t('settings.general.themeHint')}>
         <Select
           value={config.theme}
           onChange={(e) => set('theme', e.target.value as any)}
@@ -45,22 +60,34 @@ export function GeneralSettings() {
             { value: 'light', label: t('settings.general.light') },
             { value: 'system', label: t('settings.general.system') },
           ]}
-          hint={t('settings.general.themeHint')}
+          className=""
         />
-      </div>
+      </SettingRow>
 
-      <div>
-        <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200 mb-3">{t('settings.general.startup')}</h3>
-        <Toggle
-          checked={config.launchOnStartup}
-          onChange={(v) => set('launchOnStartup', v)}
-          label={t('settings.general.launchOnStartup')}
-          description={t('settings.general.launchDesc')}
+      <SettingRow label={t('settings.language.uiLanguage')} description={t('settings.language.uiLanguageHint')}>
+        <Select
+          value={config.uiLanguage}
+          onChange={(e) => set('uiLanguage', e.target.value)}
+          options={[
+            { value: 'auto', label: t('settings.language.auto') },
+            { value: 'en', label: 'English' },
+            { value: 'zh', label: '中文' },
+          ]}
+          className=""
         />
-      </div>
+      </SettingRow>
 
-      <div>
-        <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200 mb-3">{t('settings.general.inputMode')}</h3>
+      <Toggle
+        checked={config.launchOnStartup}
+        onChange={(v) => set('launchOnStartup', v)}
+        label={t('settings.general.launchOnStartup')}
+        description={t('settings.general.launchDesc')}
+      />
+
+      <hr className="border-surface-100 dark:border-surface-800/40" />
+
+      {/* 录音行为 */}
+      <SettingRow label={t('settings.general.inputMode')} description={t('settings.general.inputModeHint')}>
         <Select
           value={config.inputMode}
           onChange={(e) => set('inputMode', e.target.value as any)}
@@ -68,25 +95,40 @@ export function GeneralSettings() {
             { value: 'toggle', label: t('settings.general.toggle') },
             { value: 'push-to-talk', label: t('settings.general.pushToTalk') },
           ]}
-          hint={t('settings.general.inputModeHint')}
+          className=""
         />
-      </div>
+      </SettingRow>
 
-      <div>
-        <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200 mb-3">{t('settings.general.outputMode')}</h3>
+      <SettingRow label={t('settings.audio.microphone')} description={t('settings.audio.micHint')}>
         <Select
-          value={config.outputMode}
-          onChange={(e) => set('outputMode', e.target.value as any)}
+          value={config.selectedMicrophoneId}
+          onChange={(e) => set('selectedMicrophoneId', e.target.value)}
           options={[
-            { value: 'cursor', label: t('settings.general.typeAtCursor') },
-            { value: 'clipboard', label: t('settings.general.copyToClipboard') },
+            { value: '', label: t('settings.audio.autoDetect') },
+            ...audioDevices.map((d) => ({ value: d.deviceId, label: d.label })),
           ]}
-          hint={t('settings.general.outputModeHint')}
+          className=""
         />
-      </div>
+      </SettingRow>
 
-      <div>
-        <h3 className="text-sm font-semibold text-surface-800 dark:text-surface-200 mb-3">{t('update.title')}</h3>
+      <Toggle
+        checked={config.soundEnabled}
+        onChange={(v) => set('soundEnabled', v)}
+        label={t('settings.general.soundEnabled')}
+        description={t('settings.general.soundEnabledDesc')}
+      />
+
+      <Toggle
+        checked={config.alsoWriteClipboard}
+        onChange={(v) => set('alsoWriteClipboard', v)}
+        label={t('settings.general.alsoWriteClipboard')}
+        description={t('settings.general.alsoWriteClipboardDesc')}
+      />
+
+      <hr className="border-surface-100 dark:border-surface-800/40" />
+
+      {/* 更新 */}
+      <div className="space-y-2">
         <div className="flex items-center gap-3">
           <Button
             variant="secondary"
@@ -104,7 +146,7 @@ export function GeneralSettings() {
           )}
         </div>
         {currentVersion && (
-          <p className="text-xs text-surface-500 mt-2">{t('update.currentVersion', { version: currentVersion })}</p>
+          <p className="text-xs text-surface-500">{t('update.currentVersion', { version: currentVersion })}</p>
         )}
       </div>
     </div>

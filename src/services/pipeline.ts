@@ -52,9 +52,7 @@ export async function runPipeline(
   // Browser-mode pipeline (no timing / auto-learn in browser)
   console.log('[Pipeline] Stage 1: STT...');
   const sttStart = Date.now();
-  const stt = await transcribeAudio(audioBuffer, config, {
-    language: config.inputLanguage,
-  });
+  const stt = await transcribeAudio(audioBuffer, config);
   const sttDurationMs = Date.now() - sttStart;
 
   if (!stt.success) {

@@ -4,7 +4,8 @@ import {
   session, systemPreferences, screen, desktopCapturer,
 } from 'electron';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execSync, ChildProcess, spawn } from 'child_process';
+import readline from 'readline';
 import { autoUpdater } from 'electron-updater';
 import { ConfigStore } from './config-store';
 import { STTService } from './stt-service';
@@ -27,40 +28,82 @@ const isMac = process.platform === 'darwin';
 // ─── Recording State & Auto-Mute ────────────────────────────────────────────
 
 let isRecording = false;
-let wasMutedBeforeRecording = false;
+let shortcutsSuspended = false;
+let suppressActivateUntil = 0; // prevent main window popup right after overlay hides
+let savedSystemVolume: number | null = null; // saved volume before mute
+let savedSystemMuted = false;               // was system already muted?
+const isWin = process.platform === 'win32';
 
-function setSystemMute(mute: boolean): void {
+// Windows: PowerShell Core Audio interop for master volume control.
+// Uses IAudioEndpointVolume via MMDeviceEnumerator (works on Windows 7+).
+const WIN_AUDIO_HELPER = [
+  'Add-Type @"',
+  'using System; using System.Runtime.InteropServices;',
+  '[Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]',
+  'public interface IAudioEndpointVolume {',
+  '  int _r0(); int _r1(); int _r2(); int _r3(); int _r4(); int _r5(); int _r6(); int _r7(); int _r8(); int _r9(); int _r10(); int _r11();',
+  '  int GetMasterVolumeLevelScalar(out float l);',
+  '  int SetMasterVolumeLevelScalar(float l, ref Guid ctx);',
+  '  int _r14();',
+  '  int SetMute([MarshalAs(UnmanagedType.Bool)] bool m, ref Guid ctx);',
+  '  int GetMute([MarshalAs(UnmanagedType.Bool)] out bool m);',
+  '}',
+  '[Guid("D666063F-1587-4E43-81F1-B948E807363F"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]',
+  'public interface IMMDevice { int Activate(ref Guid iid, int ctx, IntPtr p, out IAudioEndpointVolume ep); }',
+  '[Guid("A95664D2-9614-4F35-A746-DE8DB63617E6"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]',
+  'public interface IMMDeviceEnumerator { int GetDefaultAudioEndpoint(int flow, int role, out IMMDevice d); }',
+  '[ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")] public class MMDeviceEnumerator {}',
+  '"@',
+].join('\n');
+
+function winAudioCmd(action: 'mute' | 'unmute' | 'getVol' | 'setVol', vol = 0): string {
+  const setup = `${WIN_AUDIO_HELPER}
+$e=New-Object MMDeviceEnumerator; $d=$null; $null=$e.GetDefaultAudioEndpoint(0,1,[ref]$d);
+$iid=[Guid]'5CDF2C82-841E-4546-9722-0CF74078229A'; $ep=$null; $null=$d.Activate([ref]$iid,1,[IntPtr]::Zero,[ref]$ep);
+$g=[Guid]::Empty`;
+  if (action === 'getVol') return `${setup}; $v=0.0; $null=$ep.GetMasterVolumeLevelScalar([ref]$v); $m=$false; $null=$ep.GetMute([ref]$m); Write-Host "$([math]::Round($v*100)),$m"`;
+  if (action === 'mute') return `${setup}; $null=$ep.SetMute($true,[ref]$g)`;
+  if (action === 'unmute') return `${setup}; $null=$ep.SetMute($false,[ref]$g)`;
+  // setVol
+  return `${setup}; $null=$ep.SetMasterVolumeLevelScalar(${(vol / 100).toFixed(2)},[ref]$g); $null=$ep.SetMute($false,[ref]$g)`;
+}
+
+function muteSystemAudio() {
   try {
     if (isMac) {
-      if (mute) {
-        const isMuted = execSync("osascript -e 'output muted of (get volume settings)'", { timeout: 1000 })
-          .toString().trim();
-        wasMutedBeforeRecording = isMuted === 'true';
-        if (!wasMutedBeforeRecording) {
-          execSync("osascript -e 'set volume with output muted'");
-        }
+      const vol = execSync("osascript -e 'output volume of (get volume settings)'", { timeout: 1000 }).toString().trim();
+      savedSystemVolume = parseInt(vol, 10) || null;
+      execSync("osascript -e 'set volume output volume 0'", { timeout: 1000 });
+    } else if (isWin) {
+      const out = execSync(`powershell -NoProfile -Command "${winAudioCmd('getVol')}"`, { timeout: 3000 }).toString().trim();
+      const [volStr, mutedStr] = out.split(',');
+      savedSystemVolume = parseInt(volStr, 10);
+      savedSystemMuted = mutedStr?.trim() === 'True';
+      if (isNaN(savedSystemVolume)) { savedSystemVolume = null; return; }
+      execSync(`powershell -NoProfile -Command "${winAudioCmd('mute')}"`, { timeout: 3000 });
+    }
+  } catch (e) {
+    console.error('[Mute] failed:', e);
+  }
+}
+
+function restoreSystemAudio() {
+  if (savedSystemVolume == null) return;
+  try {
+    if (isMac) {
+      execSync(`osascript -e 'set volume output volume ${savedSystemVolume}'`, { timeout: 1000 });
+    } else if (isWin) {
+      if (savedSystemMuted) {
+        // Was already muted — leave it muted
       } else {
-        if (!wasMutedBeforeRecording) {
-          execSync("osascript -e 'set volume without output muted'");
-        }
-      }
-    } else if (process.platform === 'linux') {
-      if (mute) {
-        try {
-          const state = execSync('pactl get-sink-mute @DEFAULT_SINK@', { timeout: 1000 }).toString().trim();
-          wasMutedBeforeRecording = state.includes('yes');
-          if (!wasMutedBeforeRecording) execSync('pactl set-sink-mute @DEFAULT_SINK@ 1');
-        } catch {}
-      } else {
-        if (!wasMutedBeforeRecording) {
-          try { execSync('pactl set-sink-mute @DEFAULT_SINK@ 0'); } catch {}
-        }
+        execSync(`powershell -NoProfile -Command "${winAudioCmd('unmute')}"`, { timeout: 3000 });
       }
     }
-    // Windows: no reliable silent mute command, skip for now
-  } catch (e: any) {
-    console.error('[AutoMute] error:', e.message);
+  } catch (e) {
+    console.error('[Unmute] failed:', e);
   }
+  savedSystemVolume = null;
+  savedSystemMuted = false;
 }
 
 // ─── Auto-Dictionary: Extract Proper Nouns ──────────────────────────────────
@@ -161,7 +204,7 @@ tell application "System Events"
   set fieldVal to ""
   ${enableL1 ? `
   try
-    set focusEl to focused UI element of fp
+    set focusEl to value of attribute "AXFocusedUIElement" of fp
     try
       set elRole to value of attribute "AXRole" of focusEl
     end try
@@ -385,7 +428,9 @@ function captureFullContext(config: Record<string, any>): CapturedContext {
 
   if (l0Enabled) {
     if (isMac) {
-      const hasAccessibility = l1Enabled && systemPreferences.isTrustedAccessibilityClient(false);
+      const accessibilityGranted = systemPreferences.isTrustedAccessibilityClient(false);
+      const hasAccessibility = l1Enabled && accessibilityGranted;
+      if (l1Enabled && !accessibilityGranted) console.warn('[Context] L1 enabled but accessibility permission not granted');
       ctx = captureContextMac(hasAccessibility);
     } else if (process.platform === 'win32') {
       ctx = captureContextWin();
@@ -419,23 +464,25 @@ function captureFullContext(config: Record<string, any>): CapturedContext {
 
 /** Start screenshot + OCR in background (returns promise) */
 async function captureScreenAndOcr(config: Record<string, any>): Promise<{ text: string; screenshot?: string } | null> {
+  const model = config.contextOcrModel || 'Qwen/Qwen2.5-VL-32B-Instruct';
   try {
     const sources = await desktopCapturer.getSources({
       types: ['screen'],
       thumbnailSize: { width: 1280, height: 720 },
     });
-    if (!sources.length) return null;
+    if (!sources.length) { console.warn('[OCR] no screen sources'); return null; }
 
     const thumbnail = sources[0].thumbnail;
     const jpegBuffer = thumbnail.toJPEG(80);
     const base64 = jpegBuffer.toString('base64');
     const dataUrl = `data:image/jpeg;base64,${base64}`;
 
-    // Send to VLM for analysis
+    const t0 = Date.now();
     const ocrResult = await llmService.analyzeScreenshot(dataUrl, config);
+    console.log(`[OCR] ${model} → ${Date.now() - t0}ms, ${ocrResult.length} chars`);
     return { text: ocrResult, screenshot: dataUrl };
   } catch (e: any) {
-    console.error('[Context OCR] error:', e.message);
+    console.error('[OCR] error:', e.message);
     return null;
   }
 }
@@ -462,6 +509,7 @@ function createMainWindow() {
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
@@ -500,7 +548,8 @@ function createOverlayWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    show: false,
+    show: true,
+    opacity: 0,
   });
 
   const url = isDev ? 'http://localhost:5173/#/overlay' : undefined;
@@ -526,6 +575,45 @@ function setupPermissions() {
     if (permission === 'media') return true;
     return false;
   });
+}
+
+// ─── App Menu ────────────────────────────────────────────────────────────────
+
+function setupAppMenu() {
+  const devTools = isDev ? [
+    { type: 'separator' as const },
+    { role: 'toggleDevTools' as const },
+    { role: 'forceReload' as const },
+  ] : [];
+
+  const template: Electron.MenuItemConstructorOptions[] = [
+    ...(isMac ? [{ role: 'appMenu' as const }] : []),
+    {
+      label: 'View',
+      submenu: [
+        { role: 'resetZoom' as const },
+        { role: 'zoomIn' as const },
+        { role: 'zoomOut' as const },
+        ...devTools,
+      ],
+    },
+    {
+      role: 'editMenu' as const,
+    },
+    {
+      role: 'windowMenu' as const,
+    },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+
+  // Keyboard shortcut: Cmd+Option+I (dev only)
+  if (isDev) {
+    globalShortcut.register('CommandOrControl+Option+I', () => {
+      const win = BrowserWindow.getFocusedWindow();
+      win?.webContents.toggleDevTools();
+    });
+  }
 }
 
 // ─── System Tray ────────────────────────────────────────────────────────────
@@ -557,17 +645,163 @@ function createTray() {
   tray.on('click', () => { mainWindow?.show(); mainWindow?.focus(); });
 }
 
+// ─── Fn Key Monitor (macOS only) ─────────────────────────────────────────────
+
+let fnMonitorProcess: ChildProcess | null = null;
+
+function getFnMonitorPath(): string {
+  if (isDev) {
+    return path.join(app.getAppPath(), 'native', 'fn-monitor');
+  }
+  // In packaged app, the binary is in the Resources folder
+  return path.join(process.resourcesPath, 'native', 'fn-monitor');
+}
+
+function startFnMonitor() {
+  stopFnMonitor();
+  if (!isMac) return;
+
+  // Fn monitor requires Accessibility permission
+  if (!systemPreferences.isTrustedAccessibilityClient(false)) {
+    console.warn('[FnMonitor] skipped — Accessibility permission not granted');
+    return;
+  }
+
+  const binPath = getFnMonitorPath();
+  try {
+    fnMonitorProcess = spawn(binPath, [], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const rl = readline.createInterface({ input: fnMonitorProcess.stdout! });
+
+    let fnHeld = false;
+    const fnComboShortcuts: string[] = []; // tracks currently registered Fn+X shortcuts
+
+    function registerFnCombos() {
+      unregisterFnCombos();
+      const hotkey = configStore.get('globalHotkey') || '';
+      const pttKey = configStore.get('pushToTalkKey') || '';
+
+      // Register the non-Fn part as a temporary globalShortcut while Fn is held
+      if (hotkey.startsWith('Fn+')) {
+        const rest = hotkey.slice(3);
+        try {
+          globalShortcut.register(rest, toggleRecording);
+          fnComboShortcuts.push(rest);
+        } catch (e) { console.error('[FnCombo] register failed:', rest, e); }
+      }
+      if (pttKey.startsWith('Fn+')) {
+        const rest = pttKey.slice(3);
+        if (!fnComboShortcuts.includes(rest)) {
+          try {
+            globalShortcut.register(rest, () => {
+              const inputMode = configStore.get('inputMode') || 'toggle';
+              if (inputMode === 'pushToTalk') toggleRecording();
+            });
+            fnComboShortcuts.push(rest);
+          } catch (e) { console.error('[FnCombo] register failed:', rest, e); }
+        }
+      }
+    }
+
+    function unregisterFnCombos() {
+      for (const key of fnComboShortcuts) {
+        try { globalShortcut.unregister(key); } catch (_) {}
+      }
+      fnComboShortcuts.length = 0;
+    }
+
+    rl.on('line', (line: string) => {
+      const trimmed = line.trim();
+
+      // Broadcast Fn events to all windows (for HotkeyCapture detection)
+      if (trimmed === 'fn-down' || trimmed === 'fn-up') {
+        for (const win of BrowserWindow.getAllWindows()) {
+          win.webContents.send('fn-key-event', trimmed);
+        }
+      }
+
+      // Track Fn state
+      if (trimmed === 'fn-down') fnHeld = true;
+      if (trimmed === 'fn-up') fnHeld = false;
+
+      // Skip hotkey triggers while shortcuts are suspended (e.g. during hotkey capture)
+      if (shortcutsSuspended) return;
+
+      const hotkey = configStore.get('globalHotkey') || '';
+      const pttKey = configStore.get('pushToTalkKey') || '';
+      const inputMode = configStore.get('inputMode') || 'toggle';
+
+      if (trimmed === 'fn-down') {
+        // Solo Fn hotkeys — trigger immediately on Fn press
+        if (hotkey === 'Fn') toggleRecording();
+        if (inputMode === 'pushToTalk' && pttKey === 'Fn' && !isRecording) toggleRecording();
+
+        // Fn+X combos — register the X part as temporary shortcut while Fn held
+        const hasFnCombo = [hotkey, pttKey].some((k) => k.startsWith('Fn+'));
+        if (hasFnCombo) registerFnCombos();
+      }
+
+      if (trimmed === 'fn-up') {
+        // Solo Fn push-to-talk release
+        if (inputMode === 'pushToTalk' && pttKey === 'Fn' && isRecording) toggleRecording();
+
+        // Clean up Fn+X combo shortcuts
+        unregisterFnCombos();
+
+        // Re-register normal shortcuts that may have been displaced
+        registerShortcuts();
+      }
+    });
+
+    fnMonitorProcess.stderr?.on('data', (data: Buffer) => {
+      console.error('[FnMonitor]', data.toString().trim());
+    });
+
+    fnMonitorProcess.on('exit', (code) => {
+      console.log('[FnMonitor] exited with code', code);
+      fnMonitorProcess = null;
+    });
+
+    console.log('[FnMonitor] started');
+  } catch (e) {
+    console.error('[FnMonitor] failed to start:', e);
+  }
+}
+
+function stopFnMonitor() {
+  if (fnMonitorProcess) {
+    fnMonitorProcess.kill();
+    fnMonitorProcess = null;
+  }
+}
+
+function needsFnMonitor(): boolean {
+  if (!isMac) return false;
+  const hotkey = configStore.get('globalHotkey') || '';
+  const pttKey = configStore.get('pushToTalkKey') || '';
+  const pasteKey = configStore.get('pasteLastKey') || '';
+  return [hotkey, pttKey, pasteKey].some((k) => k === 'Fn' || k.startsWith('Fn+'));
+}
+
 // ─── Global Shortcut ────────────────────────────────────────────────────────
 
 function registerShortcuts() {
   globalShortcut.unregisterAll();
 
   const key = configStore.get('globalHotkey') || 'CommandOrControl+Shift+Space';
-  try {
-    globalShortcut.register(key, toggleRecording);
-    console.log('[Shortcut] registered:', key);
-  } catch (e) {
-    console.error('[Shortcut] register failed:', key, e);
+
+  // Fn and Fn+X combos are handled by native monitor, not globalShortcut
+  if (key !== 'Fn' && !key.startsWith('Fn+')) {
+    try {
+      globalShortcut.register(key, toggleRecording);
+      console.log('[Shortcut] registered:', key);
+    } catch (e) {
+      console.error('[Shortcut] register failed:', key, e);
+    }
+  }
+
+  // Always start Fn monitor on macOS (needed for hotkey capture + Fn hotkey)
+  if (isMac) {
+    startFnMonitor();
   }
 }
 
@@ -575,36 +809,44 @@ function toggleRecording() {
   const cfg = configStore.getAll();
   isRecording = !isRecording;
 
-  if (isRecording) {
-    // Starting recording: capture context BEFORE overlay steals focus
-    lastCapturedContext = captureFullContext(cfg);
-    console.log('[Context] captured:', JSON.stringify({
-      app: lastCapturedContext.appName,
-      window: lastCapturedContext.windowTitle,
-      role: lastCapturedContext.fieldRole,
-      hasSelected: !!lastCapturedContext.selectedText,
-      hasField: !!lastCapturedContext.fieldText,
-      url: lastCapturedContext.url,
-    }));
-
-    // Start OCR in background if enabled (runs while user speaks)
-    if (cfg.contextOcrEnabled) {
-      ocrPromise = captureScreenAndOcr(cfg);
-    } else {
-      ocrPromise = null;
-    }
-
-    // Auto-mute system audio
-    if (cfg.autoMuteOnRecord) setSystemMute(true);
-  } else {
-    // Stopping recording: unmute
-    if (cfg.autoMuteOnRecord) setSystemMute(false);
+  // Show overlay + send toggle IMMEDIATELY for instant feedback
+  if (overlayWindow) {
+    const activeDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    const { x: dX, y: dY, width: dW, height: dH } = activeDisplay.workArea;
+    const pillW = 140, pillH = 40;
+    overlayWindow.setBounds({
+      width: pillW, height: pillH,
+      x: dX + Math.round((dW - pillW) / 2),
+      y: dY + dH - pillH - 8,
+    });
+    overlayWindow.setOpacity(1);
+    overlayWindow.webContents.send('toggle-recording');
   }
 
-  // Only send to overlay — main window recording is handled by its own RecordButton click
-  if (overlayWindow) {
-    overlayWindow.webContents.send('toggle-recording');
-    if (!overlayWindow.isVisible()) overlayWindow.showInactive();
+  // Mute/restore system audio if enabled
+  if (isRecording && cfg.muteSystemAudio) {
+    muteSystemAudio();
+  } else if (!isRecording && savedSystemVolume != null) {
+    restoreSystemAudio();
+  }
+
+  // Defer context capture so overlay + recording IPC is delivered and rendered first
+  if (isRecording) {
+    setTimeout(() => {
+      lastCapturedContext = captureFullContext(cfg);
+
+      const ctx = lastCapturedContext;
+      console.log(`[Context] app=${ctx.appName}${ctx.url ? ' url=' + ctx.url.slice(0, 60) : ''}`);
+      console.log(`[Context] field=${ctx.fieldRole || '—'} label=${ctx.fieldLabel || '—'} cursor=${ctx.cursorPosition ?? '—'} chars=${ctx.numberOfCharacters ?? '—'}`);
+      console.log(`[Context] selected=${ctx.selectedText ? `"${ctx.selectedText.slice(0, 80)}"` : '—'} | fieldText=${ctx.fieldText ? ctx.fieldText.length + 'c' : '—'} | clipboard=${ctx.clipboardText ? ctx.clipboardText.length + 'c' : '—'}`);
+
+      // Start OCR in background if enabled (runs while user speaks)
+      if (cfg.contextOcrEnabled) {
+        ocrPromise = captureScreenAndOcr(cfg);
+      } else {
+        ocrPromise = null;
+      }
+    }, 50);
   }
 }
 
@@ -633,6 +875,18 @@ function setupIPC() {
 
   // Shortcuts re-registration
   ipcMain.handle('shortcuts:reregister', () => {
+    registerShortcuts();
+    return true;
+  });
+
+  ipcMain.handle('shortcuts:suspend', () => {
+    globalShortcut.unregisterAll();
+    shortcutsSuspended = true;
+    return true;
+  });
+
+  ipcMain.handle('shortcuts:resume', () => {
+    shortcutsSuspended = false;
     registerShortcuts();
     return true;
   });
@@ -710,7 +964,6 @@ function setupIPC() {
 
       // Unmute after pipeline completes (in case recording stopped during pipeline)
       isRecording = false;
-      if (cfg.autoMuteOnRecord) setSystemMute(false);
 
       return {
         success: true,
@@ -722,7 +975,6 @@ function setupIPC() {
       };
     } catch (e: any) {
       isRecording = false;
-      if (cfg.autoMuteOnRecord) setSystemMute(false);
       return { success: false, error: e.message, sttProvider, llmProvider, sttModel, llmModel, sttDurationMs, llmDurationMs };
     }
   });
@@ -751,6 +1003,25 @@ function setupIPC() {
 
       // Small delay to ensure clipboard is updated
       await new Promise((r) => setTimeout(r, 50));
+
+      // Re-activate the original target app before pasting (in case overlay click stole activation)
+      if (isMac) {
+        const bid = lastCapturedContext?.bundleId;
+        const targetApp = lastCapturedContext?.appName;
+        if (bid) {
+          try {
+            execSync(`osascript -e 'tell application id "${bid}" to activate'`, { timeout: 1500 });
+            await new Promise((r) => setTimeout(r, 120));
+          } catch {
+            if (targetApp) {
+              try {
+                execSync(`osascript -e 'tell application "${targetApp}" to activate'`, { timeout: 1500 });
+                await new Promise((r) => setTimeout(r, 120));
+              } catch {}
+            }
+          }
+        }
+      }
 
       // Simulate paste keystroke
       if (isMac) {
@@ -786,26 +1057,32 @@ function setupIPC() {
   });
   ipcMain.handle('window:close', () => mainWindow?.hide());
   ipcMain.handle('window:hideOverlay', () => {
+    isRecording = false;
+    suppressActivateUntil = Date.now() + 600;
     if (!overlayWindow) return;
-    overlayWindow.hide();
-    // Reset overlay size back to pill
+    overlayWindow.setOpacity(0);
+    // Hide the app so macOS deactivates it — next Dock click will trigger 'activate' and show mainWindow
+    if (isMac) app.hide();
+    // Reset overlay size back to pill (use primary display as fallback, will reposition on next show)
     const display = screen.getPrimaryDisplay();
-    const { width: screenW, height: screenH } = display.workAreaSize;
+    const { x: dX, y: dY, width: dW, height: dH } = display.workArea;
     const pillW = 140, pillH = 40;
     overlayWindow.setBounds({
       width: pillW, height: pillH,
-      x: Math.round((screenW - pillW) / 2),
-      y: screenH - pillH - 8,
+      x: dX + Math.round((dW - pillW) / 2),
+      y: dY + dH - pillH - 8,
     });
   });
   ipcMain.handle('window:resizeOverlay', (_e, w: number, h: number) => {
     if (!overlayWindow) return;
-    const display = screen.getPrimaryDisplay();
-    const { width: screenW, height: screenH } = display.workAreaSize;
+    // Use the display the overlay is currently on
+    const overlayBounds = overlayWindow.getBounds();
+    const display = screen.getDisplayNearestPoint({ x: overlayBounds.x, y: overlayBounds.y });
+    const { x: dX, y: dY, width: dW, height: dH } = display.workArea;
     overlayWindow.setBounds({
       width: w, height: h,
-      x: Math.round((screenW - w) / 2),
-      y: screenH - h - 8,
+      x: dX + Math.round((dW - w) / 2),
+      y: dY + dH - h - 8,
     });
   });
 
@@ -826,9 +1103,11 @@ function setupIPC() {
         if (ocrResult) {
           lastCapturedContext.screenContext = ocrResult.text;
           lastCapturedContext.screenshotDataUrl = ocrResult.screenshot;
+        } else {
+          console.warn('[OCR] result empty, skipping context merge');
         }
       } catch (e: any) {
-        console.error('[Context] OCR await error:', e.message);
+        console.error('[OCR] await error:', e.message);
       }
       ocrPromise = null;
     }
@@ -848,6 +1127,13 @@ function setupIPC() {
   ipcMain.handle('context:checkScreenPermission', () => {
     if (!isMac) return 'granted';
     return systemPreferences.getMediaAccessStatus('screen');
+  });
+
+  ipcMain.handle('context:openScreenPrefs', () => {
+    if (isMac) {
+      require('child_process').exec('open "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"');
+    }
+    return true;
   });
 
   ipcMain.handle('context:captureAndOcr', async () => {
@@ -872,6 +1158,12 @@ function setupIPC() {
     }
   });
 }
+
+  // Audio devices
+  ipcMain.handle('audio:devices', async () => {
+    // Renderer enumerates devices via navigator.mediaDevices; this is a fallback
+    return [];
+  });
 
 // ─── Auto Updater ──────────────────────────────────────────────────────────
 
@@ -922,12 +1214,19 @@ app.whenReady().then(() => {
   llmService = new LLMService();
 
   setupPermissions();
+
+  // macOS: request Accessibility permission upfront (needed for context capture, Fn key, type-at-cursor)
+  if (isMac) {
+    systemPreferences.isTrustedAccessibilityClient(true); // triggers system prompt if not granted
+  }
+
   createMainWindow();
   createOverlayWindow();
   createTray();
   registerShortcuts();
   setupIPC();
   if (!isDev) setupAutoUpdater();
+  setupAppMenu();
 
   // macOS Dock menu
   if (isMac && app.dock) {
@@ -940,12 +1239,13 @@ app.whenReady().then(() => {
   }
 
   app.on('activate', () => {
-    // Don't show main window during recording (overlay is active)
-    if (!isRecording) mainWindow?.show();
+    // Don't show main window while overlay is visible, during recording, or right after overlay hides
+    if (isRecording || (overlayWindow?.getOpacity() ?? 0) > 0 || Date.now() < suppressActivateUntil) return;
+    mainWindow?.show();
   });
 });
 
-app.on('will-quit', () => globalShortcut.unregisterAll());
+app.on('will-quit', () => { globalShortcut.unregisterAll(); stopFnMonitor(); });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

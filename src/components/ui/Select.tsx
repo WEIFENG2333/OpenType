@@ -49,7 +49,10 @@ export function Select({ label, hint, value, onChange, options, className = '', 
         setOpen(false);
       }
     };
-    const onScroll = () => setOpen(false);
+    const onScroll = (e: Event) => {
+      if (dropdownRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
     document.addEventListener('mousedown', onClickOutside);
     window.addEventListener('scroll', onScroll, true);
     return () => {
@@ -93,7 +96,7 @@ export function Select({ label, hint, value, onChange, options, className = '', 
             <button
               key={o.value}
               onClick={() => handleSelect(o.value)}
-              className={`w-full text-left px-3.5 py-2 text-sm transition-colors
+              className={`w-full text-left px-3.5 py-2 text-sm transition-colors truncate
                 ${o.value === value
                   ? 'bg-brand-50 dark:bg-brand-600/15 text-brand-600 dark:text-brand-400'
                   : 'text-surface-800 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800'}`}

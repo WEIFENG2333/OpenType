@@ -12,7 +12,8 @@
     "dev": "vite",
     "build:frontend": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
-    "build": "npm run build:frontend && npm run build:electron",
+    "build:native": "swiftc -O -o native/fn-monitor native/fn-monitor.swift -framework Cocoa 2>/dev/null || true",
+    "build": "npm run build:native && npm run build:frontend && npm run build:electron",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && npm run build:electron && electron .\"",
     "electron:build": "npm run build && electron-builder",
     "electron:build:linux": "npm run build && electron-builder --linux",
@@ -32,6 +33,15 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "native/fn-monitor",
+        "to": "native/fn-monitor",
+        "filter": [
+          "fn-monitor"
+        ]
+      }
     ],
     "mac": {
       "category": "public.app-category.productivity",

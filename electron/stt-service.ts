@@ -18,6 +18,10 @@ export class STTService {
       baseUrl = config.siliconflowBaseUrl;
       apiKey = config.siliconflowApiKey;
       model = config.siliconflowSttModel;
+    } else if (provider === 'openai-compatible') {
+      baseUrl = config.compatibleBaseUrl;
+      apiKey = config.compatibleApiKey;
+      model = config.compatibleSttModel;
     } else {
       baseUrl = config.openaiBaseUrl;
       apiKey = config.openaiApiKey;
@@ -31,7 +35,7 @@ export class STTService {
     formData.append('file', new Blob([ab], { type: 'audio/wav' }), 'recording.wav');
     formData.append('model', model);
 
-    const lang = options?.language ?? config.inputLanguage;
+    const lang = options?.language;
     if (lang && lang !== 'auto') formData.append('language', lang);
 
     const url = `${baseUrl}/audio/transcriptions`;

@@ -39,12 +39,6 @@ function buildCleanupPrompt(config: AppConfig, context?: { appName?: string }): 
   parts.push(`8. Do NOT summarize or shorten beyond removing fillers/repetitions`);
   parts.push(`9. Output the cleaned text DIRECTLY — no explanations, no quotes, no prefixes`);
 
-  // Output language
-  const outLang = config.outputLanguage;
-  if (outLang && outLang !== 'auto') {
-    parts.push(`10. Output the text in ${outLang}, translating if needed while keeping it natural and idiomatic`);
-  }
-
   // Personal dictionary
   if (config.personalDictionary.length > 0) {
     parts.push(`\n## Personal Dictionary (use these exact spellings when recognized):\n${config.personalDictionary.join(', ')}`);
@@ -146,6 +140,13 @@ function getProviderOpts(config: AppConfig): Omit<CallOptions, 'messages'> {
       },
     };
   }
+  if (p === 'openai-compatible') {
+    return {
+      baseUrl: config.compatibleBaseUrl,
+      apiKey: config.compatibleApiKey,
+      model: config.compatibleLlmModel,
+    };
+  }
   return {
     baseUrl: config.openaiBaseUrl,
     apiKey: config.openaiApiKey,
@@ -218,6 +219,12 @@ export async function testLLMConnection(
       model: config.openrouterLlmModel,
       extraHeaders: { 'HTTP-Referer': 'https://opentype.app', 'X-Title': 'OpenType' },
     };
+  } else if (provider === 'openai-compatible') {
+    opts = {
+      baseUrl: config.compatibleBaseUrl,
+      apiKey: config.compatibleApiKey,
+      model: config.compatibleLlmModel,
+    };
   } else {
     opts = {
       baseUrl: config.openaiBaseUrl,
@@ -226,12 +233,124 @@ export async function testLLMConnection(
     };
   }
 
-  return callChatCompletion({
+  const t0 = Date.now();
+  const result = await callChatCompletion({
     ...opts,
     messages: [
-      { role: 'system', content: 'Reply with exactly: "Connection successful!"' },
+      { role: 'system', content: 'Reply with exactly: "ok"' },
       { role: 'user', content: 'Test' },
     ],
-    maxTokens: 20,
+    maxTokens: 10,
   });
+  const ms = Date.now() - t0;
+  if (result.success) {
+    return { success: true, text: `${ms}ms` };
+  }
+  return result;
+}
+
+export async function testVLMConnection(
+  provider: string,
+  config: AppConfig,
+): Promise<LLMResult> {
+  const model = config.contextOcrModel || 'Qwen/Qwen2.5-VL-32B-Instruct';
+  let baseUrl: string;
+  let apiKey: string;
+  let extraHeaders: Record<string, string> | undefined;
+
+  if (provider === 'siliconflow') {
+    baseUrl = config.siliconflowBaseUrl;
+    apiKey = config.siliconflowApiKey;
+  } else if (provider === 'openrouter') {
+    baseUrl = config.openrouterBaseUrl;
+    apiKey = config.openrouterApiKey;
+    extraHeaders = { 'HTTP-Referer': 'https://opentype.app', 'X-Title': 'OpenType' };
+  } else if (provider === 'openai-compatible') {
+    baseUrl = config.compatibleBaseUrl;
+    apiKey = config.compatibleApiKey;
+  } else {
+    baseUrl = config.openaiBaseUrl;
+    apiKey = config.openaiApiKey;
+  }
+
+  const t0 = Date.now();
+  const result = await callChatCompletion({
+    baseUrl, apiKey, model,
+    messages: [{ role: 'user', content: 'Say ok' }],
+    maxTokens: 10,
+    extraHeaders,
+  });
+  const ms = Date.now() - t0;
+  if (result.success) return { success: true, text: `${ms}ms` };
+  return result;
+}
+
+// ─── STT Connection Test ─────────────────────────────────────────────────────
+
+export async function testSTTConnection(
+  provider: string,
+  config: AppConfig,
+): Promise<LLMResult> {
+  let baseUrl: string;
+  let apiKey: string;
+  let model: string;
+
+  if (provider === 'siliconflow') {
+    baseUrl = config.siliconflowBaseUrl;
+    apiKey = config.siliconflowApiKey;
+    model = config.siliconflowSttModel;
+  } else if (provider === 'openai-compatible') {
+    baseUrl = config.compatibleBaseUrl;
+    apiKey = config.compatibleApiKey;
+    model = config.compatibleSttModel;
+  } else {
+    baseUrl = config.openaiBaseUrl;
+    apiKey = config.openaiApiKey;
+    model = config.openaiSttModel;
+  }
+
+  if (!apiKey) return { success: false, error: 'No API key configured' };
+
+  const form = new FormData();
+  form.append('file', new Blob([makeSilentWav(0.5)], { type: 'audio/wav' }), 'test.wav');
+  form.append('model', model);
+
+  const t0 = Date.now();
+  try {
+    const res = await fetch(`${baseUrl}/audio/transcriptions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+    });
+    const ms = Date.now() - t0;
+
+    if (res.ok) return { success: true, text: `${ms}ms` };
+
+    const body = await res.text();
+    return { success: false, error: `${res.status}: ${body.slice(0, 300)}` };
+  } catch (e: any) {
+    return { success: false, error: e.message };
+  }
+}
+
+/** PCM 16-bit mono WAV, 16 kHz, `durationSec` seconds of silence. */
+function makeSilentWav(durationSec: number): ArrayBuffer {
+  const sampleRate = 16000;
+  const numSamples = Math.floor(sampleRate * durationSec);
+  const dataBytes = numSamples * 2; // 16-bit = 2 bytes per sample
+  const buf = new ArrayBuffer(44 + dataBytes);
+  const v = new DataView(buf);
+  const ascii = (off: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)); };
+  ascii(0, 'RIFF'); v.setUint32(4, 36 + dataBytes, true);
+  ascii(8, 'WAVE'); ascii(12, 'fmt ');
+  v.setUint32(16, 16, true);        // fmt chunk size
+  v.setUint16(20, 1, true);         // PCM
+  v.setUint16(22, 1, true);         // mono
+  v.setUint32(24, sampleRate, true);
+  v.setUint32(28, sampleRate * 2, true); // byte rate
+  v.setUint16(32, 2, true);         // block align
+  v.setUint16(34, 16, true);        // bits per sample
+  ascii(36, 'data'); v.setUint32(40, dataBytes, true);
+  // samples are already 0 (silence) from ArrayBuffer initialization
+  return buf;
 }

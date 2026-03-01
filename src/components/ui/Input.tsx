@@ -38,7 +38,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
         <button
           type="button"
           onClick={() => setVisible(!visible)}
-          className="absolute right-2.5 top-[calc(50%+2px)] -translate-y-1/2 text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 p-1"
+          className="absolute right-2.5 bottom-[7px] text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 p-1"
           tabIndex={-1}
         >
           {visible ? (

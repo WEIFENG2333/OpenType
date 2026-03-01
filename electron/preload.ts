@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Shortcuts
   reregisterShortcuts: () => ipcRenderer.invoke('shortcuts:reregister'),
+  suspendShortcuts: () => ipcRenderer.invoke('shortcuts:suspend'),
+  resumeShortcuts: () => ipcRenderer.invoke('shortcuts:resume'),
 
   // STT
   transcribe: (buf: ArrayBuffer, opts?: any) => ipcRenderer.invoke('stt:transcribe', buf, opts),
@@ -80,6 +82,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkAccessibility: () => ipcRenderer.invoke('context:checkAccessibility'),
   requestAccessibility: () => ipcRenderer.invoke('context:requestAccessibility'),
   checkScreenPermission: () => ipcRenderer.invoke('context:checkScreenPermission'),
+  openScreenPrefs: () => ipcRenderer.invoke('context:openScreenPrefs'),
   captureAndOcr: () => ipcRenderer.invoke('context:captureAndOcr'),
 
   // Events
@@ -98,5 +101,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDictionaryAutoAdded: (cb: (words: string[]) => void) => {
     ipcRenderer.on('dictionary:auto-added', (_e, words) => cb(words));
     return () => { ipcRenderer.removeAllListeners('dictionary:auto-added'); };
+  },
+  onFnKeyEvent: (cb: (event: string) => void) => {
+    ipcRenderer.on('fn-key-event', (_e, event) => cb(event));
+    return () => { ipcRenderer.removeAllListeners('fn-key-event'); };
   },
 });

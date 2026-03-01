@@ -5,17 +5,19 @@
 
 // ─── Provider Definitions ───────────────────────────────────────────────────
 
-export type STTProviderID = 'siliconflow' | 'openai';
-export type LLMProviderID = 'siliconflow' | 'openrouter' | 'openai';
+export type STTProviderID = 'siliconflow' | 'openai' | 'openai-compatible';
+export type LLMProviderID = 'siliconflow' | 'openrouter' | 'openai' | 'openai-compatible';
 
 export interface ProviderMeta {
   id: string;
   name: string;
   supportsSTT: boolean;
   supportsLLM: boolean;
+  fixedBaseUrl: boolean;   // true = hide Base URL field in UI (URL is canonical)
   defaultBaseUrl: string;
   sttModels: string[];
   llmModels: string[];
+  vlmModels: string[];     // Vision Language Models (for screen OCR)
 }
 
 export const PROVIDERS: ProviderMeta[] = [
@@ -24,16 +26,32 @@ export const PROVIDERS: ProviderMeta[] = [
     name: 'SiliconFlow',
     supportsSTT: true,
     supportsLLM: true,
+    fixedBaseUrl: true,
     defaultBaseUrl: 'https://api.siliconflow.cn/v1',
-    sttModels: ['FunAudioLLM/SenseVoiceSmall'],
+    sttModels: [
+      'FunAudioLLM/SenseVoiceSmall',              // 轻量·极快
+    ],
     llmModels: [
-      'Qwen/Qwen3-235B-A22B-Instruct-2507',
-      'Qwen/Qwen3-30B-A3B-Instruct-2507',
-      'deepseek-ai/DeepSeek-V3.2',
-      'deepseek-ai/DeepSeek-V3',
-      'deepseek-ai/DeepSeek-R1',
-      'Qwen/Qwen2.5-7B-Instruct',
-      'THUDM/GLM-4-9B-0414',
+      // ── 高性能 ──
+      'Pro/moonshotai/Kimi-K2.5',                 // 旗舰 MoE·1T 参数
+      'Pro/deepseek-ai/DeepSeek-V3.2',            // 高性能通用
+      'Pro/deepseek-ai/DeepSeek-R1',              // 深度推理
+      'Qwen/Qwen3-235B-A22B-Instruct-2507',       // Qwen 旗舰 MoE
+      // ── 轻量 ──
+      'moonshotai/Kimi-K2-Instruct-0905',         // 开源 MoE·强 Agent
+      'zai-org/GLM-4.6',                          // 中文优化·200K 上下文
+      'Qwen/Qwen3-8B',                            // 轻量·高质
+      'Qwen/Qwen2.5-7B-Instruct',                 // 经济通用
+    ],
+    vlmModels: [
+      // ── 高性能 ──
+      'Qwen/Qwen3-VL-32B-Instruct',               // 旗舰视觉
+      'Qwen/Qwen2.5-VL-72B-Instruct',
+      'Qwen/Qwen2.5-VL-32B-Instruct',
+      'zai-org/GLM-4.6V',                         // GLM 视觉
+      // ── 轻量 ──
+      'Qwen/Qwen3-VL-8B-Instruct',
+      'Pro/Qwen/Qwen2.5-VL-7B-Instruct',
     ],
   },
   {
@@ -41,16 +59,30 @@ export const PROVIDERS: ProviderMeta[] = [
     name: 'OpenRouter',
     supportsSTT: false,
     supportsLLM: true,
+    fixedBaseUrl: true,
     defaultBaseUrl: 'https://openrouter.ai/api/v1',
     sttModels: [],
     llmModels: [
+      // ── 高性能 ──
+      'anthropic/claude-opus-4.6',               // Anthropic 旗舰
+      'google/gemini-3.1-pro',                   // Google 旗舰
+      'openai/gpt-5.2',                          // OpenAI 旗舰
+      'deepseek/deepseek-v3.2',                  // DeepSeek 高性能
+      'x-ai/grok-4-fast',                        // xAI 高速 Agent
+      // ── 轻量 ──
+      'anthropic/claude-sonnet-4.6',             // 性价比首选
+      'google/gemini-2.5-flash',                 // 快速通用
+      'openai/gpt-5-mini',                       // 轻量 GPT-5
+      'deepseek/deepseek-r1',                    // 推理·低成本
+    ],
+    vlmModels: [
+      // ── 高性能 ──
+      'google/gemini-3.1-pro',
+      'anthropic/claude-opus-4.6',
+      'openai/gpt-5.2',
+      // ── 轻量 ──
       'google/gemini-2.5-flash',
-      'google/gemini-2.5-flash-lite',
-      'deepseek/deepseek-v3.2',
-      'anthropic/claude-sonnet-4.5',
-      'anthropic/claude-haiku-4.5',
-      'openai/gpt-4o',
-      'openai/gpt-4o-mini',
+      'anthropic/claude-sonnet-4.6',
     ],
   },
   {
@@ -58,9 +90,54 @@ export const PROVIDERS: ProviderMeta[] = [
     name: 'OpenAI',
     supportsSTT: true,
     supportsLLM: true,
+    fixedBaseUrl: true,
     defaultBaseUrl: 'https://api.openai.com/v1',
-    sttModels: ['whisper-1', 'gpt-4o-mini-transcribe'],
-    llmModels: ['gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gpt-4o', 'gpt-4o-mini'],
+    sttModels: [
+      'gpt-4o-transcribe',                       // 高性能·最准
+      'gpt-4o-mini-transcribe',                  // 轻量·低成本
+      'whisper-1',                               // 经典稳定
+    ],
+    llmModels: [
+      // ── 高性能 ──
+      'gpt-5.2',                                 // 最新旗舰
+      'gpt-5',                                   // 通用旗舰
+      'o3',                                      // 最强推理
+      // ── 轻量 ──
+      'gpt-5-mini',                              // 轻量 GPT-5
+      'o3-mini',                                 // 轻量推理
+    ],
+    vlmModels: [
+      // ── 高性能 ──
+      'gpt-5.2',
+      'gpt-5',
+      // ── 轻量 ──
+      'gpt-5-mini',
+    ],
+  },
+  {
+    id: 'openai-compatible',
+    name: 'OpenAI 兼容',
+    supportsSTT: true,
+    supportsLLM: true,
+    fixedBaseUrl: false,
+    defaultBaseUrl: '',
+    sttModels: [
+      'gpt-4o-transcribe',
+      'gpt-4o-mini-transcribe',
+      'whisper-1',
+    ],
+    llmModels: [
+      'gpt-5.2',
+      'gpt-5',
+      'o3',
+      'gpt-5-mini',
+      'o3-mini',
+    ],
+    vlmModels: [
+      'gpt-5.2',
+      'gpt-5',
+      'gpt-5-mini',
+    ],
   },
 ];
 
@@ -174,12 +251,18 @@ export interface AppConfig {
   openaiSttModel: string;
   openaiLlmModel: string;
 
+  // OpenAI-Compatible (custom endpoint)
+  compatibleApiKey: string;
+  compatibleBaseUrl: string;
+  compatibleSttModel: string;
+  compatibleLlmModel: string;
+
   // General
   theme: 'system' | 'dark' | 'light';
   uiLanguage: string;           // 'auto', 'en', 'zh'
   launchOnStartup: boolean;
   inputMode: 'push-to-talk' | 'toggle';
-  outputMode: 'cursor' | 'clipboard';
+  alsoWriteClipboard: boolean;
 
   // Hotkey
   globalHotkey: string;
@@ -189,19 +272,14 @@ export interface AppConfig {
   // Audio
   selectedMicrophoneId: string;    // '' = default
   inputVolume: number;             // 0-100
-  recordStartSound: boolean;
-  recordEndSound: boolean;
-  whisperMode: boolean;
+  soundEnabled: boolean;           // play beep on recording start/stop
+  muteSystemAudio: boolean;        // mute system audio during recording (macOS)
+whisperMode: boolean;
   whisperSensitivity: number;      // 0-100
 
   // Tone Rules
   toneRules: ToneRule[];
   defaultTone: TonePreset;
-
-  // Language
-  inputLanguage: string;           // 'auto' or ISO code
-  outputLanguage: string;          // 'auto' = same as input, or language name
-  multiLanguageMix: boolean;
 
   // Privacy
   historyEnabled: boolean;
@@ -218,9 +296,6 @@ export interface AppConfig {
   contextL1Enabled: boolean;       // L1: selected text via Accessibility
   contextOcrEnabled: boolean;      // Screen OCR via VLM
   contextOcrModel: string;         // VLM model for OCR
-
-  // Audio behavior
-  autoMuteOnRecord: boolean;       // mute system audio during recording
 
   // Auto-learning
   autoLearnDictionary: boolean;    // auto-add corrected terms to dictionary
@@ -245,7 +320,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   siliconflowApiKey: '',
   siliconflowBaseUrl: 'https://api.siliconflow.cn/v1',
   siliconflowSttModel: 'FunAudioLLM/SenseVoiceSmall',
-  siliconflowLlmModel: 'Qwen/Qwen2.5-7B-Instruct',
+  siliconflowLlmModel: 'Pro/deepseek-ai/DeepSeek-V3.2',
 
   openrouterApiKey: '',
   openrouterBaseUrl: 'https://openrouter.ai/api/v1',
@@ -253,14 +328,19 @@ export const DEFAULT_CONFIG: AppConfig = {
 
   openaiApiKey: '',
   openaiBaseUrl: 'https://api.openai.com/v1',
-  openaiSttModel: 'whisper-1',
-  openaiLlmModel: 'gpt-4o-mini',
+  openaiSttModel: 'gpt-4o-transcribe',
+  openaiLlmModel: 'gpt-5-mini',
+
+  compatibleApiKey: '',
+  compatibleBaseUrl: '',
+  compatibleSttModel: 'whisper-1',
+  compatibleLlmModel: '',
 
   theme: 'light',
   uiLanguage: 'auto',
   launchOnStartup: false,
   inputMode: 'toggle',
-  outputMode: 'cursor',
+  alsoWriteClipboard: false,
 
   globalHotkey: 'CommandOrControl+Shift+Space',
   pushToTalkKey: 'CommandOrControl+Shift+R',
@@ -268,9 +348,9 @@ export const DEFAULT_CONFIG: AppConfig = {
 
   selectedMicrophoneId: '',
   inputVolume: 80,
-  recordStartSound: true,
-  recordEndSound: true,
-  whisperMode: false,
+  soundEnabled: true,
+  muteSystemAudio: true,
+whisperMode: false,
   whisperSensitivity: 50,
 
   toneRules: [
@@ -285,10 +365,6 @@ export const DEFAULT_CONFIG: AppConfig = {
   ],
   defaultTone: 'professional',
 
-  inputLanguage: 'auto',
-  outputLanguage: 'auto',
-  multiLanguageMix: true,
-
   historyEnabled: true,
   historyRetention: 'forever',
 
@@ -300,9 +376,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   contextL0Enabled: true,
   contextL1Enabled: false,
   contextOcrEnabled: false,
-  contextOcrModel: 'Qwen/Qwen2-VL-7B-Instruct',
+  contextOcrModel: 'Qwen/Qwen2.5-VL-32B-Instruct',
 
-  autoMuteOnRecord: false,
   autoLearnDictionary: true,
 
   personalDictionary: [],

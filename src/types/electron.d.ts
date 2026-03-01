@@ -40,6 +40,8 @@ export interface ElectronAPI {
 
   // ─── Shortcuts ──────────────────────────────────────────
   reregisterShortcuts: () => Promise<boolean>;
+  suspendShortcuts: () => Promise<boolean>;
+  resumeShortcuts: () => Promise<boolean>;
 
   // ─── STT ──────────────────────────────────────────────
   transcribe: (audioBuffer: ArrayBuffer, options?: any) => Promise<{
@@ -120,6 +122,7 @@ export interface ElectronAPI {
   checkAccessibility: () => Promise<'granted' | 'not-determined'>;
   requestAccessibility: () => Promise<boolean>;
   checkScreenPermission: () => Promise<string>;
+  openScreenPrefs: () => Promise<boolean>;
   captureAndOcr: () => Promise<string | null>;
 
   // ─── Events from main process ─────────────────────────
@@ -127,6 +130,7 @@ export interface ElectronAPI {
   onRecordingState: (callback: (state: string) => void) => () => void;
   onNavigate: (callback: (page: string) => void) => () => void;
   onDictionaryAutoAdded: (callback: (words: string[]) => void) => () => void;
+  onFnKeyEvent: (callback: (event: string) => void) => () => void;
 }
 
 declare global {

@@ -107,6 +107,9 @@ export class LLMService {
         extraHeaders: { 'HTTP-Referer': 'https://opentype.app', 'X-Title': 'OpenType' },
       };
     }
+    if (p === 'openai-compatible') {
+      return { baseUrl: config.compatibleBaseUrl, apiKey: config.compatibleApiKey, model: config.compatibleLlmModel };
+    }
     return { baseUrl: config.openaiBaseUrl, apiKey: config.openaiApiKey, model: config.openaiLlmModel };
   }
 
@@ -171,8 +174,6 @@ export class LLMService {
     parts.push(`${ruleNum++}. Do NOT add, interpret, summarize, or rephrase — only clean up. If your output doesn't closely resemble the input, you've done it wrong`);
     parts.push(`${ruleNum++}. Output the cleaned text directly — no quotes, no explanations, no prefixes`);
 
-    if (config.outputLanguage && config.outputLanguage !== 'auto')
-      parts.push(`${ruleNum++}. Output in ${config.outputLanguage}`);
 
     if (config.personalDictionary?.length > 0) {
       const words = config.personalDictionary.map((e: any) => typeof e === 'string' ? e : e.word);
@@ -267,7 +268,7 @@ export class LLMService {
   }
 
   async analyzeScreenshot(dataUrl: string, config: Record<string, any>): Promise<string> {
-    const model = config.contextOcrModel || 'Qwen/Qwen2-VL-7B-Instruct';
+    const model = config.contextOcrModel || 'Qwen/Qwen2.5-VL-32B-Instruct';
     const opts = this.getOpts(config);
 
     const prompt = [
@@ -307,7 +308,10 @@ export class LLMService {
       }),
     });
 
-    if (!res.ok) throw new Error(`VLM ${res.status}`);
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      throw new Error(`VLM ${res.status}: ${errBody.slice(0, 500)}`);
+    }
     const json = await res.json();
     return json.choices?.[0]?.message?.content?.trim() || '';
   }

@@ -5,6 +5,23 @@ import { useConfigStore } from '../stores/configStore';
 import { HistoryItem } from '../types/config';
 import { countWords } from '../utils/wordCount';
 
+function playBeep(freq: number, duration: number, volume = 0.25) {
+  try {
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(volume, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + duration);
+    osc.onended = () => ctx.close();
+  } catch {}
+}
+
 export interface RecorderState {
   status: 'idle' | 'recording' | 'processing';
   duration: number;
@@ -18,6 +35,8 @@ export interface RecorderState {
 export function useRecorder() {
   const config = useConfigStore((s) => s.config);
   const addHistoryItem = useConfigStore((s) => s.addHistoryItem);
+  const configRef = useRef(config);
+  configRef.current = config;
 
   const [state, setState] = useState<RecorderState>({
     status: 'idle',
@@ -61,6 +80,7 @@ export function useRecorder() {
         setState((s) => ({ ...s, audioLevel: level }));
       });
 
+      if (configRef.current.soundEnabled) playBeep(880, 0.12);
       startTimeRef.current = Date.now();
       timerRef.current = window.setInterval(() => {
         setState((s) => ({ ...s, duration: (Date.now() - startTimeRef.current) / 1000 }));
@@ -80,6 +100,7 @@ export function useRecorder() {
 
     const durationMs = Date.now() - startTimeRef.current;
     const gen = generationRef.current;
+    if (configRef.current.soundEnabled) playBeep(520, 0.15);
     setState((s) => ({ ...s, status: 'processing', audioLevel: 0 }));
 
     try {
@@ -99,19 +120,17 @@ export function useRecorder() {
       if (result.success && !result.skipped) {
         const text = result.processedText;
 
-        // Output text based on outputMode
+        // Always type at cursor; optionally also copy to clipboard
         let outputSuccess = false;
         if (window.electronAPI) {
-          if (config.outputMode === 'cursor') {
-            try {
-              const r = await window.electronAPI.typeAtCursor(text);
-              outputSuccess = r.success;
-            } catch {
-              outputSuccess = false;
-            }
+          try {
+            const r = await window.electronAPI.typeAtCursor(text);
+            outputSuccess = r.success;
+          } catch {
+            outputSuccess = false;
           }
-          // Clipboard mode, or cursor mode failed -> copy to clipboard
-          if (!outputSuccess) {
+          // Copy to clipboard if user opted in, or as fallback when typing failed
+          if (config.alsoWriteClipboard || !outputSuccess) {
             await window.electronAPI.writeClipboard(text);
           }
         } else {
@@ -123,7 +142,7 @@ export function useRecorder() {
           status: 'idle',
           rawText: result.rawText,
           processedText: result.processedText,
-          outputFailed: config.outputMode === 'cursor' && !outputSuccess,
+          outputFailed: !outputSuccess,
         }));
 
         // Save to history with full context
@@ -221,6 +240,22 @@ export function useRecorder() {
     }
   }, [config, addHistoryItem]);
 
+  const cancelRecording = useCallback(() => {
+    // Bump generation so any in-flight pipeline result is discarded
+    generationRef.current++;
+    // Stop timer
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    // Stop recorder without processing the audio
+    if (recorderRef.current) {
+      try { recorderRef.current.stop().catch(() => {}); } catch {}
+      recorderRef.current = null;
+    }
+    setState({ status: 'idle', duration: 0, audioLevel: 0, rawText: '', processedText: '', error: null, outputFailed: false });
+  }, []);
+
   const toggleRecording = useCallback(async () => {
     if (state.status === 'recording') {
       await stopRecording();
@@ -241,5 +276,5 @@ export function useRecorder() {
     };
   }, []);
 
-  return { ...state, startRecording, stopRecording, toggleRecording };
+  return { ...state, startRecording, stopRecording, toggleRecording, cancelRecording };
 }

@@ -5,3 +5,5 @@ export { Toggle } from './Toggle';
 export { Slider } from './Slider';
 export { Badge } from './Badge';
 export { HotkeyCapture } from './HotkeyCapture';
+export { SettingSection } from './SettingSection';
+export { SettingRow } from './SettingRow';

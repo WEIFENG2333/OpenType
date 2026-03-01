@@ -52,7 +52,7 @@ async function transcribeWeb(
   formData.append('file', new Blob([audioBuffer], { type: 'audio/wav' }), 'recording.wav');
   formData.append('model', model);
 
-  const lang = options?.language ?? config.inputLanguage;
+  const lang = options?.language;
   if (lang && lang !== 'auto') {
     formData.append('language', lang);
   }
