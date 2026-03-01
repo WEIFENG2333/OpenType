@@ -3,6 +3,7 @@ import { state, isMac } from './app-state';
 import { muteSystemAudio, restoreSystemAudio } from './audio-control';
 import { captureFullContext, captureScreenAndOcr } from './context-capture';
 import { startFnMonitor } from './fn-monitor';
+import { prepareEditDetection, runEditDetection } from './auto-dict';
 
 let lastToggleTime = 0;
 const DEBOUNCE_MS = 300;
@@ -42,6 +43,10 @@ export function toggleRecording() {
 
   const t0 = now;
   const cfg = state.configStore!.getAll();
+
+  // Snapshot edit detection params before clearing (will run after context capture)
+  const editDetectionParams = prepareEditDetection(cfg);
+
   state.isRecording = !state.isRecording;
   console.log(`[Toggle] isRecording=${state.isRecording} t=0ms`);
 
@@ -76,6 +81,11 @@ export function toggleRecording() {
         const ctx = await captureFullContext(cfg);
         state.lastCapturedContext = ctx;
         console.log(`[Toggle] context capture took ${Date.now() - ctxStart}ms`);
+
+        // Run edit detection using the just-captured context (no extra osascript call)
+        if (editDetectionParams) {
+          runEditDetection(editDetectionParams, ctx, cfg);
+        }
 
         console.log(`[Context] app=${ctx.appName}${ctx.url ? ' url=' + ctx.url.slice(0, 60) : ''}`);
         console.log(`[Context] field=${ctx.fieldRole || '—'} label=${ctx.fieldLabel || '—'} cursor=${ctx.cursorPosition ?? '—'} chars=${ctx.numberOfCharacters ?? '—'}`);

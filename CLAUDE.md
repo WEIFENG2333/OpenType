@@ -24,9 +24,10 @@ electron/                → Electron main process (CommonJS, compiled to dist-e
   config-store.ts        → JSON file persistence (~/Library/Application Support/OpenType/config.json)
   ipc-handlers.ts        → All ipcMain.handle() registrations (config, pipeline, media, context, etc.)
   stt-service.ts         → Server-side STT API calls
-  llm-service.ts         → Server-side LLM API calls, prompt builder, smart truncation
-  context-capture.ts     → CapturedContext interface, macOS/Win/Linux context capture, screen OCR, dictionary term extraction
+  llm-service.ts         → Server-side LLM API calls, prompt builder, smart truncation, VLM calls, term extraction
+  context-capture.ts     → CapturedContext interface, macOS/Win/Linux context capture, screen OCR (native screencapture + sips)
   shortcut-manager.ts    → Global hotkey registration, toggleRecording() logic, context capture trigger
+  auto-dict.ts           → LLM-driven dictionary learning: pipeline extraction, user edit detection, term persistence
   window-manager.ts      → createMainWindow() + createOverlayWindow()
   tray-manager.ts        → System tray icon + menu
   audio-control.ts       → macOS system audio mute/restore during recording
@@ -124,26 +125,67 @@ The system prompt is dynamically built from:
 - Smart truncation (`smartTruncate()`) applied to all context fields to cap prompt length
 
 ### Context Capture Flow
-Context is captured at **hotkey press time** (in `toggleRecording()` in `shortcut-manager.ts`) — BEFORE the overlay steals focus. This preserves the correct active window info. OCR runs in the background while the user speaks, and its result is awaited when the pipeline retrieves context via `getLastContext`.
+Context is captured at **hotkey press time** (in `toggleRecording()` in `shortcut-manager.ts`) — BEFORE the overlay steals focus. This preserves the correct active window info. OCR runs in the background while the user speaks: macOS 使用 native `screencapture -R` 按光标所在显示器区域截图 + `sips --resampleWidth 1280` 压缩，跨平台 fallback 为 Electron `desktopCapturer`。OCR 结果在 pipeline 的 `resolveContext()` 中被 await 合并。
 
-### Recording Pipeline
-1. User presses hotkey → `shortcut-manager.ts:toggleRecording()` captures context + starts OCR
-2. Main process sends `toggle-recording` to overlay window
-3. Overlay's `useRecorder` starts audio recording
-4. User stops → `stopRecording()` saves audio to media file, calls `processPipeline` IPC
-5. Main process: STT transcribe → LLM post-process → auto-learn dictionary terms → returns result
-6. Renderer: outputs text (type at cursor or clipboard), saves to history
-7. Main process broadcasts history update to other windows
+### Recording Pipeline (with parallelization)
 
-### Auto-Learn Dictionary
-After each successful pipeline run (`ipc-handlers.ts`):
-1. `extractDictionaryTerms()` scans the LLM output using regex rules (NOT LLM):
-   - All-caps 2-6 letters (e.g., `API`, `GRPC`) — abbreviations
-   - CamelCase words (e.g., `iPhone`, `gRPC`) — brand/tech names
-   - Non-sentence-start capitalized words (e.g., `Kubernetes`) — proper nouns (excludes common words)
-2. Max 5 new terms per run, skips existing entries
-3. New terms saved with `source: 'auto'`, notified to main window via `dictionary:auto-added`
-4. **Limitation**: only works for English patterns; Chinese proper nouns not detected
+```
+快捷键按下 → shortcut-manager.ts: toggleRecording()
+│
+├── prepareEditDetection()          ← 快照上次输出状态（不阻塞）
+├── state.isRecording = true
+├── overlay.send('toggle-recording') ← 通知 overlay 开始录音
+│
+├── 50ms 后异步:
+│   ├── captureFullContext()          ← osascript 获取窗口/输入框上下文
+│   │   └── 完成后: runEditDetection()  ← 复用已获取的 context（fire-and-forget）
+│   └── if OCR: captureScreenAndOcr() ← 🔄 后台截图+VLM（screencapture + sips 压缩）
+│
+│   ... 用户说话中（OCR 在后台跑） ...
+│
+停止录音 → useRecorder.ts: stopRecording()
+│
+├── recorder.stop() → audioBuffer
+├── media:save 保存音频文件
+│
+└── ⚡ Promise.all([                  ← renderer 端并行
+     ├── runPipeline() → IPC pipeline:process
+     │   │
+     │   └── ⚡ Promise.all([          ← main process 端并行
+     │        ├── sttService.transcribe()  ← STT 不等 OCR 完成
+     │        └── resolveContext()          ← 等待 context+OCR promises
+     │        ])
+     │   │
+     │   ├── llmService.process(raw, cfg, ctx)   ← LLM 润色（阻塞）
+     │   ├── schedulePostPipelineExtraction()     ← 🔄 setImmediate 后台词典学习
+     │   └── return result
+     │
+     └── getLastContext()              ← 获取 context 用于 history
+     ])
+│
+├── typeAtCursor(text)               ← 粘贴到光标 + recordTypedText()
+└── addHistoryItem()                 ← 保存历史 + 广播同步
+```
+
+**用户实际等待时间** = max(STT, OCR) + LLM。最优情况下 OCR 在录音期间已完成，等待 = STT + LLM。
+
+**不阻塞用户的后台任务**：词典术语提取、编辑检测、历史广播。
+
+**安全阀**：Pipeline 有 60s 超时互斥锁，防止 API 挂起导致永久 busy。
+
+### Auto-Learn Dictionary (`electron/auto-dict.ts`)
+
+LLM 驱动的智能词典学习，3 个渠道，全部后台异步不阻塞 pipeline：
+
+1. **Pipeline 后提取** — `schedulePostPipelineExtraction()`: 用 raw + processed + 截图（如有）一次 LLM 调用提取术语。有截图时走 VLM（`extractTermsWithImage`），无截图时走文本 LLM（`extractTerms`）。`setImmediate` 延迟执行。
+2. **用户编辑检测** — `prepareEditDetection()` + `runEditDetection()`: 在下次按快捷键时，对比上次输出 vs 当前输入框内容，检测用户手动修正中的术语。复用 `captureFullContext()` 结果避免并发 osascript 冲突。30 分钟超时 + bundleId/fieldRole 校验。
+3. **`recordTypedText()`** — 在 `typeAtCursor` 成功后记录输出文本到 `state.lastTypedText`，供下次编辑检测。
+
+提取原则：只学习"个人化、不常见、语音识别容易搞错"的词，宁缺毋滥，max 5 个/次。
+
+术语来源标记：`source: 'auto-llm'`（pipeline 提取）、`'auto-diff'`（编辑检测）、`'manual'`（手动添加）。
+
+通过 `dictionary:auto-added` IPC 事件实时通知主窗口更新 UI。
 
 ### Recording Safeguards
 - **10-minute auto-stop**: `startRecording()` sets a 600s timeout that triggers `stopRecording()`

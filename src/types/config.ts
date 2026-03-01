@@ -224,7 +224,7 @@ export interface HistoryItem {
 
 export interface DictionaryEntry {
   word: string;
-  source: 'manual' | 'auto';
+  source: 'manual' | 'auto' | 'auto-llm' | 'auto-diff';
   addedAt?: number;  // Unix timestamp ms
 }
 

@@ -18,12 +18,12 @@ export function DictionaryPage() {
   const { t } = useTranslation();
 
   const manualCount = dict.filter((e) => e.source === 'manual').length;
-  const autoCount = dict.filter((e) => e.source === 'auto').length;
+  const autoCount = dict.filter((e) => e.source !== 'manual').length;
 
   const filtered = useMemo(() => {
     let items = dict;
     if (filter === 'manual') items = items.filter((e) => e.source === 'manual');
-    if (filter === 'auto') items = items.filter((e) => e.source === 'auto');
+    if (filter === 'auto') items = items.filter((e) => e.source !== 'manual');
     if (search.trim()) {
       const q = search.toLowerCase();
       items = items.filter((e) => e.word.toLowerCase().includes(q));
@@ -112,7 +112,7 @@ export function DictionaryPage() {
                 className="group flex items-center gap-2 bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800 rounded-lg px-3 py-2.5 hover:border-surface-300 dark:hover:border-surface-700 transition-colors"
               >
                 {/* Source icon */}
-                {entry.source === 'auto' ? (
+                {entry.source !== 'manual' ? (
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-amber-400 flex-shrink-0">
                     <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
                   </svg>

@@ -27,6 +27,10 @@ export const state = {
   contextPromise: null as Promise<void> | null,
 
   fnMonitorProcess: null as ChildProcess | null,
+
+  lastTypedText: null as string | null,
+  lastTypedContext: null as { appName?: string; bundleId?: string; fieldRole?: string } | null,
+  lastTypedAt: 0,
 };
 
 export const isDev = !require('electron').app.isPackaged;

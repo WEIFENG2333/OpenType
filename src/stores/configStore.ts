@@ -79,6 +79,16 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
           set((state) => ({ config: { ...state.config, history } }));
         });
       }
+
+      // Listen for auto-learned dictionary terms from main process
+      if (window.electronAPI?.onDictionaryAutoAdded) {
+        window.electronAPI.onDictionaryAutoAdded(async () => {
+          const dict = await window.electronAPI!.getConfig('personalDictionary');
+          if (Array.isArray(dict)) {
+            set((state) => ({ config: { ...state.config, personalDictionary: dict } }));
+          }
+        });
+      }
     } catch (e) {
       console.error('[ConfigStore] load failed:', e);
       set({ loaded: true });

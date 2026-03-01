@@ -31,7 +31,7 @@ export async function runPipeline(
 ): Promise<PipelineResult> {
   // If Electron is available, delegate the whole pipeline to main process
   if (window.electronAPI) {
-    const r = await window.electronAPI.processPipeline(audioBuffer, context);
+    const r = await window.electronAPI.processPipeline(audioBuffer);
     return {
       success: r.success,
       rawText: r.rawText ?? '',

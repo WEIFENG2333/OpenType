@@ -132,12 +132,12 @@ export function useRecorder() {
         audioPath = await window.electronAPI.saveMedia(filename, b64);
       }
 
-      // Get context captured at hotkey press time
-      const context = window.electronAPI
-        ? await window.electronAPI.getLastContext()
-        : {};
-
-      const result = await runPipeline(audioBuffer, config, context);
+      // Run pipeline (STT starts immediately, context resolved in parallel inside main process)
+      // and get context for history — both happen concurrently
+      const [result, context] = await Promise.all([
+        runPipeline(audioBuffer, config),
+        window.electronAPI ? window.electronAPI.getLastContext() : Promise.resolve({} as any),
+      ]) as [Awaited<ReturnType<typeof runPipeline>>, Record<string, any>];
 
       const isStale = generationRef.current !== gen;
 

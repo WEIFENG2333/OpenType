@@ -147,7 +147,7 @@ export function HistoryPage() {
         ) : (
           Array.from(grouped.entries()).map(([dateLabel, items]) => (
             <div key={dateLabel}>
-              <div className="px-6 py-2.5 text-[11px] font-bold text-surface-600 dark:text-surface-300 uppercase tracking-wider sticky top-0 bg-surface-50/95 dark:bg-surface-900/95 backdrop-blur-sm border-b border-surface-200 dark:border-surface-700">
+              <div className="px-6 py-2.5 text-[11px] font-bold text-surface-600 dark:text-surface-300 uppercase tracking-wider sticky top-0 z-10 bg-surface-50 dark:bg-surface-900 border-b border-surface-200 dark:border-surface-700">
                 {dateLabel}
               </div>
 

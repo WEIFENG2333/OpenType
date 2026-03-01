@@ -5,10 +5,13 @@ import path from 'path';
 import { autoUpdater } from 'electron-updater';
 import { state, isMac } from './app-state';
 import { registerShortcuts, toggleRecording } from './shortcut-manager';
-import { captureScreenAndOcr, extractDictionaryTerms } from './context-capture';
+import { captureScreenAndOcr } from './context-capture';
 import { restartFnMonitor } from './fn-monitor';
+import { schedulePostPipelineExtraction, recordTypedText } from './auto-dict';
 
 let pipelineRunning = false;
+let pipelineStartedAt = 0;
+const PIPELINE_TIMEOUT_MS = 60_000; // 60s safety valve
 
 export function setupIPC() {
   // Config
@@ -109,10 +112,38 @@ export function setupIPC() {
     }
   });
 
-  // Pipeline
-  ipcMain.handle('pipeline:process', async (_e, buf: ArrayBuffer, ctx: any) => {
+  // Resolve context: wait for contextPromise + ocrPromise, merge OCR results
+  async function resolveContext(): Promise<any> {
+    if (state.contextPromise) {
+      try { await state.contextPromise; } catch {}
+      state.contextPromise = null;
+    }
+    if (state.ocrPromise) {
+      try {
+        const ocrResult = await state.ocrPromise;
+        if (ocrResult) {
+          state.lastCapturedContext.screenContext = ocrResult.text;
+          state.lastCapturedContext.screenshotDataUrl = ocrResult.screenshot;
+          state.lastCapturedContext.ocrDurationMs = ocrResult.durationMs;
+        }
+      } catch (e: any) {
+        console.error('[OCR] await error:', e.message);
+      }
+      state.ocrPromise = null;
+    }
+    return state.lastCapturedContext;
+  }
+
+  // Pipeline: STT runs in parallel with context/OCR resolution
+  ipcMain.handle('pipeline:process', async (_e, buf: ArrayBuffer) => {
+    // Safety valve: if previous pipeline has been stuck for too long, force unlock
+    if (pipelineRunning && Date.now() - pipelineStartedAt > PIPELINE_TIMEOUT_MS) {
+      console.warn('[Pipeline] force-unlocking stale pipeline lock after', Math.round((Date.now() - pipelineStartedAt) / 1000), 's');
+      pipelineRunning = false;
+    }
     if (pipelineRunning) return { success: false, error: 'Pipeline busy' };
     pipelineRunning = true;
+    pipelineStartedAt = Date.now();
     const cfg = state.configStore!.getAll();
     const sttProvider = cfg.sttProvider || 'siliconflow';
     const llmProvider = cfg.llmProvider || 'siliconflow';
@@ -124,9 +155,13 @@ export function setupIPC() {
     let llmDurationMs = 0;
 
     try {
+      // STT and context resolution run in parallel — STT doesn't need context
       console.log('[Pipeline] STT via', sttProvider, sttModel);
       const sttStart = Date.now();
-      const raw = await state.sttService!.transcribe(Buffer.from(buf), cfg, ctx);
+      const [raw, ctx] = await Promise.all([
+        state.sttService!.transcribe(Buffer.from(buf), cfg),
+        resolveContext(),
+      ]);
       sttDurationMs = Date.now() - sttStart;
       console.log('[Pipeline] STT done in', sttDurationMs, 'ms:', raw.slice(0, 100));
 
@@ -138,21 +173,7 @@ export function setupIPC() {
       llmDurationMs = Date.now() - llmStart;
       console.log('[Pipeline] LLM done in', llmDurationMs, 'ms:', llmResult.text.slice(0, 100));
 
-      let autoLearnedTerms: string[] = [];
-      if (cfg.autoLearnDictionary !== false) {
-        const dictEntries: any[] = cfg.personalDictionary || [];
-        const dictWords: string[] = dictEntries.map((e: any) => typeof e === 'string' ? e : e.word);
-        autoLearnedTerms = extractDictionaryTerms(llmResult.text, dictWords);
-        if (autoLearnedTerms.length > 0) {
-          const newEntries = autoLearnedTerms.map((w) => ({
-            word: w, source: 'auto' as const, addedAt: Date.now(),
-          }));
-          const updated = [...dictEntries, ...newEntries];
-          state.configStore!.set('personalDictionary', updated);
-          console.log('[AutoDict] learned:', autoLearnedTerms);
-          state.mainWindow?.webContents.send('dictionary:auto-added', autoLearnedTerms);
-        }
-      }
+      schedulePostPipelineExtraction(raw, llmResult.text, cfg);
 
       state.isRecording = false;
 
@@ -162,7 +183,7 @@ export function setupIPC() {
         processedText: llmResult.text,
         systemPrompt: llmResult.systemPrompt,
         sttProvider, llmProvider, sttModel, llmModel,
-        sttDurationMs, llmDurationMs, autoLearnedTerms,
+        sttDurationMs, llmDurationMs,
       };
     } catch (e: any) {
       state.isRecording = false;
@@ -226,6 +247,8 @@ export function setupIPC() {
         try { clipboard.writeText(prevClipboard); } catch {}
       }, 500);
 
+      recordTypedText(text);
+
       return { success: true };
     } catch (e: any) {
       console.error('[TypeText] error:', e.message);
@@ -276,28 +299,7 @@ export function setupIPC() {
   ipcMain.handle('updater:getVersion', () => app.getVersion());
 
   // Context awareness
-  ipcMain.handle('context:getLastContext', async () => {
-    if (state.contextPromise) {
-      try { await state.contextPromise; } catch {}
-      state.contextPromise = null;
-    }
-    if (state.ocrPromise) {
-      try {
-        const ocrResult = await state.ocrPromise;
-        if (ocrResult) {
-          state.lastCapturedContext.screenContext = ocrResult.text;
-          state.lastCapturedContext.screenshotDataUrl = ocrResult.screenshot;
-          state.lastCapturedContext.ocrDurationMs = ocrResult.durationMs;
-        } else {
-          console.warn('[OCR] result empty, skipping context merge');
-        }
-      } catch (e: any) {
-        console.error('[OCR] await error:', e.message);
-      }
-      state.ocrPromise = null;
-    }
-    return state.lastCapturedContext;
-  });
+  ipcMain.handle('context:getLastContext', () => resolveContext());
 
   ipcMain.handle('context:checkAccessibility', () => {
     if (!isMac) return 'granted';
@@ -311,7 +313,17 @@ export function setupIPC() {
 
   ipcMain.handle('context:checkScreenPermission', () => {
     if (!isMac) return 'granted';
-    return systemPreferences.getMediaAccessStatus('screen');
+    // Use screencapture to test — getMediaAccessStatus('screen') is unreliable
+    try {
+      const tmpPath = require('path').join(require('electron').app.getPath('temp'), 'opentype-perm-test.jpg');
+      require('child_process').execSync(`screencapture -x -t jpg "${tmpPath}"`, { timeout: 2000 });
+      const exists = require('fs').existsSync(tmpPath);
+      const size = exists ? require('fs').statSync(tmpPath).size : 0;
+      try { if (exists) require('fs').unlinkSync(tmpPath); } catch {}
+      return size > 100 ? 'granted' : 'denied';
+    } catch {
+      return 'denied';
+    }
   });
 
   ipcMain.handle('context:openScreenPrefs', () => {

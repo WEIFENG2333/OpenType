@@ -1,5 +1,7 @@
-import { clipboard, systemPreferences, desktopCapturer } from 'electron';
-import { exec } from 'child_process';
+import { clipboard, systemPreferences, desktopCapturer, screen, app } from 'electron';
+import { exec, execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 import { state, isMac } from './app-state';
 
 function execAsync(cmd: string, opts: { input?: string; timeout?: number } = {}): Promise<string> {
@@ -315,25 +317,70 @@ export async function captureFullContext(config: Record<string, any>): Promise<C
   return ctx;
 }
 
+/** Capture screenshot via macOS native screencapture (more reliable than desktopCapturer) */
+function captureScreenMac(): string | null {
+  const tmpPath = path.join(app.getPath('temp'), `opentype-ocr-${Date.now()}.jpg`);
+  try {
+    // Use -R to capture the exact display where the cursor is
+    const cursorDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    const { x, y, width, height } = cursorDisplay.bounds;
+    // -x = no sound, -t jpg, -R = capture specific region
+    execSync(`screencapture -x -t jpg -R ${x},${y},${width},${height} "${tmpPath}"`, { timeout: 3000 });
+    if (!fs.existsSync(tmpPath)) return null;
+    // Resize to max 1280px wide (Retina screens capture at 2x+ physical pixels)
+    execSync(`sips --resampleWidth 1280 -s format jpeg -s formatOptions 70 "${tmpPath}" --out "${tmpPath}"`, { timeout: 2000 });
+    const buf = fs.readFileSync(tmpPath);
+    if (buf.length < 100) return null;
+    // sips -g is fast, just reads JPEG header
+    const info = execSync(`sips -g pixelWidth -g pixelHeight "${tmpPath}"`, { timeout: 500 }).toString();
+    const pw = info.match(/pixelWidth:\s*(\d+)/)?.[1] || '?';
+    const ph = info.match(/pixelHeight:\s*(\d+)/)?.[1] || '?';
+    const base64 = buf.toString('base64');
+    console.log(`[OCR] macOS screencapture → ${pw}x${ph}, ${Math.round(buf.length / 1024)}KB`);
+    return `data:image/jpeg;base64,${base64}`;
+  } catch (e: any) {
+    console.error('[OCR] screencapture failed:', e.message);
+    return null;
+  } finally {
+    try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch {}
+  }
+}
+
+/** Fallback: Electron desktopCapturer (cross-platform) */
+async function captureScreenElectron(): Promise<string | null> {
+  const sources = await desktopCapturer.getSources({
+    types: ['screen'],
+    thumbnailSize: { width: 1280, height: 720 },
+  });
+  if (!sources.length) return null;
+
+  const cursorDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const source = sources.find(s => String(s.display_id) === String(cursorDisplay.id)) || sources[0];
+  const thumbnail = source.thumbnail;
+  if (thumbnail.isEmpty()) return null;
+
+  const size = thumbnail.getSize();
+  const jpegBuffer = thumbnail.toJPEG(80);
+  console.log(`[OCR] electron capture → ${size.width}x${size.height}, ${jpegBuffer.length} bytes`);
+  return `data:image/jpeg;base64,${jpegBuffer.toString('base64')}`;
+}
+
 export async function captureScreenAndOcr(config: Record<string, any>): Promise<{ text: string; screenshot?: string; durationMs: number } | null> {
   if (!config.contextOcrModel) throw new Error('contextOcrModel not configured');
   const model = config.contextOcrModel;
   try {
-    const sources = await desktopCapturer.getSources({
-      types: ['screen'],
-      thumbnailSize: { width: 1280, height: 720 },
-    });
-    if (!sources.length) { console.warn('[OCR] no screen sources'); return null; }
-
-    const thumbnail = sources[0].thumbnail;
-    const size = thumbnail.getSize();
-    const jpegBuffer = thumbnail.toJPEG(80);
-    console.log(`[OCR] screenshot ${size.width}x${size.height}, jpeg=${jpegBuffer.length} bytes, empty=${thumbnail.isEmpty()}`);
-    if (thumbnail.isEmpty()) {
-      throw new Error('Screen capture returned empty image — screen recording permission not granted');
+    // macOS: use native screencapture (reliable), fallback to desktopCapturer
+    // Other platforms: use desktopCapturer directly
+    let dataUrl: string | null = null;
+    if (isMac) {
+      dataUrl = captureScreenMac();
     }
-    const base64 = jpegBuffer.toString('base64');
-    const dataUrl = `data:image/jpeg;base64,${base64}`;
+    if (!dataUrl) {
+      dataUrl = await captureScreenElectron();
+    }
+    if (!dataUrl) {
+      throw new Error('Screen capture returned empty image');
+    }
 
     const t0 = Date.now();
     const ocrResult = await state.llmService!.analyzeScreenshot(dataUrl, config);
@@ -346,29 +393,3 @@ export async function captureScreenAndOcr(config: Record<string, any>): Promise<
   }
 }
 
-export function extractDictionaryTerms(text: string, existingDict: string[]): string[] {
-  const terms = new Set<string>();
-  const existing = new Set(existingDict.map((w) => w.toLowerCase()));
-
-  const words = text.split(/[\s,;:!?。，；：！？]+/);
-  for (let i = 0; i < words.length; i++) {
-    const word = words[i].replace(/^["""''（）()[\]]+|["""''（）()[\].]+$/g, '');
-    if (!word || word.length < 2) continue;
-
-    const prevWord = i > 0 ? words[i - 1] : '';
-    const isSentenceStart = i === 0 || /[.!?。！？]$/.test(prevWord);
-
-    if (/^[A-Z]{2,6}$/.test(word) && !existing.has(word.toLowerCase())) {
-      terms.add(word); continue;
-    }
-    if (/^[A-Z][a-z]+[A-Z]/.test(word) || /^[a-z]+[A-Z]/.test(word)) {
-      if (!existing.has(word.toLowerCase())) terms.add(word); continue;
-    }
-    if (!isSentenceStart && /^[A-Z][a-z]{1,}/.test(word)) {
-      const lower = word.toLowerCase();
-      const common = new Set(['the','and','but','for','not','you','all','can','had','her','was','one','our','out','day','get','has','him','his','how','its','may','new','now','old','see','way','who','did','let','say','she','too','use']);
-      if (!common.has(lower) && !existing.has(lower)) terms.add(word);
-    }
-  }
-  return Array.from(terms).slice(0, 5);
-}

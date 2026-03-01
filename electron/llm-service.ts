@@ -267,11 +267,34 @@ export class LLMService {
     });
   }
 
-  async analyzeScreenshot(dataUrl: string, config: Record<string, any>): Promise<string> {
+  private async callVLM(config: Record<string, any>, messages: any[], opts?: { temperature?: number; maxTokens?: number }): Promise<string> {
     if (!config.contextOcrModel) throw new Error('contextOcrModel not configured');
-    const model = config.contextOcrModel;
-    const opts = this.getOpts(config);
+    const baseOpts = this.getOpts(config);
 
+    const res = await fetch(`${baseOpts.baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${baseOpts.apiKey}`,
+        ...(baseOpts as any).extraHeaders,
+      },
+      body: JSON.stringify({
+        model: config.contextOcrModel,
+        messages,
+        max_tokens: opts?.maxTokens ?? 300,
+        temperature: opts?.temperature ?? 0.1,
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => '');
+      throw new Error(`VLM ${res.status}: ${errBody.slice(0, 500)}`);
+    }
+    const json = await res.json();
+    return json.choices?.[0]?.message?.content?.trim() || '';
+  }
+
+  async analyzeScreenshot(dataUrl: string, config: Record<string, any>): Promise<string> {
     const prompt = [
       'Analyze this screenshot to help with voice dictation context. Extract:',
       '1. APP: Which application is open',
@@ -288,33 +311,74 @@ export class LLMService {
       'Keep each line brief. If a field is not applicable, write "none".',
     ].join('\n');
 
-    const res = await fetch(`${opts.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${opts.apiKey}`,
-        ...(opts as any).extraHeaders,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [{
+    return this.callVLM(config, [{
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: dataUrl } },
+        { type: 'text', text: prompt },
+      ],
+    }]);
+  }
+
+  private parseTermsResponse(content: string): string[] {
+    try {
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed)) return parsed.filter((t: any) => typeof t === 'string' && t.trim());
+    } catch {}
+    const match = content.match(/\[([^\]]*)\]/);
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[0]);
+        if (Array.isArray(parsed)) return parsed.filter((t: any) => typeof t === 'string' && t.trim());
+      } catch {}
+    }
+    if (content.includes(',')) {
+      return content.split(',').map(s => s.trim().replace(/^["']+|["']+$/g, '')).filter(Boolean);
+    }
+    return [];
+  }
+
+  async extractTerms(prompt: string, config: Record<string, any>, existingDict: string[]): Promise<string[]> {
+    const systemMsg = `你是词典提取助手。严格按用户指令提取词语，返回 JSON 字符串数组。跳过已有词：[${existingDict.join(', ')}]`;
+    try {
+      const content = await this.call({
+        ...this.getOpts(config),
+        messages: [
+          { role: 'system', content: systemMsg },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.1,
+        maxTokens: 300,
+      });
+      return this.parseTermsResponse(content).slice(0, 10);
+    } catch (e: any) {
+      console.error('[ExtractTerms] error:', e.message);
+      return [];
+    }
+  }
+
+  async extractTermsWithImage(prompt: string, imageDataUrl: string | null, config: Record<string, any>, existingDict: string[]): Promise<string[]> {
+    if (!imageDataUrl || !config.contextOcrModel) {
+      return this.extractTerms(prompt, config, existingDict);
+    }
+
+    const systemMsg = `你是词典提取助手。严格按用户指令提取词语，返回 JSON 字符串数组。跳过已有词：[${existingDict.join(', ')}]`;
+    try {
+      const content = await this.callVLM(config, [
+        { role: 'system', content: systemMsg },
+        {
           role: 'user',
           content: [
-            { type: 'image_url', image_url: { url: dataUrl } },
+            { type: 'image_url', image_url: { url: imageDataUrl } },
             { type: 'text', text: prompt },
           ],
-        }],
-        max_tokens: 300,
-        temperature: 0.1,
-      }),
-    });
-
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      throw new Error(`VLM ${res.status}: ${errBody.slice(0, 500)}`);
+        },
+      ]);
+      return this.parseTermsResponse(content).slice(0, 10);
+    } catch (e: any) {
+      console.error('[ExtractTermsWithImage] VLM error:', e.message);
+      return [];
     }
-    const json = await res.json();
-    return json.choices?.[0]?.message?.content?.trim() || '';
   }
 
   private resolveTone(config: Record<string, any>, appName: string): string {
