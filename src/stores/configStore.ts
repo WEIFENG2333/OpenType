@@ -72,6 +72,13 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
         }));
       }
       set({ config: { ...DEFAULT_CONFIG, ...stored }, loaded: true });
+
+      // Listen for cross-window history sync
+      if (window.electronAPI?.onHistoryUpdated) {
+        window.electronAPI.onHistoryUpdated((history) => {
+          set((state) => ({ config: { ...state.config, history } }));
+        });
+      }
     } catch (e) {
       console.error('[ConfigStore] load failed:', e);
       set({ loaded: true });

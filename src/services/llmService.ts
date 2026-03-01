@@ -253,7 +253,8 @@ export async function testVLMConnection(
   provider: string,
   config: AppConfig,
 ): Promise<LLMResult> {
-  const model = config.contextOcrModel || 'Qwen/Qwen2.5-VL-32B-Instruct';
+  if (!config.contextOcrModel) throw new Error('contextOcrModel not configured');
+  const model = config.contextOcrModel;
   let baseUrl: string;
   let apiKey: string;
   let extraHeaders: Record<string, string> | undefined;

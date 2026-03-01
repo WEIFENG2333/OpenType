@@ -44,7 +44,13 @@
     "checkUpdate": "Check for updates",
     "checking": "Checking...",
     "upToDate": "Up to date",
-    "feedback": "Feedback"
+    "feedback": "Feedback",
+    "permMicNeeded": "Microphone permission not granted",
+    "permMicAction": "Grant",
+    "permAccessibilityNeeded": "Accessibility permission needed for reading selected text",
+    "permAccessibilityAction": "Grant",
+    "permScreenNeeded": "Screen recording permission needed for OCR — grant to your terminal app, then restart",
+    "permScreenAction": "Open Settings"
   },
   "dictation": {
     "title": "Voice Dictation",
@@ -112,7 +118,10 @@
     "cursorAt": "Cursor at position",
     "line": "line",
     "chars": "chars",
-    "selectedRange": "Selection"
+    "selectedRange": "Selection",
+    "ocrDuration": "OCR Duration",
+    "skipped": "No speech detected",
+    "duration": "Duration"
   },
   "dictionary": {
     "title": "Personal Dictionary",

@@ -9,6 +9,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setConfig: (key: string, value: any) => ipcRenderer.invoke('config:set', key, value),
   getAllConfig: () => ipcRenderer.invoke('config:getAll'),
 
+  // Media files
+  saveMedia: (filename: string, base64: string) => ipcRenderer.invoke('media:save', filename, base64),
+  readMedia: (filePath: string) => ipcRenderer.invoke('media:read', filePath),
+  deleteMedia: (filePath: string) => ipcRenderer.invoke('media:delete', filePath),
+
   // Microphone permission
   checkMicPermission: () => ipcRenderer.invoke('mic:checkPermission'),
   requestMicPermission: () => ipcRenderer.invoke('mic:requestPermission'),
@@ -105,5 +110,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onFnKeyEvent: (cb: (event: string) => void) => {
     ipcRenderer.on('fn-key-event', (_e, event) => cb(event));
     return () => { ipcRenderer.removeAllListeners('fn-key-event'); };
+  },
+  onHistoryUpdated: (cb: (history: any[]) => void) => {
+    ipcRenderer.on('config:history-updated', (_e, history) => cb(history));
+    return () => { ipcRenderer.removeAllListeners('config:history-updated'); };
   },
 });

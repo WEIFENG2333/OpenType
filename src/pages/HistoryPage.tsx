@@ -1,9 +1,21 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useConfigStore } from '../stores/configStore';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Button } from '../components/ui';
 import { HistoryItem } from '../types/config';
 import { useTranslation } from '../i18n';
+
+function ScreenshotThumbnail({ path }: { path: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    if (!window.electronAPI) return;
+    window.electronAPI.readMedia(path).then((b64) => {
+      if (b64) setSrc(`data:image/jpeg;base64,${b64}`);
+    });
+  }, [path]);
+  if (!src) return null;
+  return <img src={src} alt="Screenshot" className="w-full max-h-40 object-contain rounded border border-surface-200 dark:border-surface-800 mb-1.5" />;
+}
 
 export function HistoryPage() {
   const config = useConfigStore((s) => s.config);
@@ -53,10 +65,18 @@ export function HistoryPage() {
     } catch {}
   };
 
+  const readAudioBase64 = async (item: HistoryItem): Promise<string | null> => {
+    if (item.audioPath && window.electronAPI) {
+      return window.electronAPI.readMedia(item.audioPath);
+    }
+    return null;
+  };
+
   const handleRetry = async (item: HistoryItem) => {
-    if (!item.audioBase64 || !window.electronAPI) return;
-    // Decode base64 to ArrayBuffer
-    const binary = atob(item.audioBase64);
+    if (!item.audioPath || !window.electronAPI) return;
+    const b64 = await readAudioBase64(item);
+    if (!b64) return;
+    const binary = atob(b64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     try {
@@ -67,9 +87,10 @@ export function HistoryPage() {
     } catch {}
   };
 
-  const handleDownloadAudio = (item: HistoryItem) => {
-    if (!item.audioBase64) return;
-    const binary = atob(item.audioBase64);
+  const handleDownloadAudio = async (item: HistoryItem) => {
+    const b64 = await readAudioBase64(item);
+    if (!b64) return;
+    const binary = atob(b64);
     const bytes = new Uint8Array(binary.length);
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     const blob = new Blob([bytes], { type: 'audio/wav' });
@@ -126,7 +147,7 @@ export function HistoryPage() {
         ) : (
           Array.from(grouped.entries()).map(([dateLabel, items]) => (
             <div key={dateLabel}>
-              <div className="px-6 py-2 text-[11px] font-semibold text-surface-400 dark:text-surface-600 uppercase tracking-wider sticky top-0 bg-surface-50/95 dark:bg-surface-900/95 backdrop-blur-sm border-b border-surface-100 dark:border-surface-800/30">
+              <div className="px-6 py-2.5 text-[11px] font-bold text-surface-600 dark:text-surface-300 uppercase tracking-wider sticky top-0 bg-surface-50/95 dark:bg-surface-900/95 backdrop-blur-sm border-b border-surface-200 dark:border-surface-700">
                 {dateLabel}
               </div>
 
@@ -134,9 +155,9 @@ export function HistoryPage() {
                 <div
                   key={item.id}
                   onClick={() => setSelectedItem(item)}
-                  className="group flex gap-4 px-6 py-3.5 hover:bg-white dark:hover:bg-surface-850/50 transition-colors cursor-pointer border-b border-surface-100 dark:border-surface-800/20"
+                  className="group flex gap-4 px-6 py-3.5 hover:bg-white dark:hover:bg-surface-850/50 transition-colors cursor-pointer border-b border-surface-200/80 dark:border-surface-700/50"
                 >
-                  <span className="text-[11px] text-surface-400 dark:text-surface-600 w-14 flex-shrink-0 pt-0.5 font-mono tabular-nums">
+                  <span className="text-[11px] text-surface-400 dark:text-surface-500 w-14 flex-shrink-0 self-center font-mono tabular-nums">
                     {formatTime(item.timestamp)}
                   </span>
 
@@ -148,39 +169,23 @@ export function HistoryPage() {
                         {item.processedText || item.rawText}
                       </p>
                     )}
-                    <div className="flex items-center gap-2 mt-1.5">
-                      {item.sourceApp && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500">
-                          {item.sourceApp}
+                    <div className="flex items-center gap-1.5 mt-1.5 text-[10px]">
+                      {item.durationMs > 0 && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 dark:text-surface-400 font-mono tabular-nums">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-50"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                          {(item.durationMs / 1000).toFixed(1)}s
                         </span>
                       )}
-                      {item.context && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-400">
-                          {t('history.hasContext')}
+                      {item.sourceApp && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-surface-100 dark:bg-surface-800 text-surface-500 dark:text-surface-400">
+                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-50"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                          {item.sourceApp}
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                    {item.audioBase64 && (
-                      <>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleRetry(item); }}
-                          className="w-7 h-7 flex items-center justify-center rounded-md text-surface-400 hover:text-brand-500 hover:bg-brand-500/5 transition-colors"
-                          title={t('history.retry')}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleDownloadAudio(item); }}
-                          className="w-7 h-7 flex items-center justify-center rounded-md text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                          title={t('history.downloadAudio')}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                        </button>
-                      </>
-                    )}
+                  <div className="flex items-center gap-0.5 flex-shrink-0">
                     <button
                       onClick={(e) => { e.stopPropagation(); handleCopy(item.processedText || item.rawText, item.id); }}
                       className="w-7 h-7 flex items-center justify-center rounded-md text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
@@ -192,6 +197,24 @@ export function HistoryPage() {
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                       )}
                     </button>
+                    {item.audioPath && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDownloadAudio(item); }}
+                        className="w-7 h-7 flex items-center justify-center rounded-md text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
+                        title={t('history.downloadAudio')}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      </button>
+                    )}
+                    {item.error && item.audioPath && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRetry(item); }}
+                        className="w-7 h-7 flex items-center justify-center rounded-md text-surface-400 hover:text-brand-500 hover:bg-brand-500/5 transition-colors"
+                        title={t('history.retry')}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                      </button>
+                    )}
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteHistoryItem(item.id); }}
                       className="w-7 h-7 flex items-center justify-center rounded-md text-surface-400 hover:text-red-500 hover:bg-red-500/5 transition-colors"
@@ -332,8 +355,12 @@ function DetailModal({ item, onClose, t }: { item: HistoryItem; onClose: () => v
                 </ContextSection>
 
                 <ContextSection title={t('history.screenOcr')} enabled={ctx.contextOcrEnabled} hasData={!!ctx.screenContext} t={t}>
+                  {ctx.screenshotPath && <ScreenshotThumbnail path={ctx.screenshotPath} />}
                   {ctx.screenContext && (
                     <p className="text-xs text-surface-600 dark:text-surface-400 bg-surface-50 dark:bg-surface-900 border border-surface-200 dark:border-surface-800 rounded px-2 py-1.5">{ctx.screenContext}</p>
+                  )}
+                  {ctx.ocrDurationMs && (
+                    <p className="text-[10px] text-surface-400 mt-1">{t('history.ocrDuration')}: {ctx.ocrDurationMs < 1000 ? `${ctx.ocrDurationMs}ms` : `${(ctx.ocrDurationMs / 1000).toFixed(1)}s`}</p>
                   )}
                 </ContextSection>
 
@@ -505,7 +532,7 @@ function ContextSection({ title, enabled, hasData, t, children }: {
         ) : hasData ? (
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-green-500 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
         ) : (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400 flex-shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400 flex-shrink-0"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>
         )}
         <span className={`text-[11px] font-medium ${isDisabled ? 'text-surface-400' : 'text-surface-600 dark:text-surface-400'}`}>
           {title}

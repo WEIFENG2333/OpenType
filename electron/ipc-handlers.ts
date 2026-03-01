@@ -1,0 +1,350 @@
+import { app, ipcMain, clipboard, systemPreferences, screen } from 'electron';
+import { execSync } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+import { autoUpdater } from 'electron-updater';
+import { state, isMac } from './app-state';
+import { registerShortcuts, toggleRecording } from './shortcut-manager';
+import { captureScreenAndOcr, extractDictionaryTerms } from './context-capture';
+import { restartFnMonitor } from './fn-monitor';
+
+let pipelineRunning = false;
+
+export function setupIPC() {
+  // Config
+  ipcMain.handle('config:get', (_e, key: string) => state.configStore!.get(key));
+  ipcMain.handle('config:set', (event, key: string, val: any) => {
+    state.configStore!.set(key, val);
+    // Broadcast history changes to all OTHER windows so they stay in sync
+    if (key === 'history') {
+      const senderId = event.sender.id;
+      for (const win of [state.mainWindow, state.overlayWindow]) {
+        if (win && !win.isDestroyed() && win.webContents.id !== senderId) {
+          win.webContents.send('config:history-updated', val);
+        }
+      }
+    }
+    return true;
+  });
+  ipcMain.handle('config:getAll', () => state.configStore!.getAll());
+
+  // Media file storage (audio / screenshots)
+  const mediaDir = path.join(app.getPath('userData'), 'media');
+  if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
+
+  ipcMain.handle('media:save', (_e, filename: string, base64: string) => {
+    const filePath = path.join(mediaDir, filename);
+    fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
+    return filePath;
+  });
+
+  ipcMain.handle('media:read', (_e, filePath: string) => {
+    try {
+      if (!fs.existsSync(filePath)) return null;
+      return fs.readFileSync(filePath).toString('base64');
+    } catch { return null; }
+  });
+
+  ipcMain.handle('media:delete', (_e, filePath: string) => {
+    try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch {}
+    return true;
+  });
+
+  // Microphone permission
+  ipcMain.handle('mic:checkPermission', async () => {
+    if (isMac) {
+      return systemPreferences.getMediaAccessStatus('microphone');
+    }
+    return 'granted';
+  });
+
+  ipcMain.handle('mic:requestPermission', async () => {
+    if (isMac) {
+      return systemPreferences.askForMediaAccess('microphone');
+    }
+    return true;
+  });
+
+  // Shortcuts re-registration (hotkey config changed — force restart fn monitor)
+  ipcMain.handle('shortcuts:reregister', () => {
+    restartFnMonitor(toggleRecording, registerShortcuts);
+    registerShortcuts();
+    return true;
+  });
+
+  ipcMain.handle('shortcuts:suspend', () => {
+    require('electron').globalShortcut.unregisterAll();
+    state.shortcutsSuspended = true;
+    return true;
+  });
+
+  ipcMain.handle('shortcuts:resume', () => {
+    state.shortcutsSuspended = false;
+    registerShortcuts();
+    return true;
+  });
+
+  // Platform info
+  ipcMain.handle('app:platform', () => process.platform);
+
+  // STT
+  ipcMain.handle('stt:transcribe', async (_e, buf: ArrayBuffer, opts: any) => {
+    try {
+      const text = await state.sttService!.transcribe(Buffer.from(buf), state.configStore!.getAll(), opts);
+      console.log('[STT] result:', text.slice(0, 100));
+      return { success: true, text };
+    } catch (e: any) {
+      console.error('[STT] error:', e.message);
+      return { success: false, error: e.message };
+    }
+  });
+
+  // LLM
+  ipcMain.handle('llm:process', async (_e, text: string, ctx: any) => {
+    try {
+      const result = await state.llmService!.process(text, state.configStore!.getAll(), ctx);
+      return { success: true, text: result.text };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  // Pipeline
+  ipcMain.handle('pipeline:process', async (_e, buf: ArrayBuffer, ctx: any) => {
+    if (pipelineRunning) return { success: false, error: 'Pipeline busy' };
+    pipelineRunning = true;
+    const cfg = state.configStore!.getAll();
+    const sttProvider = cfg.sttProvider || 'siliconflow';
+    const llmProvider = cfg.llmProvider || 'siliconflow';
+    const sttModel = sttProvider === 'siliconflow' ? cfg.siliconflowSttModel : cfg.openaiSttModel;
+    const llmModel = llmProvider === 'siliconflow' ? cfg.siliconflowLlmModel
+      : llmProvider === 'openrouter' ? cfg.openrouterLlmModel : cfg.openaiLlmModel;
+
+    let sttDurationMs = 0;
+    let llmDurationMs = 0;
+
+    try {
+      console.log('[Pipeline] STT via', sttProvider, sttModel);
+      const sttStart = Date.now();
+      const raw = await state.sttService!.transcribe(Buffer.from(buf), cfg, ctx);
+      sttDurationMs = Date.now() - sttStart;
+      console.log('[Pipeline] STT done in', sttDurationMs, 'ms:', raw.slice(0, 100));
+
+      if (!raw.trim()) return { success: true, rawText: '', processedText: '', skipped: true, sttDurationMs };
+
+      console.log('[Pipeline] LLM via', llmProvider, llmModel);
+      const llmStart = Date.now();
+      const llmResult = await state.llmService!.process(raw, cfg, ctx);
+      llmDurationMs = Date.now() - llmStart;
+      console.log('[Pipeline] LLM done in', llmDurationMs, 'ms:', llmResult.text.slice(0, 100));
+
+      let autoLearnedTerms: string[] = [];
+      if (cfg.autoLearnDictionary !== false) {
+        const dictEntries: any[] = cfg.personalDictionary || [];
+        const dictWords: string[] = dictEntries.map((e: any) => typeof e === 'string' ? e : e.word);
+        autoLearnedTerms = extractDictionaryTerms(llmResult.text, dictWords);
+        if (autoLearnedTerms.length > 0) {
+          const newEntries = autoLearnedTerms.map((w) => ({
+            word: w, source: 'auto' as const, addedAt: Date.now(),
+          }));
+          const updated = [...dictEntries, ...newEntries];
+          state.configStore!.set('personalDictionary', updated);
+          console.log('[AutoDict] learned:', autoLearnedTerms);
+          state.mainWindow?.webContents.send('dictionary:auto-added', autoLearnedTerms);
+        }
+      }
+
+      state.isRecording = false;
+
+      return {
+        success: true,
+        rawText: raw,
+        processedText: llmResult.text,
+        systemPrompt: llmResult.systemPrompt,
+        sttProvider, llmProvider, sttModel, llmModel,
+        sttDurationMs, llmDurationMs, autoLearnedTerms,
+      };
+    } catch (e: any) {
+      state.isRecording = false;
+      return { success: false, error: e.message, sttProvider, llmProvider, sttModel, llmModel, sttDurationMs, llmDurationMs };
+    } finally {
+      pipelineRunning = false;
+    }
+  });
+
+  // Rewrite (Voice Superpowers)
+  ipcMain.handle('llm:rewrite', async (_e, text: string, instruction: string) => {
+    try {
+      const result = await state.llmService!.rewrite(text, instruction, state.configStore!.getAll());
+      return { success: true, text: result };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  // Clipboard
+  ipcMain.handle('clipboard:write', (_e, text: string) => { clipboard.writeText(text); return true; });
+
+  // Type text at cursor
+  ipcMain.handle('text:typeAtCursor', async (_e, text: string) => {
+    try {
+      const prevClipboard = clipboard.readText();
+      clipboard.writeText(text);
+      await new Promise((r) => setTimeout(r, 50));
+
+      if (isMac) {
+        const bid = state.lastCapturedContext?.bundleId;
+        const targetApp = state.lastCapturedContext?.appName;
+        if (bid) {
+          try {
+            execSync(`osascript -e 'tell application id "${bid}" to activate'`, { timeout: 1500 });
+            await new Promise((r) => setTimeout(r, 120));
+          } catch {
+            if (targetApp) {
+              try {
+                execSync(`osascript -e 'tell application "${targetApp}" to activate'`, { timeout: 1500 });
+                await new Promise((r) => setTimeout(r, 120));
+              } catch {}
+            }
+          }
+        }
+      }
+
+      if (isMac) {
+        execSync(`osascript -e 'tell application "System Events" to keystroke "v" using command down'`);
+      } else if (process.platform === 'win32') {
+        execSync(`powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')"`);
+      } else {
+        try {
+          execSync('xdotool key ctrl+v');
+        } catch {
+          execSync('xsel --clipboard --output | xargs -0 xdotool type --');
+        }
+      }
+
+      setTimeout(() => {
+        try { clipboard.writeText(prevClipboard); } catch {}
+      }, 500);
+
+      return { success: true };
+    } catch (e: any) {
+      console.error('[TypeText] error:', e.message);
+      return { success: false, error: e.message };
+    }
+  });
+
+  // Window controls
+  ipcMain.handle('window:minimize', () => state.mainWindow?.minimize());
+  ipcMain.handle('window:maximize', () => {
+    state.mainWindow?.isMaximized() ? state.mainWindow.unmaximize() : state.mainWindow?.maximize();
+  });
+  ipcMain.handle('window:close', () => state.mainWindow?.hide());
+  ipcMain.handle('window:hideOverlay', () => {
+    if (state.isRecording) state.isRecording = false;
+    state.suppressActivateUntil = Date.now() + 600;
+    if (!state.overlayWindow) return;
+    state.overlayWindow.setOpacity(0);
+    if (isMac) app.hide();
+    const display = screen.getPrimaryDisplay();
+    const { x: dX, y: dY, width: dW, height: dH } = display.workArea;
+    const pillW = 140, pillH = 40;
+    state.overlayWindow.setBounds({
+      width: pillW, height: pillH,
+      x: dX + Math.round((dW - pillW) / 2),
+      y: dY + dH - pillH - 8,
+    });
+  });
+  ipcMain.handle('window:resizeOverlay', (_e, w: number, h: number) => {
+    if (!state.overlayWindow) return;
+    const overlayBounds = state.overlayWindow.getBounds();
+    const display = screen.getDisplayNearestPoint({ x: overlayBounds.x, y: overlayBounds.y });
+    const { x: dX, y: dY, width: dW, height: dH } = display.workArea;
+    state.overlayWindow.setBounds({
+      width: w, height: h,
+      x: dX + Math.round((dW - w) / 2),
+      y: dY + dH - h - 8,
+    });
+  });
+
+  // Auto updater
+  ipcMain.handle('updater:check', () => autoUpdater.checkForUpdates().catch(() => null));
+  ipcMain.handle('updater:download', () => autoUpdater.downloadUpdate().catch(() => null));
+  ipcMain.handle('updater:install', () => {
+    state.quitting = true;
+    autoUpdater.quitAndInstall();
+  });
+  ipcMain.handle('updater:getVersion', () => app.getVersion());
+
+  // Context awareness
+  ipcMain.handle('context:getLastContext', async () => {
+    if (state.contextPromise) {
+      try { await state.contextPromise; } catch {}
+      state.contextPromise = null;
+    }
+    if (state.ocrPromise) {
+      try {
+        const ocrResult = await state.ocrPromise;
+        if (ocrResult) {
+          state.lastCapturedContext.screenContext = ocrResult.text;
+          state.lastCapturedContext.screenshotDataUrl = ocrResult.screenshot;
+          state.lastCapturedContext.ocrDurationMs = ocrResult.durationMs;
+        } else {
+          console.warn('[OCR] result empty, skipping context merge');
+        }
+      } catch (e: any) {
+        console.error('[OCR] await error:', e.message);
+      }
+      state.ocrPromise = null;
+    }
+    return state.lastCapturedContext;
+  });
+
+  ipcMain.handle('context:checkAccessibility', () => {
+    if (!isMac) return 'granted';
+    return systemPreferences.isTrustedAccessibilityClient(false) ? 'granted' : 'not-determined';
+  });
+
+  ipcMain.handle('context:requestAccessibility', () => {
+    if (!isMac) return true;
+    return systemPreferences.isTrustedAccessibilityClient(true);
+  });
+
+  ipcMain.handle('context:checkScreenPermission', () => {
+    if (!isMac) return 'granted';
+    return systemPreferences.getMediaAccessStatus('screen');
+  });
+
+  ipcMain.handle('context:openScreenPrefs', () => {
+    if (isMac) {
+      require('child_process').exec('open "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"');
+    }
+    return true;
+  });
+
+  ipcMain.handle('context:captureAndOcr', async () => {
+    const cfg = state.configStore!.getAll();
+    if (!cfg.contextOcrEnabled) return null;
+    try {
+      const result = await captureScreenAndOcr(cfg);
+      return result?.text || null;
+    } catch (e: any) {
+      console.error('[Context OCR] error:', e.message);
+      return null;
+    }
+  });
+
+  // API test
+  ipcMain.handle('api:test', async (_e, provider: string) => {
+    try {
+      const msg = await state.llmService!.testConnection(state.configStore!.getAll(), provider);
+      return { success: true, message: msg };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  // Audio devices
+  ipcMain.handle('audio:devices', async () => {
+    return [];
+  });
+}

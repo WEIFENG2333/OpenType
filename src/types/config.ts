@@ -182,7 +182,8 @@ export interface HistoryContext {
 
   // OCR: Screen analysis
   screenContext?: string;      // VLM description of screen content
-  screenshotDataUrl?: string;  // screenshot thumbnail
+  screenshotPath?: string;     // file path to saved screenshot
+  ocrDurationMs?: number;      // how long OCR took
 
   // Feature flags at capture time
   contextL0Enabled?: boolean;
@@ -214,7 +215,7 @@ export interface HistoryItem {
   windowTitle?: string;
   language?: string;
   wordCount: number;
-  audioBase64?: string;      // base64 WAV for replay / retry
+  audioPath?: string;        // file path to saved WAV audio
   error?: string;            // error message if transcription failed
   context?: HistoryContext;   // full pipeline context for detail view
 }
@@ -376,7 +377,7 @@ whisperMode: false,
   contextL0Enabled: true,
   contextL1Enabled: false,
   contextOcrEnabled: false,
-  contextOcrModel: 'Qwen/Qwen2.5-VL-32B-Instruct',
+  contextOcrModel: 'Qwen/Qwen3-VL-32B-Instruct',
 
   autoLearnDictionary: true,
 

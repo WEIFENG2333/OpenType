@@ -5,6 +5,72 @@ import type { HistoryItem } from '../types/config';
 
 const GITHUB_URL = 'https://github.com/WEIFENG2333/OpenType';
 
+/* ── Permission warning banner ── */
+function PermissionWarnings() {
+  const config = useConfigStore((s) => s.config);
+  const { t } = useTranslation();
+  const [missing, setMissing] = useState<('mic' | 'accessibility' | 'screen')[]>([]);
+
+  useEffect(() => {
+    if (!window.electronAPI) return;
+    const results: ('mic' | 'accessibility' | 'screen')[] = [];
+    const checks: Promise<void>[] = [];
+
+    checks.push(
+      window.electronAPI.checkMicPermission().then((s) => {
+        if (s !== 'granted') results.push('mic');
+      })
+    );
+    if (config.contextL1Enabled) {
+      checks.push(
+        window.electronAPI.checkAccessibility().then((s) => {
+          if (s !== 'granted') results.push('accessibility');
+        })
+      );
+    }
+    if (config.contextOcrEnabled) {
+      checks.push(
+        window.electronAPI.checkScreenPermission().then((s) => {
+          if (s !== 'granted') results.push('screen');
+        })
+      );
+    }
+    Promise.all(checks).then(() => setMissing(results));
+  }, [config.contextL1Enabled, config.contextOcrEnabled]);
+
+  if (missing.length === 0) return null;
+
+  const items: { key: string; text: string; action: string; onClick: () => void }[] = [];
+  if (missing.includes('mic')) {
+    items.push({ key: 'mic', text: t('dashboard.permMicNeeded'), action: t('dashboard.permMicAction'), onClick: () => window.electronAPI?.requestMicPermission() });
+  }
+  if (missing.includes('accessibility')) {
+    items.push({ key: 'acc', text: t('dashboard.permAccessibilityNeeded'), action: t('dashboard.permAccessibilityAction'), onClick: () => window.electronAPI?.requestAccessibility() });
+  }
+  if (missing.includes('screen')) {
+    items.push({ key: 'scr', text: t('dashboard.permScreenNeeded'), action: t('dashboard.permScreenAction'), onClick: () => window.electronAPI?.openScreenPrefs() });
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map((item) => (
+        <div key={item.key} className="rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200/60 dark:border-amber-700/40 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 text-[13px]">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <span>{item.text}</span>
+          </div>
+          <button onClick={item.onClick} className="flex-shrink-0 px-3 py-1 rounded-lg bg-amber-200/60 dark:bg-amber-700/40 text-amber-900 dark:text-amber-200 text-[12px] font-medium hover:bg-amber-200 dark:hover:bg-amber-700/60 transition-colors">
+            {item.action}
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
   const config = useConfigStore((s) => s.config);
   const { t } = useTranslation();
@@ -48,6 +114,9 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto">
         <div className="px-8 py-8 space-y-6 max-w-[800px]">
+
+          {/* ── Permission warnings ── */}
+          <PermissionWarnings />
 
           {/* ── Hero ── */}
           <div className="flex items-start justify-between gap-4">

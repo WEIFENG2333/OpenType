@@ -34,6 +34,11 @@ export interface ElectronAPI {
   setConfig: (key: string, value: any) => Promise<boolean>;
   getAllConfig: () => Promise<any>;
 
+  // ─── Media Files ────────────────────────────────────────
+  saveMedia: (filename: string, base64: string) => Promise<string>;
+  readMedia: (filePath: string) => Promise<string | null>;
+  deleteMedia: (filePath: string) => Promise<boolean>;
+
   // ─── Microphone Permission ──────────────────────────────
   checkMicPermission: () => Promise<string>;
   requestMicPermission: () => Promise<boolean>;
@@ -118,6 +123,7 @@ export interface ElectronAPI {
     recentTranscriptions?: string[];
     screenContext?: string;
     screenshotDataUrl?: string;
+    ocrDurationMs?: number;
   }>;
   checkAccessibility: () => Promise<'granted' | 'not-determined'>;
   requestAccessibility: () => Promise<boolean>;
@@ -131,6 +137,7 @@ export interface ElectronAPI {
   onNavigate: (callback: (page: string) => void) => () => void;
   onDictionaryAutoAdded: (callback: (words: string[]) => void) => () => void;
   onFnKeyEvent: (callback: (event: string) => void) => () => void;
+  onHistoryUpdated: (callback: (history: any[]) => void) => () => void;
 }
 
 declare global {

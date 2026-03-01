@@ -1,12 +1,48 @@
 /**
  * Browser-based audio recorder using Web Audio API.
  * Records microphone input, monitors audio level, outputs WAV buffer.
+ *
+ * Uses a warm (pre-acquired) MediaStream so that recording starts instantly
+ * without waiting for getUserMedia each time.
  */
+
+// Shared warm stream — survives across AudioRecorder instances
+let warmStream: MediaStream | null = null;
+let warmStreamPromise: Promise<MediaStream> | null = null;
+
+const MIC_CONSTRAINTS: MediaStreamConstraints = {
+  audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 },
+};
+
+async function acquireStream(): Promise<MediaStream> {
+  // If a warm stream exists and its tracks are still live, reuse it
+  if (warmStream && warmStream.getAudioTracks().some((t) => t.readyState === 'live')) {
+    return warmStream;
+  }
+  // If an acquisition is already in-flight, wait for it
+  if (warmStreamPromise) return warmStreamPromise;
+
+  warmStreamPromise = navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS).then((s) => {
+    warmStream = s;
+    warmStreamPromise = null;
+    return s;
+  }).catch((e) => {
+    warmStreamPromise = null;
+    throw e;
+  });
+  return warmStreamPromise;
+}
+
+/** Pre-warm the microphone so the first recording starts instantly. */
+export function prewarmMicrophone(): void {
+  acquireStream().catch(() => {});
+}
 
 export class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private stream: MediaStream | null = null;
+  private ownsStream = false;
   private analyser: AnalyserNode | null = null;
   private audioContext: AudioContext | null = null;
   private animationFrame: number | null = null;
@@ -16,13 +52,14 @@ export class AudioRecorder {
     this.onLevelChange = onLevelChange;
     this.audioChunks = [];
 
-    this.stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        sampleRate: 16000,
-      },
-    });
+    // Try to reuse the warm stream; fall back to a fresh one
+    try {
+      this.stream = await acquireStream();
+      this.ownsStream = false;
+    } catch {
+      this.stream = await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
+      this.ownsStream = true;
+    }
 
     // Audio analysis for level metering
     this.audioContext = new AudioContext();
@@ -141,7 +178,10 @@ export class AudioRecorder {
   private cleanup() {
     if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
     this.audioContext?.close();
-    this.stream?.getTracks().forEach((t) => t.stop());
+    // Only stop tracks if we created a fresh stream (not the shared warm one)
+    if (this.ownsStream && this.stream) {
+      this.stream.getTracks().forEach((t) => t.stop());
+    }
     this.animationFrame = null;
     this.audioContext = null;
     this.analyser = null;

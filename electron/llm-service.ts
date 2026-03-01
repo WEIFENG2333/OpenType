@@ -268,7 +268,8 @@ export class LLMService {
   }
 
   async analyzeScreenshot(dataUrl: string, config: Record<string, any>): Promise<string> {
-    const model = config.contextOcrModel || 'Qwen/Qwen2.5-VL-32B-Instruct';
+    if (!config.contextOcrModel) throw new Error('contextOcrModel not configured');
+    const model = config.contextOcrModel;
     const opts = this.getOpts(config);
 
     const prompt = [

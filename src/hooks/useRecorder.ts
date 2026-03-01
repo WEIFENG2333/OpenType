@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { AudioRecorder } from '../services/audioRecorder';
+import { AudioRecorder, prewarmMicrophone } from '../services/audioRecorder';
 import { runPipeline } from '../services/pipeline';
 import { useConfigStore } from '../stores/configStore';
 import { HistoryItem } from '../types/config';
@@ -50,8 +50,10 @@ export function useRecorder() {
 
   const recorderRef = useRef<AudioRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
+  const maxTimerRef = useRef<number | null>(null);
   const startTimeRef = useRef(0);
   const generationRef = useRef(0);
+  const stopRecordingRef = useRef<() => void>(() => {});
 
   const startRecording = useCallback(async () => {
     try {
@@ -85,6 +87,11 @@ export function useRecorder() {
       timerRef.current = window.setInterval(() => {
         setState((s) => ({ ...s, duration: (Date.now() - startTimeRef.current) / 1000 }));
       }, 100);
+      // Auto-stop after 10 minutes
+      maxTimerRef.current = window.setTimeout(() => {
+        maxTimerRef.current = null;
+        stopRecordingRef.current();
+      }, 600000);
     } catch (e: any) {
       setState((s) => ({ ...s, status: 'idle', error: `Microphone error: ${e.message}` }));
     }
@@ -97,6 +104,10 @@ export function useRecorder() {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    if (maxTimerRef.current) {
+      clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = null;
+    }
 
     const durationMs = Date.now() - startTimeRef.current;
     const gen = generationRef.current;
@@ -107,6 +118,20 @@ export function useRecorder() {
       const audioBuffer = await recorderRef.current.stop();
       recorderRef.current = null;
 
+      // Save audio to file (not inline base64 — keeps config.json small)
+      let audioPath: string | undefined;
+      if (window.electronAPI) {
+        const audioBytes = new Uint8Array(audioBuffer);
+        let raw = '';
+        const CHUNK = 8192;
+        for (let i = 0; i < audioBytes.length; i += CHUNK) {
+          raw += String.fromCharCode(...audioBytes.subarray(i, i + CHUNK));
+        }
+        const b64 = btoa(raw);
+        const filename = `audio-${Date.now()}.wav`;
+        audioPath = await window.electronAPI.saveMedia(filename, b64);
+      }
+
       // Get context captured at hotkey press time
       const context = window.electronAPI
         ? await window.electronAPI.getLastContext()
@@ -114,38 +139,84 @@ export function useRecorder() {
 
       const result = await runPipeline(audioBuffer, config, context);
 
-      // Discard stale result if a new recording was started while processing
-      if (generationRef.current !== gen) return;
+      const isStale = generationRef.current !== gen;
+
+      // Save screenshot to file if present
+      let screenshotPath: string | undefined;
+      if (window.electronAPI && context.screenshotDataUrl) {
+        const match = context.screenshotDataUrl.match(/base64,(.+)/);
+        if (match) {
+          const fname = `screenshot-${Date.now()}.jpg`;
+          screenshotPath = await window.electronAPI.saveMedia(fname, match[1]);
+        }
+      }
+
+      // Helper to build context object for history
+      const buildContext = (full: boolean) => ({
+        appName: context.appName,
+        windowTitle: context.windowTitle,
+        bundleId: context.bundleId,
+        url: context.url,
+        ...(full ? {
+          selectedText: context.selectedText,
+          fieldText: context.fieldText,
+          fieldRole: context.fieldRole,
+          fieldRoleDescription: context.fieldRoleDescription,
+          fieldLabel: context.fieldLabel,
+          fieldPlaceholder: context.fieldPlaceholder,
+          cursorPosition: context.cursorPosition,
+          selectionRange: context.selectionRange,
+          numberOfCharacters: context.numberOfCharacters,
+          insertionLineNumber: context.insertionLineNumber,
+          clipboardText: context.clipboardText,
+          recentTranscriptions: context.recentTranscriptions,
+          screenContext: context.screenContext,
+          screenshotPath,
+          ocrDurationMs: context.ocrDurationMs,
+        } : {}),
+        contextL0Enabled: config.contextL0Enabled,
+        contextL1Enabled: config.contextL1Enabled,
+        contextOcrEnabled: config.contextOcrEnabled,
+        systemPrompt: result.systemPrompt,
+        sttProvider: result.sttProvider,
+        llmProvider: result.llmProvider,
+        sttModel: result.sttModel,
+        llmModel: result.llmModel,
+        sttDurationMs: result.sttDurationMs,
+        llmDurationMs: result.llmDurationMs,
+        autoLearnedTerms: result.autoLearnedTerms,
+      });
 
       if (result.success && !result.skipped) {
         const text = result.processedText;
 
-        // Always type at cursor; optionally also copy to clipboard
-        let outputSuccess = false;
-        if (window.electronAPI) {
-          try {
-            const r = await window.electronAPI.typeAtCursor(text);
-            outputSuccess = r.success;
-          } catch {
-            outputSuccess = false;
+        // Only output text and update UI if this generation is still current
+        if (!isStale) {
+          let outputSuccess = false;
+          if (window.electronAPI) {
+            try {
+              const r = await window.electronAPI.typeAtCursor(text);
+              outputSuccess = r.success;
+            } catch {
+              outputSuccess = false;
+            }
+            if (config.alsoWriteClipboard || !outputSuccess) {
+              await window.electronAPI.writeClipboard(text);
+            }
+          } else {
+            try { await navigator.clipboard.writeText(text); } catch {}
           }
-          // Copy to clipboard if user opted in, or as fallback when typing failed
-          if (config.alsoWriteClipboard || !outputSuccess) {
-            await window.electronAPI.writeClipboard(text);
-          }
-        } else {
-          try { await navigator.clipboard.writeText(text); } catch {}
+
+          setState((s) => ({
+            ...s,
+            status: 'idle',
+            rawText: result.rawText,
+            processedText: result.processedText,
+            outputFailed: !outputSuccess,
+          }));
         }
 
-        setState((s) => ({
-          ...s,
-          status: 'idle',
-          rawText: result.rawText,
-          processedText: result.processedText,
-          outputFailed: !outputSuccess,
-        }));
-
-        // Save to history with full context
+        // Always save to history, even if stale
         const wordCount = countWords(result.processedText);
         const item: HistoryItem = {
           id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
@@ -154,58 +225,37 @@ export function useRecorder() {
           processedText: result.processedText,
           durationMs,
           wordCount,
+          audioPath,
           sourceApp: context.appName,
           windowTitle: context.windowTitle,
-          context: {
-            // L0
-            appName: context.appName,
-            windowTitle: context.windowTitle,
-            bundleId: context.bundleId,
-            url: context.url,
-            // L1
-            selectedText: context.selectedText,
-            fieldText: context.fieldText,
-            fieldRole: context.fieldRole,
-            fieldRoleDescription: context.fieldRoleDescription,
-            fieldLabel: context.fieldLabel,
-            fieldPlaceholder: context.fieldPlaceholder,
-            cursorPosition: context.cursorPosition,
-            selectionRange: context.selectionRange,
-            numberOfCharacters: context.numberOfCharacters,
-            insertionLineNumber: context.insertionLineNumber,
-            // Clipboard & recent
-            clipboardText: context.clipboardText,
-            recentTranscriptions: context.recentTranscriptions,
-            // OCR
-            screenContext: context.screenContext,
-            // Don't save screenshot to history (too large for JSON config)
-            // Feature flags
-            contextL0Enabled: config.contextL0Enabled,
-            contextL1Enabled: config.contextL1Enabled,
-            contextOcrEnabled: config.contextOcrEnabled,
-            // Pipeline metadata
-            systemPrompt: result.systemPrompt,
-            sttProvider: result.sttProvider,
-            llmProvider: result.llmProvider,
-            sttModel: result.sttModel,
-            llmModel: result.llmModel,
-            // Timing
-            sttDurationMs: result.sttDurationMs,
-            llmDurationMs: result.llmDurationMs,
-            // Auto-learned terms
-            autoLearnedTerms: result.autoLearnedTerms,
-          },
+          context: buildContext(true),
         };
         addHistoryItem(item);
       } else if (result.skipped) {
-        if (generationRef.current !== gen) return;
-        setState((s) => ({ ...s, status: 'idle', error: 'No speech detected' }));
+        if (!isStale) {
+          setState((s) => ({ ...s, status: 'idle', error: 'No speech detected' }));
+        }
+        // Save skipped to history
+        const skipItem: HistoryItem = {
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+          timestamp: Date.now(),
+          rawText: '',
+          processedText: '',
+          durationMs,
+          wordCount: 0,
+          audioPath,
+          error: 'No speech detected',
+          sourceApp: context.appName,
+          windowTitle: context.windowTitle,
+          context: buildContext(false),
+        };
+        addHistoryItem(skipItem);
       } else {
-        if (generationRef.current !== gen) return;
         const errorMsg = result.error || 'Processing failed';
-        setState((s) => ({ ...s, status: 'idle', error: errorMsg }));
-
-        // Save failed transcription to history
+        if (!isStale) {
+          setState((s) => ({ ...s, status: 'idle', error: errorMsg }));
+        }
+        // Always save failed to history
         const failItem: HistoryItem = {
           id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
           timestamp: Date.now(),
@@ -213,24 +263,11 @@ export function useRecorder() {
           processedText: '',
           durationMs,
           wordCount: 0,
+          audioPath,
           error: errorMsg,
           sourceApp: context.appName,
           windowTitle: context.windowTitle,
-          context: {
-            appName: context.appName,
-            windowTitle: context.windowTitle,
-            bundleId: context.bundleId,
-            url: context.url,
-            contextL0Enabled: config.contextL0Enabled,
-            contextL1Enabled: config.contextL1Enabled,
-            contextOcrEnabled: config.contextOcrEnabled,
-            sttProvider: result.sttProvider,
-            llmProvider: result.llmProvider,
-            sttModel: result.sttModel,
-            llmModel: result.llmModel,
-            sttDurationMs: result.sttDurationMs,
-            llmDurationMs: result.llmDurationMs,
-          },
+          context: buildContext(false),
         };
         addHistoryItem(failItem);
       }
@@ -240,13 +277,19 @@ export function useRecorder() {
     }
   }, [config, addHistoryItem]);
 
+  stopRecordingRef.current = stopRecording;
+
   const cancelRecording = useCallback(() => {
     // Bump generation so any in-flight pipeline result is discarded
     generationRef.current++;
-    // Stop timer
+    // Stop timers
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
+    }
+    if (maxTimerRef.current) {
+      clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = null;
     }
     // Stop recorder without processing the audio
     if (recorderRef.current) {
@@ -269,10 +312,12 @@ export function useRecorder() {
     }
   }, [state.status, startRecording, stopRecording]);
 
-  // Cleanup on unmount
+  // Pre-warm microphone on mount so first recording starts instantly
   useEffect(() => {
+    prewarmMicrophone();
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (maxTimerRef.current) clearTimeout(maxTimerRef.current);
     };
   }, []);
 

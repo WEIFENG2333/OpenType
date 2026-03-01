@@ -44,7 +44,13 @@
     "checkUpdate": "检查更新",
     "checking": "检查中...",
     "upToDate": "已是最新",
-    "feedback": "反馈"
+    "feedback": "反馈",
+    "permMicNeeded": "未授予麦克风权限",
+    "permMicAction": "授权",
+    "permAccessibilityNeeded": "读取选中文本需要辅助功能权限",
+    "permAccessibilityAction": "授权",
+    "permScreenNeeded": "屏幕 OCR 需要屏幕录制权限 ── 请授权给启动本应用的终端，然后重启",
+    "permScreenAction": "打开设置"
   },
   "dictation": {
     "title": "语音听写",
@@ -112,7 +118,10 @@
     "cursorAt": "光标位于位置",
     "line": "行",
     "chars": "字符",
-    "selectedRange": "选区"
+    "selectedRange": "选区",
+    "ocrDuration": "OCR 耗时",
+    "skipped": "未检测到语音",
+    "duration": "时长"
   },
   "dictionary": {
     "title": "个人词典",
