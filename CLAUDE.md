@@ -54,27 +54,26 @@ src/                     → React renderer (ESM, bundled by Vite to dist/)
     layout/              → TitleBar, Sidebar, PageHeader
     recording/           → RecordButton, ResultPanel
   pages/                 → DashboardPage, DictationPage, HistoryPage, DictionaryPage, OverlayPage
-    settings/            → SettingsLayout + sub-panels: Provider, General, Hotkey, Audio,
-                           ToneRules, Privacy, Context, Advanced
+    settings/            → SettingsLayout + sub-panels: Provider, General, Hotkey,
+                           ToneRules, Context, Advanced, Privacy
 
-scripts/                 → Utility & test scripts
+scripts/                 → Test scripts
   # Unit tests (run via `npm test`, no API keys needed)
   test-config-helpers.ts → Provider resolution, STT model mode/protocol, defaults (48 tests)
   test-migration.ts      → Config migration: all edge cases, idempotency (17 tests)
-  test-llm-helpers.ts    → Truncation, cursor markers, term parsing (27 tests)
+  test-llm-helpers.ts    → Truncation, cursor markers, term parsing (38 tests)
   test-auto-dict.ts      → Skip logic, prompt building (25 tests)
   test-word-count.ts     → CJK/Latin/mixed word counting (23 tests)
   test-i18n.ts           → resolve, interpolate, locale file structure (23 tests)
-  # Integration tests (require API keys / network)
+  test-pipeline-e2e.ts   → STT config builders, protocol dispatch, prompt assembly + real API integration (31 tests)
+  # Integration tests (require API keys / network, not in `npm test`)
   test-api.ts            → API connectivity test
-  test-stt.ts            → STT test
-  test-pipeline.ts       → Full pipeline test
+  test-stt.ts            → STT transcription test
+  test-pipeline.ts       → Full pipeline test (STT + LLM)
   test-realtime-providers.ts → Provider config resolution for all STT providers
-  test-realtime-stt.ts   → Realtime STT streaming test
-  test-stt-connection.ts → STT connection test
-  test-dashscope-*.ts    → DashScope-specific model/protocol tests
+  test-realtime-stt.ts   → Realtime STT WebSocket streaming test
+  test-stt-connection.ts → STT connection test (batch + streaming)
   test-paraformer-realtime.ts → Paraformer native inference protocol test
-  clean-history-base64.ts→ One-time migration: strip base64 from config.json
 
 test-fixtures/             → Test audio files (not committed, .gitignore'd)
   angry.wav                → 3.2s Chinese speech "你是不是觉得我很好欺负" (48kHz PCM16 mono)
@@ -99,7 +98,7 @@ Running `tsc --noEmit` alone only checks frontend — Electron errors will be mi
 npm run dev              # Vite dev server (frontend only, http://localhost:5173)
 npm run electron:dev     # Full Electron dev mode (Vite + Electron)
 npm run typecheck        # Check BOTH frontend + electron TypeScript
-npm test                 # Run all 163 unit tests (6 suites: config, migration, LLM, auto-dict, wordCount, i18n)
+npm test                 # Run all unit tests (7 suites: config, migration, LLM, auto-dict, wordCount, i18n, pipeline-e2e)
 npm run check            # typecheck + all unit tests (use before committing)
 npm run build            # Build frontend (vite build) + compile electron (tsc)
 npm run electron:build   # Full package (build + electron-builder, auto-detects platform)
