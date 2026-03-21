@@ -155,22 +155,38 @@ export function useRecorder() {
       // Save audio to file (not inline base64 — keeps config.json small)
       let audioPath: string | undefined;
       if (window.electronAPI) {
-        const audioBytes = new Uint8Array(audioBuffer);
-        let raw = '';
-        const CHUNK = 8192;
-        for (let i = 0; i < audioBytes.length; i += CHUNK) {
-          raw += String.fromCharCode(...audioBytes.subarray(i, i + CHUNK));
+        try {
+          const audioBytes = new Uint8Array(audioBuffer);
+          // Use Blob + FileReader for safe base64 encoding (no stack overflow on large audio)
+          const b64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const dataUrl = reader.result as string;
+              resolve(dataUrl.split(',')[1] || '');
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(new Blob([audioBytes], { type: 'audio/wav' }));
+          });
+          const filename = `audio-${Date.now()}.wav`;
+          audioPath = await window.electronAPI.saveMedia(filename, b64);
+        } catch (e) {
+          console.error('Failed to save audio:', e);
+          // Continue without audioPath — pipeline still runs
         }
-        const b64 = btoa(raw);
-        const filename = `audio-${Date.now()}.wav`;
-        audioPath = await window.electronAPI.saveMedia(filename, b64);
       }
 
-      // Run pipeline (STT starts immediately, context resolved in parallel inside main process)
-      // and get context for history — both happen concurrently
+      // Run pipeline + get context in parallel.
+      // getLastContext has 10s timeout to prevent permanent hang if osascript stalls.
+      const contextWithTimeout = window.electronAPI
+        ? Promise.race([
+            window.electronAPI.getLastContext(),
+            new Promise<Record<string, any>>((resolve) => setTimeout(() => resolve({}), 10000)),
+          ])
+        : Promise.resolve({} as Record<string, any>);
+
       const [result, context] = await Promise.all([
         runPipeline(audioBuffer, config),
-        window.electronAPI ? window.electronAPI.getLastContext() : Promise.resolve({} as Record<string, any>),
+        contextWithTimeout,
       ]);
 
       const isStale = generationRef.current !== gen;
