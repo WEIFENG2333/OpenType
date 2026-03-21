@@ -27,26 +27,10 @@ export interface PipelineResult {
 export async function runPipeline(
   audioBuffer: ArrayBuffer,
   config: AppConfig,
-  context?: Record<string, any>,
 ): Promise<PipelineResult> {
   // If Electron is available, delegate the whole pipeline to main process
   if (window.electronAPI) {
-    const r = await window.electronAPI.processPipeline(audioBuffer);
-    return {
-      success: r.success,
-      rawText: r.rawText,
-      processedText: r.processedText,
-      skipped: r.skipped,
-      error: r.error,
-      systemPrompt: r.systemPrompt,
-      sttProvider: r.sttProvider,
-      llmProvider: r.llmProvider,
-      sttModel: r.sttModel,
-      llmModel: r.llmModel,
-      sttDurationMs: r.sttDurationMs,
-      llmDurationMs: r.llmDurationMs,
-      autoLearnedTerms: r.autoLearnedTerms,
-    };
+    return window.electronAPI.processPipeline(audioBuffer);
   }
 
   // Browser-mode pipeline (no timing / auto-learn in browser)
@@ -66,7 +50,7 @@ export async function runPipeline(
 
   console.log('[Pipeline] Stage 2: LLM post-processing...');
   const llmStart = Date.now();
-  const llm = await processText(rawText, config, context);
+  const llm = await processText(rawText, config);
   const llmDurationMs = Date.now() - llmStart;
 
   if (!llm.success) {

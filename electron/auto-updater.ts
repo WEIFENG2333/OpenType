@@ -7,10 +7,14 @@ export function setupAutoUpdater() {
 
   autoUpdater.on('update-available', (info) => {
     console.log('[Updater] update available:', info.version);
-    state.mainWindow?.webContents.send('updater:update-available', {
-      version: info.version,
-      releaseNotes: info.releaseNotes,
-    });
+    // Normalize releaseNotes — can be string, array of {version, note}, or null
+    let notes: string | undefined;
+    if (typeof info.releaseNotes === 'string') {
+      notes = info.releaseNotes;
+    } else if (Array.isArray(info.releaseNotes)) {
+      notes = info.releaseNotes.map((n: any) => n.note || n).join('\n');
+    }
+    state.mainWindow?.webContents.send('updater:update-available', { version: info.version, releaseNotes: notes });
   });
 
   autoUpdater.on('update-not-available', () => {

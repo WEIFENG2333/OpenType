@@ -53,7 +53,6 @@ export function GeneralSettings() {
             { value: 'light', label: t('settings.general.light') },
             { value: 'system', label: t('settings.general.system') },
           ]}
-          className=""
         />
       </SettingRow>
 
@@ -66,7 +65,6 @@ export function GeneralSettings() {
             { value: 'en', label: 'English' },
             { value: 'zh', label: '中文' },
           ]}
-          className=""
         />
       </SettingRow>
 
@@ -88,7 +86,6 @@ export function GeneralSettings() {
             { value: 'toggle', label: t('settings.general.toggle') },
             { value: 'push-to-talk', label: t('settings.general.pushToTalk') },
           ]}
-          className=""
         />
       </SettingRow>
 
@@ -100,7 +97,6 @@ export function GeneralSettings() {
             { value: '', label: t('settings.audio.autoDetect') },
             ...audioDevices.map((d) => ({ value: d.deviceId, label: d.label })),
           ]}
-          className=""
         />
       </SettingRow>
 

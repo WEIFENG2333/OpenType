@@ -33,7 +33,6 @@ export function PrivacySettings() {
               { value: '24h', label: t('settings.privacy.24h') },
               { value: '1h', label: t('settings.privacy.1h') },
             ]}
-            className=""
           />
         </SettingRow>
       )}
