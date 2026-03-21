@@ -412,7 +412,8 @@ export function setupIPC() {
   ipcMain.handle('window:close', () => state.mainWindow?.hide());
   ipcMain.handle('window:hideOverlay', () => {
     if (state.isRecording) state.isRecording = false;
-    state.suppressActivateUntil = Date.now() + 600;
+    const ACTIVATE_SUPPRESS_MS = 600; // prevent macOS activate from showing main window after overlay hides
+    state.suppressActivateUntil = Date.now() + ACTIVATE_SUPPRESS_MS;
     if (!state.overlayWindow) return;
     state.overlayWindow.setOpacity(0);
     if (isMac) app.hide();

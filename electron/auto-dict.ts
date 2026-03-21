@@ -57,8 +57,9 @@ export interface EditDetectionParams {
 export function prepareEditDetection(cfg: AppConfig): EditDetectionParams | null {
   if (!state.lastTypedText || !cfg.autoLearnDictionary || !cfg.contextL1Enabled) return null;
 
+  const EDIT_DETECTION_TIMEOUT_MS = 5 * 60 * 1000; // 5 min window for detecting user edits
   const timeSince = Date.now() - state.lastTypedAt;
-  if (timeSince >= 5 * 60 * 1000) {
+  if (timeSince >= EDIT_DETECTION_TIMEOUT_MS) {
     state.lastTypedText = null;
     return null;
   }
