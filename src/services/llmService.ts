@@ -93,48 +93,47 @@ export async function testSTTConnection(
 
 // ─── Browser-mode fallback (npm run dev without Electron) ───────────────────
 
-function browserFetchLLM(
+async function browserFetchLLM(
   config: AppConfig,
   systemPrompt: string,
   userMessage: string,
 ): Promise<LLMResult> {
   const { baseUrl, apiKey, model, extraHeaders } = getLLMProviderOpts(config);
-  if (!apiKey) return Promise.resolve({ success: false, error: 'API key is required' });
+  if (!apiKey) return { success: false, error: 'API key is required' };
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30_000);
-  return fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-      ...extraHeaders,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-      max_tokens: 2048,
-    }),
-    signal: controller.signal,
-  })
-    .then(async (res) => {
-      clearTimeout(timeout);
-      if (!res.ok) {
-        const err = await res.text();
-        return { success: false, error: `LLM ${res.status}: ${err.slice(0, 300)}` } as LLMResult;
-      }
-      const json = await res.json();
-      const content = json.choices?.[0]?.message?.content?.trim();
-      if (!content) return { success: false, error: 'No content in LLM response' } as LLMResult;
-      return { success: true, text: content } as LLMResult;
-    })
-    .catch((e: any) => {
-      clearTimeout(timeout);
-      return { success: false, error: e.name === 'AbortError' ? 'Request timed out (30s)' : e.message } as LLMResult;
+  try {
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+        ...extraHeaders,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+        max_tokens: 2048,
+      }),
+      signal: controller.signal,
     });
+    if (!res.ok) {
+      const err = await res.text().catch(() => '');
+      return { success: false, error: `LLM ${res.status}: ${err.slice(0, 300)}` };
+    }
+    const json = await res.json();
+    const content = json.choices?.[0]?.message?.content?.trim();
+    if (!content) return { success: false, error: 'No content in LLM response' };
+    return { success: true, text: content };
+  } catch (e: any) {
+    return { success: false, error: e.name === 'AbortError' ? 'Request timed out (30s)' : e.message };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // ─── Prompt Builder (browser-mode only, main process has its own) ───────────
