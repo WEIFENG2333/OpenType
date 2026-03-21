@@ -348,8 +348,9 @@ export function setupIPC() {
       await new Promise((r) => setTimeout(r, 50));
 
       if (isMac) {
-        const bid = state.lastCapturedContext?.bundleId;
-        const targetApp = state.lastCapturedContext?.appName;
+        // Sanitize to prevent shell injection — bundle IDs and app names should only contain safe chars
+        const bid = (state.lastCapturedContext?.bundleId || '').replace(/[^a-zA-Z0-9._-]/g, '');
+        const targetApp = (state.lastCapturedContext?.appName || '').replace(/[^a-zA-Z0-9 ._-]/g, '');
         if (bid) {
           try {
             execSync(`osascript -e 'tell application id "${bid}" to activate'`, { timeout: 1500 });
