@@ -48,6 +48,11 @@ export async function runPipeline(
     return { success: true, rawText: '', processedText: '', skipped: true, sttDurationMs };
   }
 
+  if (!config.llmPostProcessing) {
+    console.log('[Pipeline] LLM post-processing disabled');
+    return { success: true, rawText, processedText: rawText, sttDurationMs };
+  }
+
   console.log('[Pipeline] Stage 2: LLM post-processing...');
   const llmStart = Date.now();
   const llm = await processText(rawText, config);

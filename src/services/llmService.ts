@@ -5,7 +5,7 @@
  * The browser-mode fallback (direct fetch) is only for `npm run dev` without Electron.
  */
 
-import { AppConfig, TonePreset, getLLMProviderOpts, LLMProviderID } from '../types/config';
+import { AppConfig, TonePreset, getLLMProviderOpts, getSTTProviderOpts, LLMProviderID } from '../types/config';
 
 export interface LLMResult {
   success: boolean;
@@ -44,7 +44,7 @@ export async function rewriteText(
 /** Test LLM API connection */
 export async function testLLMConnection(
   provider: LLMProviderID,
-  _config: AppConfig,
+  config: AppConfig,
 ): Promise<LLMResult> {
   if (window.electronAPI) {
     const t0 = Date.now();
@@ -54,13 +54,15 @@ export async function testLLMConnection(
       ? { success: true, text: `${ms}ms` }
       : { success: false, error: r.error || r.message };
   }
-  return { success: false, error: 'LLM test requires Electron' };
+  const { apiKey } = getLLMProviderOpts(config);
+  if (!apiKey) return { success: false, error: 'API key not configured' };
+  return { success: true, text: 'Key configured (browser mode)' };
 }
 
 /** Test VLM API connection */
 export async function testVLMConnection(
   _provider: LLMProviderID,
-  _config: AppConfig,
+  config: AppConfig,
 ): Promise<LLMResult> {
   if (window.electronAPI) {
     const t0 = Date.now();
@@ -70,18 +72,23 @@ export async function testVLMConnection(
       ? { success: true, text: `${ms}ms` }
       : { success: false, error: r.error || r.message };
   }
-  return { success: false, error: 'VLM test requires Electron' };
+  const { apiKey } = getLLMProviderOpts(config);
+  if (!apiKey) return { success: false, error: 'API key not configured' };
+  return { success: true, text: 'Key configured (browser mode)' };
 }
 
 /** Test STT API connection */
 export async function testSTTConnection(
   _provider: string,
-  _config: AppConfig,
+  config: AppConfig,
 ): Promise<LLMResult> {
   if (window.electronAPI) {
     return window.electronAPI.testSTTConnection();
   }
-  return { success: false, error: 'STT test requires Electron' };
+  // Browser fallback: check if API key is set
+  const { apiKey } = getSTTProviderOpts(config);
+  if (!apiKey) return { success: false, error: 'API key not configured' };
+  return { success: true, text: 'Key configured (browser mode)' };
 }
 
 // ─── Browser-mode fallback (npm run dev without Electron) ───────────────────
@@ -94,6 +101,8 @@ function browserFetchLLM(
   const { baseUrl, apiKey, model, extraHeaders } = getLLMProviderOpts(config);
   if (!apiKey) return Promise.resolve({ success: false, error: 'API key is required' });
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
   return fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -109,8 +118,10 @@ function browserFetchLLM(
       ],
       max_tokens: 2048,
     }),
+    signal: controller.signal,
   })
     .then(async (res) => {
+      clearTimeout(timeout);
       if (!res.ok) {
         const err = await res.text();
         return { success: false, error: `LLM ${res.status}: ${err.slice(0, 300)}` } as LLMResult;
@@ -120,7 +131,10 @@ function browserFetchLLM(
       if (!content) return { success: false, error: 'No content in LLM response' } as LLMResult;
       return { success: true, text: content } as LLMResult;
     })
-    .catch((e: any) => ({ success: false, error: e.message }) as LLMResult);
+    .catch((e: any) => {
+      clearTimeout(timeout);
+      return { success: false, error: e.name === 'AbortError' ? 'Request timed out (30s)' : e.message } as LLMResult;
+    });
 }
 
 // ─── Prompt Builder (browser-mode only, main process has its own) ───────────
