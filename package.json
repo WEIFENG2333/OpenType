@@ -19,7 +19,7 @@
     "electron:build:linux": "npm run build && electron-builder --linux",
     "electron:build:mac": "npm run build && electron-builder --mac",
     "electron:build:win": "npm run build && electron-builder --win",
-    "test": "tsx scripts/test-config-helpers.ts && tsx scripts/test-migration.ts && tsx scripts/test-llm-helpers.ts && tsx scripts/test-auto-dict.ts && tsx scripts/test-word-count.ts",
+    "test": "tsx scripts/test-config-helpers.ts && tsx scripts/test-migration.ts && tsx scripts/test-llm-helpers.ts && tsx scripts/test-auto-dict.ts && tsx scripts/test-word-count.ts && tsx scripts/test-i18n.ts",
     "test:api": "tsx scripts/test-api.ts",
     "test:stt": "tsx scripts/test-stt.ts",
     "test:pipeline": "tsx scripts/test-pipeline.ts",
