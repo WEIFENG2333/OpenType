@@ -17,7 +17,8 @@ function useSmoothResize() {
   const targetRef = useRef(PILL_MIN_W);
   const rafRef = useRef<number | null>(null);
 
-  useEffect(() => {
+  const startLoop = useCallback(() => {
+    if (rafRef.current) return; // already running
     const tick = () => {
       const diff = targetRef.current - currentRef.current;
       if (Math.abs(diff) < 1) {
@@ -25,17 +26,25 @@ function useSmoothResize() {
           currentRef.current = targetRef.current;
           window.electronAPI?.resizeOverlay(targetRef.current, PILL_H);
         }
-      } else {
-        currentRef.current += diff * RESIZE_SPEED;
-        window.electronAPI?.resizeOverlay(Math.round(currentRef.current), PILL_H);
+        rafRef.current = null;
+        return;
       }
+      currentRef.current += diff * RESIZE_SPEED;
+      window.electronAPI?.resizeOverlay(Math.round(currentRef.current), PILL_H);
       rafRef.current = requestAnimationFrame(tick);
     };
     rafRef.current = requestAnimationFrame(tick);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, []);
 
-  return useCallback((w: number) => { targetRef.current = w; }, []);
+  useEffect(() => {
+    startLoop();
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); rafRef.current = null; };
+  }, [startLoop]);
+
+  return useCallback((w: number) => {
+    targetRef.current = w;
+    startLoop();
+  }, [startLoop]);
 }
 
 // ─── Typewriter Hook ─────────────────────────────────────────────────────────
