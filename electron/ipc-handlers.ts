@@ -42,21 +42,34 @@ export function setupIPC() {
   const mediaDir = path.join(app.getPath('userData'), 'media');
   if (!fs.existsSync(mediaDir)) fs.mkdirSync(mediaDir, { recursive: true });
 
+  // Security: validate all file paths are under mediaDir to prevent directory traversal
+  const mediaDirResolved = path.resolve(mediaDir);
+  function assertMediaPath(filePath: string): string {
+    const resolved = path.resolve(filePath);
+    if (!resolved.startsWith(mediaDirResolved + path.sep) && resolved !== mediaDirResolved) {
+      throw new Error('Access denied: path outside media directory');
+    }
+    return resolved;
+  }
+
   ipcMain.handle('media:save', (_e, filename: string, base64: string) => {
-    const filePath = path.join(mediaDir, filename);
+    const safeName = path.basename(filename); // strip any path components
+    const filePath = path.join(mediaDir, safeName);
+    assertMediaPath(filePath);
     fs.writeFileSync(filePath, Buffer.from(base64, 'base64'));
     return filePath;
   });
 
   ipcMain.handle('media:read', (_e, filePath: string) => {
     try {
+      assertMediaPath(filePath);
       if (!fs.existsSync(filePath)) return null;
       return fs.readFileSync(filePath).toString('base64');
     } catch { return null; }
   });
 
   ipcMain.handle('media:delete', (_e, filePath: string) => {
-    try { if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch {}
+    try { assertMediaPath(filePath); if (fs.existsSync(filePath)) fs.unlinkSync(filePath); } catch {}
     return true;
   });
 
@@ -448,16 +461,15 @@ export function setupIPC() {
 
   ipcMain.handle('context:checkScreenPermission', () => {
     if (!isMac) return 'granted';
-    // Use screencapture to test — getMediaAccessStatus('screen') is unreliable
+    const tmpPath = path.join(app.getPath('temp'), `opentype-perm-test-${Date.now()}.jpg`);
     try {
-      const tmpPath = path.join(app.getPath('temp'), 'opentype-perm-test.jpg');
       execSync(`screencapture -x -t jpg "${tmpPath}"`, { timeout: 2000 });
-      const exists = fs.existsSync(tmpPath);
-      const size = exists ? fs.statSync(tmpPath).size : 0;
-      try { if (exists) fs.unlinkSync(tmpPath); } catch {}
+      const size = fs.existsSync(tmpPath) ? fs.statSync(tmpPath).size : 0;
       return size > 100 ? 'granted' : 'denied';
     } catch {
       return 'denied';
+    } finally {
+      try { fs.unlinkSync(tmpPath); } catch {}
     }
   });
 
