@@ -98,7 +98,7 @@ Running `tsc --noEmit` alone only checks frontend — Electron errors will be mi
 npm run dev              # Vite dev server (frontend only, http://localhost:5173)
 npm run electron:dev     # Full Electron dev mode (Vite + Electron)
 npm run typecheck        # Check BOTH frontend + electron TypeScript
-npm test                 # Run all unit tests (7 suites: config, migration, LLM, auto-dict, wordCount, i18n, pipeline-e2e)
+npm test                 # Run all 202 unit tests (7 suites)
 npm run check            # typecheck + all unit tests (use before committing)
 npm run build            # Build frontend (vite build) + compile electron (tsc)
 npm run electron:build   # Full package (build + electron-builder, auto-detects platform)
@@ -108,6 +108,11 @@ SILICONFLOW_KEY=sk-xxx npm run test:api
 SILICONFLOW_KEY=sk-xxx npm run test:stt
 SILICONFLOW_KEY=sk-xxx OPENROUTER_KEY=sk-or-xxx npm run test:pipeline
 ```
+
+**Dev tips**:
+- `npm run dev` (browser-only): STT/LLM API calls work via direct fetch, but no global hotkeys, overlay, context capture, or auto-type. Good for UI development.
+- `npm run electron:dev`: Full app with all features. **Electron code changes require restart** — no HMR for `electron/` files.
+- `test-fixtures/angry.wav` is gitignored. Integration tests that need it will be skipped if missing.
 
 ## Key Patterns
 

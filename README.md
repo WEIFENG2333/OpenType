@@ -105,7 +105,7 @@ OpenType/
 │   ├── hooks/useRecorder.ts  # Recording state machine
 │   ├── components/           # UI primitives + layout + recording
 │   └── pages/                # Dashboard, History, Dictionary,
-│       └── settings/         # 9 settings sub-panels
+│       └── settings/         # 7 settings sub-panels
 ├── scripts/                   # Validation test scripts
 ├── .github/workflows/         # CI + Release pipelines
 └── build/                     # macOS entitlements
