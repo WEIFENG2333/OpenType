@@ -22,7 +22,9 @@ export function saveDictionaryTerms(terms: string[], source: DictionaryEntry['so
   const newEntries = newTerms.map(w => ({ word: w, source, addedAt: Date.now() }));
   state.configStore!.set('personalDictionary', [...dictEntries, ...newEntries]);
   console.log(`[AutoDict:${source}] learned:`, newTerms);
-  state.mainWindow?.webContents.send('dictionary:auto-added', newTerms);
+  if (state.mainWindow && !state.mainWindow.isDestroyed()) {
+    state.mainWindow.webContents.send('dictionary:auto-added', newTerms);
+  }
   return newTerms;
 }
 
@@ -35,8 +37,11 @@ function getDictWords(): string[] {
 export function schedulePostPipelineExtraction(raw: string, processed: string, cfg: AppConfig) {
   if (shouldSkipExtraction(raw, processed, cfg.autoLearnDictionary)) return;
 
+  // Capture screenshot now (before setImmediate) — state.lastCapturedContext may be
+  // overwritten by the next recording before the callback fires
+  const screenshotDataUrl = state.lastCapturedContext?.screenshotDataUrl || null;
+
   setImmediate(() => {
-    const screenshotDataUrl = state.lastCapturedContext?.screenshotDataUrl || null;
     const dictWords = getDictWords();
     const prompt = buildPipelinePrompt(raw, processed, !!screenshotDataUrl, dictWords);
 
