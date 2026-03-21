@@ -9,11 +9,13 @@ import { useTranslation } from '../../i18n';
 // ─── Helper: update a single field inside providers[id] ─────────────────────
 
 function useProviderField() {
-  const { config, set } = useConfigStore();
+  const set = useConfigStore((s) => s.set);
   return (providerId: string, field: keyof ProviderConfig, value: string) => {
-    const current = getProviderConfig(config, providerId);
+    // Read latest config from store (not render-time closure) to avoid stale overwrites
+    const latest = useConfigStore.getState().config;
+    const current = getProviderConfig(latest, providerId);
     set('providers', {
-      ...config.providers,
+      ...latest.providers,
       [providerId]: { ...current, [field]: value },
     });
   };
