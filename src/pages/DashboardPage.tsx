@@ -204,20 +204,17 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
               href={GITHUB_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-2xl p-6 flex items-start gap-4 no-underline transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg group"
-              style={{
-                background: 'radial-gradient(ellipse at 20% 50%, rgba(180,215,250,0.5) 0%, transparent 60%), radial-gradient(ellipse at 60% 30%, rgba(200,230,255,0.4) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(220,240,255,0.3) 0%, transparent 50%), #eef5fb',
-              }}
+              className="rounded-2xl p-6 flex items-start gap-4 no-underline transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg group bg-blue-50/80 dark:bg-brand-500/10 border border-blue-100/50 dark:border-brand-500/20"
             >
-              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-white/60 flex items-center justify-center shadow-sm">
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-white/60 dark:bg-white/10 flex items-center justify-center shadow-sm">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-[15px] font-semibold text-surface-800 mb-1">{t('dashboard.starProject')}</h3>
-                <p className="text-[12px] text-surface-500 leading-relaxed mb-3">{t('dashboard.starDesc')}</p>
-                <span className="inline-block px-3 py-1 bg-white/70 border border-surface-200/50 rounded-lg text-[12px] text-surface-600 group-hover:bg-white transition-colors">
+                <h3 className="text-[15px] font-semibold text-surface-800 dark:text-surface-200 mb-1">{t('dashboard.starProject')}</h3>
+                <p className="text-[12px] text-surface-500 dark:text-surface-400 leading-relaxed mb-3">{t('dashboard.starDesc')}</p>
+                <span className="inline-block px-3 py-1 bg-white/70 dark:bg-white/10 border border-surface-200/50 dark:border-surface-600/50 rounded-lg text-[12px] text-surface-600 dark:text-surface-300 group-hover:bg-white dark:group-hover:bg-white/15 transition-colors">
                   {t('dashboard.goStar')}
                 </span>
               </div>
@@ -227,20 +224,17 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
               href={`${GITHUB_URL}/issues`}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-2xl p-6 flex items-start gap-4 no-underline transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg group"
-              style={{
-                background: 'radial-gradient(ellipse at 20% 50%, rgba(253,215,170,0.5) 0%, transparent 60%), radial-gradient(ellipse at 60% 30%, rgba(254,230,200,0.4) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(255,240,220,0.3) 0%, transparent 50%), #fef5eb',
-              }}
+              className="rounded-2xl p-6 flex items-start gap-4 no-underline transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg group bg-orange-50/80 dark:bg-orange-500/10 border border-orange-100/50 dark:border-orange-500/20"
             >
-              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-white/60 flex items-center justify-center shadow-sm">
+              <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-white/60 dark:bg-white/10 flex items-center justify-center shadow-sm">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-[15px] font-semibold text-surface-800 mb-1">{t('dashboard.contribute')}</h3>
-                <p className="text-[12px] text-surface-500 leading-relaxed mb-3">{t('dashboard.contributeDesc')}</p>
-                <span className="inline-block px-3 py-1 bg-white/70 border border-surface-200/50 rounded-lg text-[12px] text-surface-600 group-hover:bg-white transition-colors">
+                <h3 className="text-[15px] font-semibold text-surface-800 dark:text-surface-200 mb-1">{t('dashboard.contribute')}</h3>
+                <p className="text-[12px] text-surface-500 dark:text-surface-400 leading-relaxed mb-3">{t('dashboard.contributeDesc')}</p>
+                <span className="inline-block px-3 py-1 bg-white/70 dark:bg-white/10 border border-surface-200/50 dark:border-surface-600/50 rounded-lg text-[12px] text-surface-600 dark:text-surface-300 group-hover:bg-white dark:group-hover:bg-white/15 transition-colors">
                   {t('dashboard.viewIssues')}
                 </span>
               </div>
