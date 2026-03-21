@@ -134,7 +134,13 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
       const trimmed = word.trim();
       if (!trimmed || state.config.personalDictionary.some((e) => e.word.toLowerCase() === trimmed.toLowerCase())) return state;
       const entry: DictionaryEntry = { word: trimmed, source, addedAt: Date.now() };
-      const dict = [...state.config.personalDictionary, entry];
+      let dict = [...state.config.personalDictionary, entry];
+      // Cap dictionary at 2000 entries — evict oldest auto-learned words first
+      if (dict.length > 2000) {
+        const manual = dict.filter(e => e.source === 'manual');
+        const auto = dict.filter(e => e.source !== 'manual').sort((a, b) => (a.addedAt ?? 0) - (b.addedAt ?? 0));
+        dict = [...manual, ...auto].slice(-2000);
+      }
       persist('personalDictionary', dict);
       return { config: { ...state.config, personalDictionary: dict } };
     });

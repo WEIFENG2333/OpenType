@@ -75,7 +75,18 @@ export class ConfigStore {
         return migrateConfig(raw);
       }
     } catch (e) {
-      console.error('[ConfigStore] load error:', e);
+      console.error('[ConfigStore] load error — attempting backup recovery:', e);
+      // Try to recover from backup
+      const bakPath = this.filePath + '.bak';
+      try {
+        if (fs.existsSync(bakPath)) {
+          const raw = JSON.parse(fs.readFileSync(bakPath, 'utf-8'));
+          console.log('[ConfigStore] recovered from backup');
+          return migrateConfig(raw);
+        }
+      } catch (bakErr) {
+        console.error('[ConfigStore] backup recovery also failed:', bakErr);
+      }
     }
     return { config: { ...DEFAULT_CONFIG }, changed: false };
   }
@@ -84,7 +95,15 @@ export class ConfigStore {
     try {
       const dir = path.dirname(this.filePath);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), 'utf-8');
+      // Write to temp file first, then rename (atomic on most filesystems)
+      const tmpPath = this.filePath + '.tmp';
+      const json = JSON.stringify(this.data, null, 2);
+      fs.writeFileSync(tmpPath, json, 'utf-8');
+      // Backup current config before overwriting
+      if (fs.existsSync(this.filePath)) {
+        try { fs.copyFileSync(this.filePath, this.filePath + '.bak'); } catch {}
+      }
+      fs.renameSync(tmpPath, this.filePath);
     } catch (e) {
       console.error('[ConfigStore] save error:', e);
     }
