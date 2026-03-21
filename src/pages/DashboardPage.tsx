@@ -155,7 +155,7 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
               </h1>
               <p className="mt-3 text-[14px] text-surface-500 dark:text-surface-400 leading-relaxed">
                 {t('dashboard.heroSubtitle', { hotkey: '' })}
-                <kbd className="inline-block mx-1 px-2 py-0.5 bg-white dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded-md text-[12px] text-surface-600 dark:text-surface-300 font-mono shadow-sm">
+                <kbd className="inline-block mx-1 px-2 py-0.5 bg-white dark:bg-surface-700 border border-surface-200 dark:border-surface-600 rounded-md text-[12px] text-surface-600 dark:text-surface-200 font-mono shadow-sm">
                   {hotkey}
                 </kbd>
               </p>
@@ -204,7 +204,7 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
               href={GITHUB_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-2xl p-5 flex gap-3 no-underline transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg group bg-blue-50/80 dark:bg-brand-500/10 border border-blue-100/50 dark:border-brand-500/20"
+              className="rounded-2xl p-5 flex gap-3 no-underline transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg group bg-blue-50/80 dark:bg-brand-500/15 border border-blue-100/50 dark:border-brand-500/30"
             >
               <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-white/60 dark:bg-white/10 flex items-center justify-center shadow-sm">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -224,7 +224,7 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
               href={`${GITHUB_URL}/issues`}
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-2xl p-5 flex gap-3 no-underline transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg group bg-orange-50/80 dark:bg-orange-500/10 border border-orange-100/50 dark:border-orange-500/20"
+              className="rounded-2xl p-5 flex gap-3 no-underline transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg group bg-orange-50/80 dark:bg-orange-500/15 border border-orange-100/50 dark:border-orange-500/30"
             >
               <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-white/60 dark:bg-white/10 flex items-center justify-center shadow-sm">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -360,7 +360,8 @@ function RecentItem({ item, expanded, isLast, onClick }: { item: HistoryItem; ex
       onClick={onClick}
       className={`w-full text-left flex items-center gap-3.5 px-5 transition-colors hover:bg-surface-50 dark:hover:bg-surface-850
         ${expanded ? 'py-5' : 'py-3.5'}
-        ${!isLast ? 'border-b border-surface-100 dark:border-surface-800/50' : ''}`}
+        ${!isLast ? 'border-b border-surface-100 dark:border-surface-800/50' : ''}
+        ${item.error ? 'border-l-2 border-l-red-400' : ''}`}
     >
       <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-surface-100 dark:bg-surface-800 flex items-center justify-center text-surface-400">
         {iconEl}
