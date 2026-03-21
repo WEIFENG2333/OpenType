@@ -209,6 +209,7 @@ class OpenAIRealtimeSession implements IRealtimeSession {
     if (type === 'error') {
       console.error('[OpenAIRealtime] API error:', JSON.stringify(event.error || event));
       this.onError?.(event.error?.message || 'Realtime API error');
+      this.close(); // close WS on server-side error
       return;
     }
 
@@ -252,6 +253,7 @@ class OpenAIRealtimeSession implements IRealtimeSession {
   getAccumulated(): string { return this.getFinalText(); }
 
   close() {
+    if (this.closed) return;
     this.closed = true;
     if (this.commitTimeout) { clearTimeout(this.commitTimeout); this.commitTimeout = null; }
     if (this.ws) {
@@ -260,6 +262,7 @@ class OpenAIRealtimeSession implements IRealtimeSession {
       this.ws = null;
     }
     const text = this.getFinalText();
+    this.readyResolve = null;
     this.completeResolve?.(text); this.completeResolve = null;
     this.finishedResolve?.(text); this.finishedResolve = null;
   }
@@ -402,6 +405,7 @@ class ParaformerRealtimeSession implements IRealtimeSession {
       this.onError?.(errMsg);
       this.finishedResolve?.(this.getFinalText());
       this.finishedResolve = null;
+      this.close(); // must close WS after task failure to prevent resource leak
       return;
     }
 
@@ -442,6 +446,7 @@ class ParaformerRealtimeSession implements IRealtimeSession {
   getAccumulated(): string { return this.getFinalText(); }
 
   close() {
+    if (this.closed) return;
     this.closed = true;
     if (this.commitTimeout) { clearTimeout(this.commitTimeout); this.commitTimeout = null; }
     if (this.ws) {
@@ -450,6 +455,7 @@ class ParaformerRealtimeSession implements IRealtimeSession {
       this.ws = null;
     }
     const text = this.getFinalText();
+    this.readyResolve = null;
     this.finishedResolve?.(text); this.finishedResolve = null;
   }
 }
@@ -599,8 +605,8 @@ export class STTService {
     const t0 = Date.now();
 
     if (this.supportsStreaming(config)) {
+      const session = this.createRealtimeSession(config);
       try {
-        const session = this.createRealtimeSession(config);
         await session.connect();
         const pcm = makeTestPCM(session.sampleRate, 0.5);
         session.sendAudio(pcm.toString('base64'));
@@ -608,10 +614,11 @@ export class STTService {
           session.commit(),
           new Promise<string>((_, reject) => setTimeout(() => reject(new Error('Test timeout')), 15000)),
         ]);
-        session.close();
         return { success: true, text: `${Date.now() - t0}ms` };
       } catch (e: any) {
         return { success: false, error: e.message };
+      } finally {
+        session.close();
       }
     }
 
