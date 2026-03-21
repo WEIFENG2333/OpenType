@@ -230,7 +230,7 @@ class OpenAIRealtimeSession implements IRealtimeSession {
         this.finishedResolve = resolve;
         if (this.config.finishEvent) this.ws!.send(JSON.stringify(this.config.finishEvent));
         this.commitTimeout = setTimeout(() => {
-          if (this.finishedResolve) { this.finishedResolve = null; resolve(this.getFinalText()); }
+          if (this.finishedResolve) { this.finishedResolve = null; resolve(this.getFinalText()); this.close(); }
         }, 30000);
       });
     }
@@ -239,7 +239,7 @@ class OpenAIRealtimeSession implements IRealtimeSession {
       this.completeResolve = resolve;
       if (this.config.commitEvent) this.ws!.send(JSON.stringify(this.config.commitEvent));
       this.commitTimeout = setTimeout(() => {
-        if (this.completeResolve) { this.completeResolve = null; resolve(this.getFinalText()); }
+        if (this.completeResolve) { this.completeResolve = null; resolve(this.getFinalText()); this.close(); }
       }, 30000);
     });
   }
@@ -434,6 +434,7 @@ class ParaformerRealtimeSession implements IRealtimeSession {
           console.warn('[Paraformer] finish timeout');
           this.finishedResolve = null;
           resolve(this.getFinalText());
+          this.close();
         }
       }, 30000);
     });
