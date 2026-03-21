@@ -460,6 +460,16 @@ class ParaformerRealtimeSession implements IRealtimeSession {
   }
 }
 
+/** Extract human-readable error from API response body (JSON or plain text) */
+function parseApiError(status: number, body: string): string {
+  try {
+    const json = JSON.parse(body);
+    const msg = json?.error?.message || json?.message || json?.error || '';
+    if (msg) return `${status}: ${typeof msg === 'string' ? msg : JSON.stringify(msg)}`;
+  } catch {}
+  return `${status}: ${body.slice(0, 200)}`;
+}
+
 // ═════════════════════════════════════════════════════════════════════════════
 // STTService — public API
 // ═════════════════════════════════════════════════════════════════════════════
@@ -522,8 +532,7 @@ export class STTService {
     });
 
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`DashScope STT ${res.status}: ${err.slice(0, 300)}`);
+      throw new Error(`DashScope STT ${parseApiError(res.status, await res.text().catch(() => ''))}`);
     }
 
     const json = await res.json();
@@ -555,8 +564,7 @@ export class STTService {
     });
 
     if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`STT ${res.status}: ${err.slice(0, 300)}`);
+      throw new Error(`STT ${parseApiError(res.status, await res.text().catch(() => ''))}`);
     }
 
     const json = await res.json();

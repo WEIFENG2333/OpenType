@@ -156,7 +156,13 @@
     "errorTimeout": "Request Timed Out",
     "errorTimeoutDetail": "The API took too long to respond. Please try again.",
     "errorBusy": "Processing In Progress",
-    "errorBusyDetail": "Please wait for the current transcription to finish."
+    "errorBusyDetail": "Please wait for the current transcription to finish.",
+    "errorAuth": "Authentication Failed",
+    "errorAuthDetail": "Your API key may be invalid or expired. Please check it in Settings.",
+    "errorRateLimit": "Rate Limited",
+    "errorRateLimitDetail": "Too many requests. Please wait a moment and try again.",
+    "errorServer": "Service Unavailable",
+    "errorServerDetail": "The API service is temporarily down. Please try again later."
   },
   "overlay": {
     "listening": "Listening...",

@@ -155,6 +155,9 @@ export function setupIPC() {
       };
       session.onError = (error) => {
         console.error('[RealtimeSTT] error:', error);
+        if (overlayWC && !overlayWC.isDestroyed()) {
+          overlayWC.send('pipeline:phase', 'error');
+        }
       };
       await session.connect();
       // If user cancelled during connect, don't publish the session

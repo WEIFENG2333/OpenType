@@ -156,7 +156,13 @@
     "errorTimeout": "请求超时",
     "errorTimeoutDetail": "API 响应时间过长，请稍后重试。",
     "errorBusy": "正在处理中",
-    "errorBusyDetail": "请等待当前转录完成。"
+    "errorBusyDetail": "请等待当前转录完成。",
+    "errorAuth": "认证失败",
+    "errorAuthDetail": "API 密钥可能无效或已过期，请在设置中检查。",
+    "errorRateLimit": "请求频率过高",
+    "errorRateLimitDetail": "请求太频繁，请稍等片刻再试。",
+    "errorServer": "服务暂不可用",
+    "errorServerDetail": "API 服务暂时故障，请稍后再试。"
   },
   "overlay": {
     "listening": "正在收听...",
