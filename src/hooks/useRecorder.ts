@@ -135,7 +135,11 @@ export function useRecorder() {
   }, []);
 
   const stopRecording = useCallback(async () => {
-    if (!recorderRef.current) return;
+    // Capture recorder locally — prevents a concurrent startRecording() from
+    // creating a new recorder that we then accidentally null out after await
+    const recorder = recorderRef.current;
+    if (!recorder) return;
+    recorderRef.current = null; // release ref immediately so startRecording can proceed
 
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -152,8 +156,7 @@ export function useRecorder() {
     setState((s) => ({ ...s, status: 'processing', audioLevel: 0 }));
 
     try {
-      const audioBuffer = await recorderRef.current.stop();
-      recorderRef.current = null;
+      const audioBuffer = await recorder.stop();
 
       // Save audio to file (not inline base64 — keeps config.json small)
       let audioPath: string | undefined;
