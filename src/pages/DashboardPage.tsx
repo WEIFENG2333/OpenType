@@ -348,7 +348,7 @@ function StatCard({ icon, label, value, unit }: { icon: JSX.Element; label: stri
 /* ── Recent transcription item ── */
 function RecentItem({ item, expanded, isLast, onClick }: { item: HistoryItem; expanded: boolean; isLast: boolean; onClick: () => void }) {
   const { t } = useTranslation();
-  const text = item.processedText || item.rawText || item.error || '';
+  const text = item.processedText || item.rawText || (item.error ? t('recording.error') : '');
   const ago = formatTimeAgo(item.timestamp, t);
   const dur = item.durationMs ? formatDuration(item.durationMs) : '';
 
