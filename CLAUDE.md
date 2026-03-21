@@ -23,7 +23,7 @@ electron/                → Electron main process (CommonJS, compiled to dist-e
   app-state.ts           → Shared mutable state singleton (windows, services, flags)
   config-store.ts        → JSON file persistence (~/Library/Application Support/OpenType/config.json)
   ipc-handlers.ts        → All ipcMain.handle() registrations (config, pipeline, media, context, etc.)
-  stt-service.ts         → Server-side STT API calls
+  stt-service.ts         → STT API calls (batch + realtime WebSocket streaming for DashScope/OpenAI)
   llm-service.ts         → Server-side LLM API calls, prompt builder, smart truncation, VLM calls, term extraction
   context-capture.ts     → CapturedContext interface, macOS/Win/Linux context capture, screen OCR (native screencapture + sips)
   shortcut-manager.ts    → Global hotkey registration, toggleRecording() logic, context capture trigger
@@ -35,7 +35,7 @@ electron/                → Electron main process (CommonJS, compiled to dist-e
   fn-monitor.ts          → macOS Fn key monitoring (child process)
 
 src/                     → React renderer (ESM, bundled by Vite to dist/)
-  types/config.ts        → Central type definitions: AppConfig, HistoryItem, HistoryContext, DEFAULT_CONFIG
+  types/config.ts        → Central types: ProviderConfig, ProviderMeta, STTModelDef, PROVIDERS, AppConfig, DEFAULT_CONFIG, getProviderConfig/getSTTProviderOpts/getLLMProviderOpts/getSTTModelMode helpers
   types/electron.d.ts    → Type declarations for window.electronAPI (must match preload.ts)
   stores/configStore.ts  → Zustand store: load, set, update, history CRUD, dictionary CRUD, cross-window sync
   services/              → Dual-mode services (Electron IPC or direct fetch)
@@ -56,13 +56,19 @@ src/                     → React renderer (ESM, bundled by Vite to dist/)
     settings/            → SettingsLayout + sub-panels: Provider, General, Hotkey, Audio,
                            ToneRules, Privacy, Context, Advanced
 
-scripts/                 → Utility scripts
+scripts/                 → Utility & test scripts
   test-api.ts            → API connectivity test
   test-stt.ts            → STT test
   test-pipeline.ts       → Full pipeline test
+  test-migration.ts      → Config migration test (old flat fields → providers map)
+  test-realtime-providers.ts → Provider config resolution test for all STT providers
+  test-realtime-stt.ts   → Realtime STT streaming test
+  test-stt-connection.ts → STT connection test
+  test-dashscope-models.ts → DashScope model list test
+  test-dashscope-realtime.ts → DashScope realtime STT test
+  test-paraformer-realtime.ts → DashScope Paraformer native inference protocol test
+  test-dashscope-transcribe.ts → DashScope models transcription test (OpenAI-compat protocol)
   clean-history-base64.ts→ One-time migration: strip base64 from config.json
-  test-paraformer-realtime.ts → Test DashScope Paraformer native inference protocol (real audio)
-  test-dashscope-transcribe.ts → Test all DashScope models transcription (OpenAI-compat protocol)
 
 test-fixtures/             → Test audio files (not committed, .gitignore'd)
   angry.wav                → 3.2s Chinese speech "你是不是觉得我很好欺负" (48kHz PCM16 mono)
@@ -87,10 +93,12 @@ Running `tsc --noEmit` alone only checks frontend — Electron errors will be mi
 npm run dev              # Vite dev server (frontend only, http://localhost:5173)
 npm run electron:dev     # Full Electron dev mode (Vite + Electron)
 npm run typecheck        # Check BOTH frontend + electron TypeScript
+npm test                 # Run all unit tests (config, migration, LLM, auto-dict)
+npm run check            # typecheck + all unit tests (use before committing)
 npm run build            # Build frontend (vite build) + compile electron (tsc)
 npm run electron:build   # Full package (build + electron-builder, auto-detects platform)
 
-# API tests (require env vars)
+# API integration tests (require env vars, not run by `npm test`)
 SILICONFLOW_KEY=sk-xxx npm run test:api
 SILICONFLOW_KEY=sk-xxx npm run test:stt
 SILICONFLOW_KEY=sk-xxx OPENROUTER_KEY=sk-or-xxx npm run test:pipeline
@@ -102,7 +110,7 @@ SILICONFLOW_KEY=sk-xxx OPENROUTER_KEY=sk-or-xxx npm run test:pipeline
 All frontend services check `window.electronAPI` first. If present (running in Electron), they delegate to IPC. Otherwise, they make direct fetch calls. This allows developing the UI in a browser without Electron.
 
 ### Config Flow
-`src/types/config.ts` defines `AppConfig` with all settings and `DEFAULT_CONFIG`. The Zustand store (`configStore.ts`) loads from Electron IPC or localStorage, and persists changes back on every `set()` call. The Electron-side `config-store.ts` also has a `DEFAULT_CONFIG` for fallback. Config is stored at `~/Library/Application Support/OpenType/config.json`.
+`src/types/config.ts` is the single source of truth — defines `AppConfig`, `DEFAULT_CONFIG`, `PROVIDERS`, and all helper functions. The Zustand store (`configStore.ts`) loads from Electron IPC or localStorage, and persists changes back on every `set()` call. The Electron-side `config-store.ts` imports `DEFAULT_CONFIG` from the same file (no separate copy). Config is stored at `~/Library/Application Support/OpenType/config.json`.
 
 ### Multi-Window Architecture (CRITICAL)
 The app has **two BrowserWindows** with separate renderer processes:
@@ -117,8 +125,18 @@ Audio recordings and screenshots are stored as **separate files** in `~/Library/
 - `media:read` — read file, returns base64
 - `media:delete` — delete file
 
-### Provider System
-Four providers: SiliconFlow (STT+LLM), OpenRouter (LLM only), OpenAI (STT+LLM), OpenAI-Compatible (STT+LLM, custom endpoint). Each has configurable API key, base URL, and model. Provider field naming convention: `{provider}ApiKey`, `{provider}BaseUrl`, `{provider}SttModel`, `{provider}LlmModel`.
+### Provider System (Data-Driven)
+Five providers defined in `PROVIDERS` array (`src/types/config.ts`): SiliconFlow (STT+LLM), OpenRouter (LLM only), OpenAI (STT+LLM), DashScope (STT only, batch+streaming), OpenAI-Compatible (STT+LLM, custom endpoint).
+
+Each provider is a `ProviderMeta` entry with `defaultConfig`, model lists, `extraHeaders`, etc. Per-user config lives in `AppConfig.providers: Record<string, ProviderConfig>` where `ProviderConfig = { apiKey, baseUrl, sttModel, llmModel }`.
+
+**STT Model Modes**: Each STT model is `STTModelDef = { id, mode: 'batch' | 'streaming', label? }`. The mode determines which transcription protocol is used:
+- `batch` — REST API (OpenAI `/audio/transcriptions` multipart or DashScope `chat/completions` with `input_audio`)
+- `streaming` — WebSocket (OpenAI Realtime, Qwen-ASR, or Paraformer native inference)
+
+`getSTTModelMode(providerId, modelId)` resolves mode from PROVIDERS metadata. `supportsStreaming()` and `transcribe()` in stt-service.ts use this for zero if-else dispatch.
+
+Helper functions (`getProviderConfig`, `getSTTProviderOpts`, `getLLMProviderOpts`) resolve config with zero if-else — all driven by the `PROVIDERS` array and `PROVIDER_MAP`. Adding a new provider only requires adding an entry to `PROVIDERS`.
 
 ### LLM Prompt Construction (`electron/llm-service.ts`)
 The system prompt is dynamically built from:
@@ -182,11 +200,11 @@ Context is captured at **hotkey press time** (in `toggleRecording()` in `shortcu
 
 LLM 驱动的智能词典学习，3 个渠道，全部后台异步不阻塞 pipeline：
 
-1. **Pipeline 后提取** — `schedulePostPipelineExtraction()`: 用 raw + processed + 截图（如有）一次 LLM 调用提取术语。有截图时走 VLM（`extractTermsWithImage`），无截图时走文本 LLM（`extractTerms`）。`setImmediate` 延迟执行。
-2. **用户编辑检测** — `prepareEditDetection()` + `runEditDetection()`: 在下次按快捷键时，对比上次输出 vs 当前输入框内容，检测用户手动修正中的术语。复用 `captureFullContext()` 结果避免并发 osascript 冲突。30 分钟超时 + bundleId/fieldRole 校验。
+1. **Pipeline 后提取** — `schedulePostPipelineExtraction()`: 用 raw + processed + 截图（如有）一次 LLM 调用提取术语。有截图时走 VLM（`extractTermsWithImage`），无截图时走文本 LLM（`extractTerms`）。`setImmediate` 延迟执行。如果 raw 和 processed 仅有标点/空格差异则跳过。
+2. **用户编辑检测** — `prepareEditDetection()` + `runEditDetection()`: 在下次按快捷键时，对比上次输出 vs 当前输入框内容，检测用户手动修正中的术语。复用 `captureFullContext()` 结果避免并发 osascript 冲突。5 分钟超时 + bundleId/fieldRole 校验。
 3. **`recordTypedText()`** — 在 `typeAtCursor` 成功后记录输出文本到 `state.lastTypedText`，供下次编辑检测。
 
-提取原则：只学习"个人化、不常见、语音识别容易搞错"的词，宁缺毋滥，max 5 个/次。
+提取原则：只学习"用户个人专属、STT 大概率搞错"的词（内部项目名、同事姓名、小众术语），默认返回空数组，max 3 个/次。prompt 中包含已有词典避免重复。
 
 术语来源标记：`source: 'auto-llm'`（pipeline 提取）、`'auto-diff'`（编辑检测）、`'manual'`（手动添加）。
 
@@ -215,10 +233,17 @@ IPC channel naming convention: `namespace:action` (e.g., `config:get`, `stt:tran
 
 Update these files:
 
-1. **`src/types/config.ts`** — Add to `AppConfig` interface + set default in `DEFAULT_CONFIG`
-2. **`electron/config-store.ts`** — Add to electron-side `DEFAULT_CONFIG` (keep in sync)
-3. **Settings UI** — Add control in appropriate settings sub-panel
-4. **Any service** that reads the field (e.g., `llm-service.ts`, `ipc-handlers.ts`)
+1. **`src/types/config.ts`** — Add to `AppConfig` interface + set default in `DEFAULT_CONFIG` (single source of truth, shared by both frontend and electron)
+2. **Settings UI** — Add control in appropriate settings sub-panel
+3. **Any service** that reads the field (e.g., `llm-service.ts`, `ipc-handlers.ts`)
+
+### Adding a New Provider
+
+Only one file to edit:
+
+1. **`src/types/config.ts`** — Add entry to `PROVIDERS` array with `ProviderMeta` (id, name, supportsSTT/LLM, model lists, `defaultConfig`). If the provider needs custom headers, set `extraHeaders`. If `supportsSTT`/`supportsLLM` introduces a new id, add it to `STTProviderID`/`LLMProviderID` union type.
+
+Everything else (settings UI, helper functions, config resolution) is data-driven and works automatically.
 
 ### Adding a New Context Field
 
@@ -257,7 +282,7 @@ Usage: `const { t } = useTranslation(); t('history.clipboard', { count: 5 })`.
 | Services | camelCase files | `sttService.ts`, `pipeline.ts` |
 | Electron files | kebab-case | `config-store.ts`, `llm-service.ts` |
 | IPC channels | `namespace:action` | `config:get`, `stt:transcribe` |
-| Config fields | camelCase | `siliconflowApiKey`, `contextL0Enabled` |
+| Config fields | camelCase | `contextL0Enabled`, `providers` |
 | CSS variables | kebab-case | `--slider-track` |
 | i18n keys | dot-notation | `settings.providers.apiKey` |
 
@@ -302,7 +327,7 @@ surface-900→ #181715 (dark page backgrounds)
 
 1. **Forgetting one of the 3 IPC files** — TypeScript may pass, but runtime will crash
 2. **Only running `tsc --noEmit`** — Misses electron/ errors. Always use `npm run typecheck`
-3. **Adding config field only to frontend** — Electron-side `config-store.ts` DEFAULT_CONFIG also needs it
+3. **Hardcoding provider logic** — Never add if-else for specific providers; add entry to `PROVIDERS` array instead
 4. **Using `import.meta` in electron/** — Will fail; electron uses CommonJS
 5. **Not updating both locale files** — Chinese users see English fallback or raw key strings
 6. **Capturing context too late** — Must happen before overlay shows, or you get overlay's window info

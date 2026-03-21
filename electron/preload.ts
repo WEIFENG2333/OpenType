@@ -30,7 +30,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   processText: (text: string, ctx?: any) => ipcRenderer.invoke('llm:process', text, ctx),
 
   // Full pipeline
-  processPipeline: (buf: ArrayBuffer, ctx?: any) => ipcRenderer.invoke('pipeline:process', buf, ctx),
+  processPipeline: (buf: ArrayBuffer) => ipcRenderer.invoke('pipeline:process', buf),
 
   // Voice Superpowers
   rewriteText: (text: string, instruction: string) => ipcRenderer.invoke('llm:rewrite', text, instruction),
@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // API testing
   testAPI: (provider: string) => ipcRenderer.invoke('api:test', provider),
+  testVLM: () => ipcRenderer.invoke('api:testVLM'),
 
   // Auto updater
   checkForUpdates: () => ipcRenderer.invoke('updater:check'),

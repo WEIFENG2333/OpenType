@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, execSync } from 'child_process';
 import { state, isMac, isWin } from './app-state';
 
 const WIN_AUDIO_HELPER = [
@@ -66,6 +66,21 @@ export function muteSystemAudio() {
       console.error('[Mute] failed:', e);
     }
   });
+}
+
+/** Synchronous restore — for use in app quit handler where async won't complete */
+export function restoreSystemAudioSync() {
+  if (state.savedSystemVolume == null) return;
+  const vol = state.savedSystemVolume;
+  state.savedSystemVolume = null;
+  state.savedSystemMuted = false;
+  try {
+    if (isMac) {
+      execSync(`osascript -e 'set volume output volume ${vol}'`, { timeout: 1000 });
+    } else if (isWin) {
+      execSync(`powershell -NoProfile -Command "${winAudioCmd('unmute')}"`, { timeout: 2000 });
+    }
+  } catch {}
 }
 
 export function restoreSystemAudio() {

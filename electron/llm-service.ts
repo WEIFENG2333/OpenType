@@ -7,7 +7,7 @@ import { AppConfig, LLMProviderID, getLLMProviderOpts } from '../src/types/confi
 import type { CapturedContext } from './context-capture';
 
 /** Smart truncation: keeps beginning + end of long text, with ellipsis in middle */
-function smartTruncate(text: string, maxLen: number): string {
+export function smartTruncate(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text;
   const keepEach = Math.floor((maxLen - 20) / 2);
   return text.slice(0, keepEach) + '\n... [truncated] ...\n' + text.slice(-keepEach);
@@ -25,7 +25,7 @@ const CONTEXT_LIMITS = {
 };
 
 /** Truncate text centered around the cursor position, keeping context on both sides */
-function cursorCenteredTruncate(text: string, cursorPos: number, maxLen: number): { text: string; adjustedPos: number } {
+export function cursorCenteredTruncate(text: string, cursorPos: number, maxLen: number): { text: string; adjustedPos: number } {
   if (text.length <= maxLen) return { text, adjustedPos: cursorPos };
 
   const ellipsis = '\n... [truncated] ...\n';
@@ -56,7 +56,7 @@ function cursorCenteredTruncate(text: string, cursorPos: number, maxLen: number)
 }
 
 /** Build rich field context string with cursor/selection markers for the LLM */
-function buildFieldContext(context: CapturedContext | undefined): string | null {
+export function buildFieldContext(context: CapturedContext | undefined): string | null {
   if (!context) return null;
   const fieldText = context.fieldText;
   if (!fieldText) return null;
@@ -76,10 +76,15 @@ function buildFieldContext(context: CapturedContext | undefined): string | null 
 
     if (len > 0 && loc + len <= fieldText.length) {
       // User has selected text — show [SELECTED: ...] marker
-      const { text: truncated, adjustedPos } = cursorCenteredTruncate(fieldText, loc, CONTEXT_LIMITS.fieldTextWithMarker - 30);
-      const before = truncated.slice(0, adjustedPos);
-      const selectedText = truncated.slice(adjustedPos, adjustedPos + len);
-      const after = truncated.slice(adjustedPos + len);
+      // Truncate centered on the selection midpoint for best context
+      const selMid = Math.min(loc + Math.floor(len / 2), fieldText.length);
+      const { text: truncated, adjustedPos } = cursorCenteredTruncate(fieldText, selMid, CONTEXT_LIMITS.fieldTextWithMarker - 30);
+      // Recalculate selection boundaries within truncated text
+      const selStart = Math.max(0, adjustedPos - Math.floor(len / 2));
+      const selEnd = Math.min(truncated.length, selStart + len);
+      const before = truncated.slice(0, selStart);
+      const selectedText = truncated.slice(selStart, selEnd);
+      const after = truncated.slice(selEnd);
       const markedText = before + '[SELECTED: ' + selectedText + ']' + after;
 
       return `The user selected text to replace with dictation in the ${descriptor}:\n"""\n${markedText}\n"""\nThe dictated text should replace the [SELECTED: ...] portion.`;
@@ -97,6 +102,25 @@ function buildFieldContext(context: CapturedContext | undefined): string | null 
   // Fallback: no range info, show raw field text
   const snippet = smartTruncate(fieldText, CONTEXT_LIMITS.fieldText);
   return `Existing text in the ${descriptor}:\n"""\n${snippet}\n"""\nThe dictated text should flow naturally with this existing content.`;
+}
+
+/** Parse LLM response for dictionary term extraction. Handles JSON array, embedded array, or comma-separated. */
+export function parseTermsResponse(content: string): string[] {
+  try {
+    const parsed = JSON.parse(content);
+    if (Array.isArray(parsed)) return parsed.filter((t: any) => typeof t === 'string' && t.trim());
+  } catch {}
+  const match = content.match(/\[([^\]]*)\]/);
+  if (match) {
+    try {
+      const parsed = JSON.parse(match[0]);
+      if (Array.isArray(parsed)) return parsed.filter((t: any) => typeof t === 'string' && t.trim());
+    } catch {}
+  }
+  if (content.includes(',')) {
+    return content.split(',').map(s => s.trim().replace(/^["']+|["']+$/g, '')).filter(Boolean);
+  }
+  return [];
 }
 
 export class LLMService {
@@ -119,7 +143,7 @@ export class LLMService {
       body: JSON.stringify({
         model: opts.model,
         messages: opts.messages,
-        temperature: opts.temperature ?? 0.3,
+        ...(opts.temperature != null && { temperature: opts.temperature }),
         max_tokens: opts.maxTokens ?? 2048,
       }),
     });
@@ -146,13 +170,13 @@ export class LLMService {
 
     let ruleNum = 1;
 
-    if (config.fillerWordRemoval !== false)
+    if (config.fillerWordRemoval)
       parts.push(`${ruleNum++}. Remove filler words and pure interjections (um, uh, er, like, you know, 嗯, 啊, 呃, 额, 那个, 就是, 然后)`);
-    if (config.repetitionElimination !== false)
+    if (config.repetitionElimination)
       parts.push(`${ruleNum++}. Remove stutters and unintentional word repetitions`);
-    if (config.selfCorrectionDetection !== false)
+    if (config.selfCorrectionDetection)
       parts.push(`${ruleNum++}. Handle self-corrections: when the speaker says "no wait", "I mean", "not X, Y", "不对", "不是…是…", keep ONLY the corrected version`);
-    if (config.autoFormatting !== false) {
+    if (config.autoFormatting) {
       parts.push(`${ruleNum++}. Add proper punctuation and capitalization`);
       parts.push(`${ruleNum++}. When the speaker enumerates items ("first…second…third…" / "第一…第二…第三…"), format as a numbered list (1. 2. 3.)`);
       parts.push(`${ruleNum++}. Convert spoken numbers to Arabic numerals: "三点五"→"3.5", "二十三"→"23", "一百二十"→"120" — applies to version numbers, quantities, phone numbers, scores, etc.`);
@@ -163,13 +187,13 @@ export class LLMService {
     parts.push(`${ruleNum++}. Output the cleaned text directly — no quotes, no explanations, no prefixes`);
 
 
-    if (config.personalDictionary?.length > 0) {
-      const words = config.personalDictionary.map((e: any) => typeof e === 'string' ? e : e.word);
+    if (config.personalDictionary.length > 0) {
+      const words = config.personalDictionary.map(e => e.word);
       parts.push(`\nHot Word Table (when a similar-sounding word appears, prefer these correct forms):\n${words.join(', ')}`);
     }
 
     if (context?.appName) {
-      const tone = this.resolveTone(config, context.appName);
+      const { tone, customPrompt } = this.resolveTone(config, context.appName);
       const desc: Record<string, string> = {
         professional: 'Professional, formal tone.',
         casual: 'Casual, conversational tone.',
@@ -177,6 +201,9 @@ export class LLMService {
         friendly: 'Warm, friendly tone.',
       };
       parts.push(`\nContext: Active app "${context.appName}". ${desc[tone] || ''}`);
+      if (tone === 'custom' && customPrompt) {
+        parts.push(customPrompt);
+      }
 
       if (context.windowTitle) {
         parts.push(`Window title: "${context.windowTitle}"`);
@@ -255,6 +282,17 @@ export class LLMService {
     });
   }
 
+  async testVLMConnection(config: AppConfig): Promise<string> {
+    if (!config.contextOcrModel) throw new Error('contextOcrModel not configured');
+    const baseOpts = getLLMProviderOpts(config);
+    return this.call({
+      ...baseOpts,
+      model: config.contextOcrModel,
+      messages: [{ role: 'user', content: 'Say ok' }],
+      maxTokens: 10,
+    });
+  }
+
   private async callVLM(config: AppConfig, messages: any[], opts?: { temperature?: number; maxTokens?: number }): Promise<string> {
     if (!config.contextOcrModel) throw new Error('contextOcrModel not configured');
     const baseOpts = getLLMProviderOpts(config);
@@ -262,7 +300,7 @@ export class LLMService {
       ...baseOpts,
       model: config.contextOcrModel,
       messages,
-      temperature: opts?.temperature ?? 0.1,
+      ...(opts?.temperature != null && { temperature: opts.temperature }),
       maxTokens: opts?.maxTokens ?? 300,
     });
   }
@@ -293,23 +331,8 @@ export class LLMService {
     }]);
   }
 
-  private parseTermsResponse(content: string): string[] {
-    try {
-      const parsed = JSON.parse(content);
-      if (Array.isArray(parsed)) return parsed.filter((t: any) => typeof t === 'string' && t.trim());
-    } catch {}
-    const match = content.match(/\[([^\]]*)\]/);
-    if (match) {
-      try {
-        const parsed = JSON.parse(match[0]);
-        if (Array.isArray(parsed)) return parsed.filter((t: any) => typeof t === 'string' && t.trim());
-      } catch {}
-    }
-    if (content.includes(',')) {
-      return content.split(',').map(s => s.trim().replace(/^["']+|["']+$/g, '')).filter(Boolean);
-    }
-    return [];
-  }
+  // Delegate to module-level function for testability
+  private parseTermsResponse(content: string): string[] { return parseTermsResponse(content); }
 
   async extractTerms(prompt: string, config: AppConfig, existingDict: string[]): Promise<string[]> {
     const systemMsg = `你是词典提取助手。严格按用户指令提取词语，返回 JSON 字符串数组。跳过已有词：[${existingDict.join(', ')}]`;
@@ -320,10 +343,9 @@ export class LLMService {
           { role: 'system', content: systemMsg },
           { role: 'user', content: prompt },
         ],
-        temperature: 0.1,
         maxTokens: 300,
       });
-      return this.parseTermsResponse(content).slice(0, 10);
+      return this.parseTermsResponse(content).slice(0, 3);
     } catch (e: any) {
       console.error('[ExtractTerms] error:', e.message);
       return [];
@@ -347,18 +369,20 @@ export class LLMService {
           ],
         },
       ]);
-      return this.parseTermsResponse(content).slice(0, 10);
+      return this.parseTermsResponse(content).slice(0, 3);
     } catch (e: any) {
       console.error('[ExtractTermsWithImage] VLM error:', e.message);
       return [];
     }
   }
 
-  private resolveTone(config: AppConfig, appName: string): string {
+  private resolveTone(config: AppConfig, appName: string): { tone: string; customPrompt?: string } {
     const lower = appName.toLowerCase();
     for (const rule of config.toneRules) {
-      if (lower.includes(rule.appPattern.toLowerCase())) return rule.tone;
+      if (lower.includes(rule.appPattern.toLowerCase())) {
+        return { tone: rule.tone, customPrompt: rule.customPrompt };
+      }
     }
-    return config.defaultTone;
+    return { tone: config.defaultTone };
   }
 }

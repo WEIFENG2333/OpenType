@@ -40,7 +40,12 @@ export class AudioRecorder {
     if (onPCMChunk) {
       this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
       source.connect(this.scriptProcessor);
-      this.scriptProcessor.connect(this.audioContext.destination);
+      // Must connect to destination for onaudioprocess to fire, but use a silent gain node
+      // to prevent mic audio from playing through speakers (feedback loop)
+      const silentGain = this.audioContext.createGain();
+      silentGain.gain.value = 0;
+      this.scriptProcessor.connect(silentGain);
+      silentGain.connect(this.audioContext.destination);
 
       this.scriptProcessor.onaudioprocess = (e) => {
         const input = e.inputBuffer.getChannelData(0);
@@ -88,9 +93,10 @@ export class AudioRecorder {
     if (!this.analyser || !this.onLevelChange) return;
     const buf = new Uint8Array(this.analyser.frequencyBinCount);
     const tick = () => {
-      this.analyser!.getByteFrequencyData(buf);
+      if (!this.analyser || !this.onLevelChange) return; // guard against cleanup race
+      this.analyser.getByteFrequencyData(buf);
       const avg = buf.reduce((a, b) => a + b, 0) / buf.length;
-      this.onLevelChange!(Math.min(avg / 128, 1));
+      this.onLevelChange(Math.min(avg / 128, 1));
       this.animationFrame = requestAnimationFrame(tick);
     };
     tick();
@@ -98,7 +104,10 @@ export class AudioRecorder {
 
   async stop(): Promise<ArrayBuffer> {
     return new Promise((resolve, reject) => {
-      if (!this.mediaRecorder) return reject(new Error('Not recording'));
+      if (!this.mediaRecorder) {
+        this.cleanup();
+        return reject(new Error('Not recording'));
+      }
 
       this.mediaRecorder.onstop = async () => {
         try {
@@ -111,7 +120,14 @@ export class AudioRecorder {
           reject(e);
         }
       };
-      this.mediaRecorder.stop();
+
+      try {
+        this.mediaRecorder.stop();
+      } catch {
+        // MediaRecorder.stop() can throw if already stopped
+        this.cleanup();
+        reject(new Error('Failed to stop recording'));
+      }
     });
   }
 
@@ -180,18 +196,20 @@ export class AudioRecorder {
 
   private cleanup() {
     if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
+    this.animationFrame = null;
+    this.onLevelChange = undefined;
     if (this.scriptProcessor) {
+      this.scriptProcessor.onaudioprocess = null;
       this.scriptProcessor.disconnect();
       this.scriptProcessor = null;
     }
+    this.analyser = null;
     this.audioContext?.close();
+    this.audioContext = null;
     if (this.stream) {
       this.stream.getTracks().forEach((t) => t.stop());
+      this.stream = null;
     }
-    this.animationFrame = null;
-    this.audioContext = null;
-    this.analyser = null;
-    this.stream = null;
     this.mediaRecorder = null;
     this.audioChunks = [];
   }

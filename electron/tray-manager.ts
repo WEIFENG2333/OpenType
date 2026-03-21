@@ -16,15 +16,20 @@ export function createTray(onToggleRecording: () => void) {
 
   state.tray = new Tray(icon);
   state.tray.setToolTip('OpenType — Voice Dictation');
+  updateTrayMenu(onToggleRecording);
+  state.tray.on('click', () => { state.mainWindow?.show(); state.mainWindow?.focus(); });
+}
 
+/** Rebuild tray menu (call after hotkey config changes) */
+export function updateTrayMenu(onToggleRecording: () => void) {
+  if (!state.tray) return;
+  const hotkey = state.configStore?.get('globalHotkey') || 'CmdOrCtrl+Shift+Space';
   const menu = Menu.buildFromTemplate([
     { label: 'Show OpenType', click: () => { state.mainWindow?.show(); state.mainWindow?.focus(); } },
     { type: 'separator' },
-    { label: 'Start Dictation', accelerator: 'CmdOrCtrl+Shift+Space', click: onToggleRecording },
+    { label: 'Start Dictation', accelerator: hotkey, click: onToggleRecording },
     { type: 'separator' },
     { label: 'Quit', click: () => { state.quitting = true; require('electron').app.quit(); } },
   ]);
-
   state.tray.setContextMenu(menu);
-  state.tray.on('click', () => { state.mainWindow?.show(); state.mainWindow?.focus(); });
 }

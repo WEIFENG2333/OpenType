@@ -31,8 +31,8 @@ interface CapturedContext {
 
 export interface PipelineResult {
   success: boolean;
-  rawText?: string;
-  processedText?: string;
+  rawText: string;
+  processedText: string;
   skipped?: boolean;
   error?: string;
   systemPrompt?: string;
@@ -113,6 +113,7 @@ export interface ElectronAPI {
 
   // ─── API testing ──────────────────────────────────────
   testAPI: (provider: LLMProviderID) => Promise<APITestResult>;
+  testVLM: () => Promise<APITestResult>;
 
   // ─── Auto Updater ───────────────────────────────────────
   checkForUpdates: () => Promise<any>;

@@ -94,9 +94,6 @@ export function setupIPC() {
     return true;
   });
 
-  // Platform info
-  ipcMain.handle('app:platform', () => process.platform);
-
   // STT
   ipcMain.handle('stt:transcribe', async (_e, buf: ArrayBuffer, opts: any) => {
     try {
@@ -124,7 +121,9 @@ export function setupIPC() {
     try {
       const cfg = state.configStore!.getAll();
       if (!state.sttService!.supportsStreaming(cfg)) {
-        return { success: false, error: 'Provider does not support streaming STT' };
+        const model = getSTTProviderOpts(cfg).model;
+        console.log(`[RealtimeSTT] skipped — model "${model}" is non-streaming, will use batch`);
+        return { success: false, error: 'non-streaming' };
       }
       // Close any existing session
       if (realtimeSession) {
@@ -153,13 +152,12 @@ export function setupIPC() {
   });
 
   ipcMain.handle('stt:sendAudio', (_e, pcm16Base64: string) => {
-    if (realtimeSession) {
-      audioChunkCount++;
-      if (audioChunkCount <= 3 || audioChunkCount % 50 === 0) {
-        console.log(`[RealtimeSTT] sendAudio chunk #${audioChunkCount}, len=${pcm16Base64.length}`);
-      }
-      realtimeSession.sendAudio(pcm16Base64);
+    if (!realtimeSession) return;
+    audioChunkCount++;
+    if (audioChunkCount === 1) {
+      console.log(`[RealtimeSTT] first audio chunk, len=${pcm16Base64.length}`);
     }
+    realtimeSession.sendAudio(pcm16Base64);
   });
 
   ipcMain.handle('stt:cancelRealtime', () => {
@@ -222,7 +220,7 @@ export function setupIPC() {
       console.warn('[Pipeline] force-unlocking stale pipeline lock after', Math.round((Date.now() - pipelineStartedAt) / 1000), 's');
       pipelineRunning = false;
     }
-    if (pipelineRunning) return { success: false, error: 'Pipeline busy' };
+    if (pipelineRunning) return { success: false, rawText: '', processedText: '', error: 'Pipeline busy' };
     pipelineRunning = true;
     pipelineStartedAt = Date.now();
     const cfg = state.configStore!.getAll();
@@ -278,17 +276,25 @@ export function setupIPC() {
 
       if (!raw.trim()) {
         sendPhase('done');
-        return { success: true, rawText: '', processedText: '', skipped: true, sttDurationMs };
+        return { success: true, rawText: '', processedText: '', skipped: true, sttProvider, llmProvider, sttModel, llmModel, sttDurationMs, llmDurationMs };
       }
 
-      sendPhase('llm');
-      console.log('[Pipeline] LLM via', llmProvider, llmModel);
-      const llmStart = Date.now();
-      const llmResult = await state.llmService!.process(raw, cfg, ctx);
-      llmDurationMs = Date.now() - llmStart;
-      console.log('[Pipeline] LLM done in', llmDurationMs, 'ms:', llmResult.text.slice(0, 100));
+      let processedText = raw;
+      let systemPromptUsed = '';
 
-      schedulePostPipelineExtraction(raw, llmResult.text, cfg);
+      if (cfg.llmPostProcessing) {
+        sendPhase('llm');
+        console.log('[Pipeline] LLM via', llmProvider, llmModel);
+        const llmStart = Date.now();
+        const llmResult = await state.llmService!.process(raw, cfg, ctx);
+        llmDurationMs = Date.now() - llmStart;
+        console.log('[Pipeline] LLM done in', llmDurationMs, 'ms:', llmResult.text.slice(0, 100));
+        processedText = llmResult.text;
+        systemPromptUsed = llmResult.systemPrompt;
+        schedulePostPipelineExtraction(raw, processedText, cfg);
+      } else {
+        console.log('[Pipeline] LLM post-processing disabled, using raw STT output');
+      }
 
       state.isRecording = false;
       sendPhase('done');
@@ -296,8 +302,8 @@ export function setupIPC() {
       return {
         success: true,
         rawText: raw,
-        processedText: llmResult.text,
-        systemPrompt: llmResult.systemPrompt,
+        processedText: processedText,
+        systemPrompt: systemPromptUsed,
         sttProvider, llmProvider, sttModel, llmModel,
         sttDurationMs, llmDurationMs,
       };
@@ -309,7 +315,7 @@ export function setupIPC() {
         realtimeSession.close();
         realtimeSession = null;
       }
-      return { success: false, error: e.message, sttProvider, llmProvider, sttModel, llmModel, sttDurationMs, llmDurationMs };
+      return { success: false, rawText: '', processedText: '', error: e.message, sttProvider, llmProvider, sttModel, llmModel, sttDurationMs, llmDurationMs };
     } finally {
       pipelineRunning = false;
     }
@@ -471,6 +477,15 @@ export function setupIPC() {
   ipcMain.handle('api:test', async (_e, provider: LLMProviderID) => {
     try {
       const msg = await state.llmService!.testConnection(state.configStore!.getAll(), provider);
+      return { success: true, message: msg };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('api:testVLM', async () => {
+    try {
+      const msg = await state.llmService!.testVLMConnection(state.configStore!.getAll());
       return { success: true, message: msg };
     } catch (e: any) {
       return { success: false, error: e.message };

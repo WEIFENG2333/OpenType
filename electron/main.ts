@@ -15,7 +15,7 @@ import { registerShortcuts, toggleRecording } from './shortcut-manager';
 import { setupIPC } from './ipc-handlers';
 import { setupAutoUpdater } from './auto-updater';
 import { stopFnMonitor } from './fn-monitor';
-import { restoreSystemAudio } from './audio-control';
+import { restoreSystemAudioSync } from './audio-control';
 
 // ─── Microphone Permissions ─────────────────────────────────────────────────
 
@@ -60,13 +60,6 @@ function setupAppMenu() {
   ];
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
-
-  if (isDev) {
-    globalShortcut.register('CommandOrControl+Option+I', () => {
-      const win = BrowserWindow.getFocusedWindow();
-      win?.webContents.toggleDevTools();
-    });
-  }
 }
 
 // ─── Custom Protocol: media:// ──────────────────────────────────────────────
@@ -77,6 +70,22 @@ protocol.registerSchemesAsPrivileged([{
   scheme: 'media',
   privileges: { secure: true, supportFetchAPI: true, stream: true, bypassCSP: true },
 }]);
+
+// ─── Single Instance Lock ──────────────────────────────────────────────────
+
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    // Focus existing window when user tries to launch a second instance
+    if (state.mainWindow) {
+      if (state.mainWindow.isMinimized()) state.mainWindow.restore();
+      state.mainWindow.show();
+      state.mainWindow.focus();
+    }
+  });
+}
 
 // ─── App Lifecycle ──────────────────────────────────────────────────────────
 
@@ -127,13 +136,14 @@ app.whenReady().then(() => {
   });
 });
 
+app.on('before-quit', () => {
+  state.quitting = true;
+});
+
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   stopFnMonitor();
-  // Always restore system audio on quit — safety net
-  if (state.savedSystemVolume != null) {
-    restoreSystemAudio();
-  }
+  restoreSystemAudioSync();
 });
 
 app.on('window-all-closed', () => {

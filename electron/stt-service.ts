@@ -10,7 +10,7 @@
 
 import WebSocket from 'ws';
 import { randomUUID } from 'node:crypto';
-import { AppConfig, getSTTProviderOpts, getProviderConfig } from '../src/types/config';
+import { AppConfig, getSTTProviderOpts, getProviderConfig, getSTTModelMode, getSTTModelDef, STTProtocol } from '../src/types/config';
 
 // ─── Public interface for all realtime sessions ─────────────────────────────
 
@@ -25,18 +25,7 @@ export interface IRealtimeSession {
   close(): void;
 }
 
-// ─── DashScope model → protocol mapping ─────────────────────────────────────
-
-const PARAFORMER_MODELS = new Set([
-  'paraformer-realtime-v2', 'paraformer-realtime-v1',
-  'paraformer-realtime-8k-v2', 'paraformer-realtime-8k-v1',
-  'fun-asr-realtime', 'fun-asr-realtime-2025-11-07', 'fun-asr-realtime-2025-09-15',
-  'fun-asr-flash-8k-realtime', 'fun-asr-flash-8k-realtime-2026-01-28',
-]);
-
-function isDashScopeParaformer(model: string): boolean {
-  return PARAFORMER_MODELS.has(model);
-}
+// ─── DashScope protocol routing is now data-driven via STTModelDef.protocol ──
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Protocol 1: OpenAI-compatible Realtime (OpenAI + DashScope Qwen-ASR)
@@ -123,6 +112,8 @@ class OpenAIRealtimeSession implements IRealtimeSession {
   private readyResolve: (() => void) | null = null;
   private completeResolve: ((text: string) => void) | null = null;
   private finishedResolve: ((text: string) => void) | null = null;
+  private commitTimeout: ReturnType<typeof setTimeout> | null = null;
+  private closed = false;
 
   onDelta: ((delta: string, accumulated: string) => void) | null = null;
   onError: ((error: string) => void) | null = null;
@@ -132,29 +123,34 @@ class OpenAIRealtimeSession implements IRealtimeSession {
   constructor(private config: OpenAIRealtimeConfig) {}
 
   connect(): Promise<void> {
+    if (this.ws) return Promise.reject(new Error('Session already connected'));
+
     return new Promise((resolve, reject) => {
+      let settled = false;
+      const settle = (fn: () => void) => { if (!settled) { settled = true; fn(); } };
+
       this.ws = new WebSocket(this.config.wsUrl, { headers: this.config.headers });
 
       const timeout = setTimeout(() => {
-        reject(new Error('Realtime STT connection timeout'));
+        settle(() => reject(new Error('Realtime STT connection timeout')));
         this.close();
       }, 10000);
 
-      this.readyResolve = () => { clearTimeout(timeout); resolve(); };
+      this.readyResolve = () => { clearTimeout(timeout); settle(() => resolve()); };
 
       this.ws.on('open', () => {
-        console.log('[OpenAIRealtime] connected, configuring...');
         this.ws!.send(JSON.stringify(this.config.sessionUpdateEvent));
       });
 
       this.ws.on('message', (data: WebSocket.Data) => {
+        if (this.closed) return;
         this.handleEvent(JSON.parse(data.toString()));
       });
 
       this.ws.on('error', (err: Error) => {
         console.error('[OpenAIRealtime] error:', err.message);
         clearTimeout(timeout);
-        reject(err);
+        settle(() => reject(err));
         this.onError?.(err.message);
       });
 
@@ -177,7 +173,6 @@ class OpenAIRealtimeSession implements IRealtimeSession {
         this.ready = true;
         this.readyResolve?.();
         this.readyResolve = null;
-        console.log('[OpenAIRealtime] session ready');
       }
       return;
     }
@@ -217,10 +212,8 @@ class OpenAIRealtimeSession implements IRealtimeSession {
       return;
     }
 
-    if (['input_audio_buffer.committed', 'input_audio_buffer.speech_started',
-         'input_audio_buffer.speech_stopped', 'conversation.item.created'].includes(type)) return;
-
-    console.log('[OpenAIRealtime] event:', type);
+    // Silently ignore known internal events
+    // Unknown events logged only in dev for debugging
   }
 
   sendAudio(pcm16Base64: string) {
@@ -235,14 +228,18 @@ class OpenAIRealtimeSession implements IRealtimeSession {
       return new Promise((resolve) => {
         this.finishedResolve = resolve;
         if (this.config.finishEvent) this.ws!.send(JSON.stringify(this.config.finishEvent));
-        setTimeout(() => { if (this.finishedResolve) { this.finishedResolve = null; resolve(this.getFinalText()); } }, 30000);
+        this.commitTimeout = setTimeout(() => {
+          if (this.finishedResolve) { this.finishedResolve = null; resolve(this.getFinalText()); }
+        }, 30000);
       });
     }
 
     return new Promise((resolve) => {
       this.completeResolve = resolve;
       if (this.config.commitEvent) this.ws!.send(JSON.stringify(this.config.commitEvent));
-      setTimeout(() => { if (this.completeResolve) { this.completeResolve = null; resolve(this.getFinalText()); } }, 30000);
+      this.commitTimeout = setTimeout(() => {
+        if (this.completeResolve) { this.completeResolve = null; resolve(this.getFinalText()); }
+      }, 30000);
     });
   }
 
@@ -255,7 +252,13 @@ class OpenAIRealtimeSession implements IRealtimeSession {
   getAccumulated(): string { return this.getFinalText(); }
 
   close() {
-    if (this.ws) { try { this.ws.close(); } catch {} this.ws = null; }
+    this.closed = true;
+    if (this.commitTimeout) { clearTimeout(this.commitTimeout); this.commitTimeout = null; }
+    if (this.ws) {
+      this.ws.removeAllListeners();
+      try { this.ws.close(); } catch {}
+      this.ws = null;
+    }
     const text = this.getFinalText();
     this.completeResolve?.(text); this.completeResolve = null;
     this.finishedResolve?.(text); this.finishedResolve = null;
@@ -272,9 +275,11 @@ class ParaformerRealtimeSession implements IRealtimeSession {
   private ws: WebSocket | null = null;
   private taskId = randomUUID();
   private sentences: string[] = [];
-  private currentSentence = '';    // latest partial sentence
+  private currentSentence = '';
   private readyResolve: (() => void) | null = null;
   private finishedResolve: ((text: string) => void) | null = null;
+  private commitTimeout: ReturnType<typeof setTimeout> | null = null;
+  private closed = false;
 
   onDelta: ((delta: string, accumulated: string) => void) | null = null;
   onError: ((error: string) => void) | null = null;
@@ -288,20 +293,24 @@ class ParaformerRealtimeSession implements IRealtimeSession {
   ) {}
 
   connect(): Promise<void> {
+    if (this.ws) return Promise.reject(new Error('Session already connected'));
+
     return new Promise((resolve, reject) => {
+      let settled = false;
+      const settle = (fn: () => void) => { if (!settled) { settled = true; fn(); } };
+
       this.ws = new WebSocket('wss://dashscope.aliyuncs.com/api-ws/v1/inference', {
         headers: { 'Authorization': `Bearer ${this.apiKey}` },
       });
 
       const timeout = setTimeout(() => {
-        reject(new Error('Paraformer connection timeout'));
+        settle(() => reject(new Error('Paraformer connection timeout')));
         this.close();
       }, 10000);
 
-      this.readyResolve = () => { clearTimeout(timeout); resolve(); };
+      this.readyResolve = () => { clearTimeout(timeout); settle(() => resolve()); };
 
       this.ws.on('open', () => {
-        console.log('[Paraformer] connected, sending run-task...');
         this.ws!.send(JSON.stringify({
           header: { action: 'run-task', task_id: this.taskId, streaming: 'duplex' },
           payload: {
@@ -322,17 +331,18 @@ class ParaformerRealtimeSession implements IRealtimeSession {
       });
 
       this.ws.on('message', (data: WebSocket.Data) => {
+        if (this.closed) return;
         try {
           this.handleEvent(JSON.parse(data.toString()));
         } catch {
-          // Binary frame (shouldn't happen from server, ignore)
+          // Binary frame from server, ignore
         }
       });
 
       this.ws.on('error', (err: Error) => {
         console.error('[Paraformer] error:', err.message);
         clearTimeout(timeout);
-        reject(err);
+        settle(() => reject(err));
         this.onError?.(err.message);
       });
 
@@ -351,7 +361,6 @@ class ParaformerRealtimeSession implements IRealtimeSession {
     const event = msg.header?.event;
 
     if (event === 'task-started') {
-      console.log('[Paraformer] task started');
       this.readyResolve?.();
       this.readyResolve = null;
       return;
@@ -382,7 +391,6 @@ class ParaformerRealtimeSession implements IRealtimeSession {
     }
 
     if (event === 'task-finished') {
-      console.log('[Paraformer] task finished');
       this.finishedResolve?.(this.getFinalText());
       this.finishedResolve = null;
       return;
@@ -397,7 +405,6 @@ class ParaformerRealtimeSession implements IRealtimeSession {
       return;
     }
 
-    console.log('[Paraformer] event:', event);
   }
 
   /** Send PCM16 audio. Accepts base64 (from renderer), converts to binary frame. */
@@ -418,7 +425,7 @@ class ParaformerRealtimeSession implements IRealtimeSession {
         header: { action: 'finish-task', task_id: this.taskId, streaming: 'duplex' },
         payload: { input: {} },
       }));
-      setTimeout(() => {
+      this.commitTimeout = setTimeout(() => {
         if (this.finishedResolve) {
           console.warn('[Paraformer] finish timeout');
           this.finishedResolve = null;
@@ -435,7 +442,13 @@ class ParaformerRealtimeSession implements IRealtimeSession {
   getAccumulated(): string { return this.getFinalText(); }
 
   close() {
-    if (this.ws) { try { this.ws.close(); } catch {} this.ws = null; }
+    this.closed = true;
+    if (this.commitTimeout) { clearTimeout(this.commitTimeout); this.commitTimeout = null; }
+    if (this.ws) {
+      this.ws.removeAllListeners();
+      try { this.ws.close(); } catch {}
+      this.ws = null;
+    }
     const text = this.getFinalText();
     this.finishedResolve?.(text); this.finishedResolve = null;
   }
@@ -446,19 +459,78 @@ class ParaformerRealtimeSession implements IRealtimeSession {
 // ═════════════════════════════════════════════════════════════════════════════
 
 export class STTService {
+  /**
+   * Batch transcribe audio. Protocol-driven dispatch from STTModelDef.protocol.
+   */
   async transcribe(
     audioBuffer: Buffer,
     config: AppConfig,
     options?: { language?: string },
   ): Promise<string> {
     const provider = config.sttProvider;
-    if (provider === 'dashscope') {
-      throw new Error('DashScope ASR models only support streaming mode. Recording will use streaming automatically.');
-    }
-
     const { baseUrl, apiKey, model } = getSTTProviderOpts(config);
     if (!apiKey) throw new Error(`No API key for STT provider "${provider}"`);
+    if (!model) throw new Error(`No STT model configured for "${provider}"`);
 
+    const def = getSTTModelDef(provider, model);
+    const protocol = def?.protocol ?? 'openai-batch';
+
+    if (def?.mode === 'streaming') {
+      throw new Error(`Model "${model}" is streaming-only. Recording will use streaming automatically.`);
+    }
+
+    switch (protocol) {
+      case 'dashscope-batch':
+        return this.transcribeDashScopeBatch(apiKey, model, audioBuffer, options);
+      case 'openai-batch':
+        return this.transcribeOpenAIBatch(provider, baseUrl, apiKey, model, audioBuffer, options);
+      default:
+        throw new Error(`Unsupported batch protocol "${protocol}" for model "${model}"`);
+    }
+  }
+
+  /** DashScope batch via chat/completions + input_audio (Qwen3-ASR-Flash) */
+  private async transcribeDashScopeBatch(
+    apiKey: string, model: string, audioBuffer: Buffer, options?: { language?: string },
+  ): Promise<string> {
+    const base64Audio = `data:audio/wav;base64,${audioBuffer.toString('base64')}`;
+    const url = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+    console.log(`[STT] dashscope batch → ${url} model=${model}`);
+
+    const body: any = {
+      model,
+      messages: [{
+        role: 'user',
+        content: [{ type: 'input_audio', input_audio: { data: base64Audio } }],
+      }],
+      stream: false,
+    };
+    if (options?.language && options.language !== 'auto') {
+      body.extra_body = { asr_options: { language: options.language } };
+    }
+
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`DashScope STT ${res.status}: ${err.slice(0, 300)}`);
+    }
+
+    const json = await res.json();
+    const text = json.choices?.[0]?.message?.content?.trim();
+    if (!text) throw new Error('Empty DashScope STT response');
+    return text;
+  }
+
+  /** Standard OpenAI-compatible batch via multipart /audio/transcriptions */
+  private async transcribeOpenAIBatch(
+    provider: string, baseUrl: string, apiKey: string, model: string,
+    audioBuffer: Buffer, options?: { language?: string },
+  ): Promise<string> {
     const formData = new FormData();
     const ab = audioBuffer.buffer.slice(audioBuffer.byteOffset, audioBuffer.byteOffset + audioBuffer.byteLength) as ArrayBuffer;
     formData.append('file', new Blob([ab], { type: 'audio/wav' }), 'recording.wav');
@@ -485,48 +557,42 @@ export class STTService {
     return json.text ?? '';
   }
 
+  /** Check if current config uses a streaming model (data-driven from PROVIDERS) */
   supportsStreaming(config: AppConfig): boolean {
-    const provider = config.sttProvider;
-    if (provider === 'dashscope') return true;
-    if (provider === 'openai') {
-      const model = getProviderConfig(config, 'openai').sttModel || '';
-      return model.includes('gpt-4o-transcribe') || model.includes('gpt-4o-mini-transcribe');
-    }
-    return false;
+    const { model } = getSTTProviderOpts(config);
+    if (!model) return false;
+    return getSTTModelMode(config.sttProvider, model) === 'streaming';
   }
 
-  /** Create a realtime session — auto-selects protocol based on model */
+  /** Create a realtime session — protocol-driven from STTModelDef */
   createRealtimeSession(config: AppConfig): IRealtimeSession {
     const provider = config.sttProvider;
-
     const pc = getProviderConfig(config, provider);
+    const { apiKey, sttModel: model } = pc;
 
-    if (provider === 'dashscope') {
-      const apiKey = pc.apiKey;
-      const model = pc.sttModel;
-      if (!apiKey) throw new Error('No DashScope API key for Realtime STT');
-      if (!model) throw new Error('No DashScope STT model configured');
+    if (!apiKey) throw new Error(`No API key for STT provider "${provider}"`);
+    if (!model) throw new Error(`No STT model configured for "${provider}"`);
 
-      // Route to correct protocol based on model
-      if (isDashScopeParaformer(model)) {
-        const sr = model.includes('8k') ? 8000 : 16000;
-        console.log(`[STT] DashScope Paraformer protocol: ${model} @ ${sr}Hz`);
+    const def = getSTTModelDef(provider, model);
+    const protocol: STTProtocol = def?.protocol ?? 'openai-realtime';
+    const sampleRate = def?.sampleRate;
+
+    console.log(`[STT] Creating realtime session: protocol=${protocol} model=${model}`);
+
+    switch (protocol) {
+      case 'paraformer-realtime': {
+        const sr = sampleRate ?? (model.includes('8k') ? 8000 : 16000);
         return new ParaformerRealtimeSession(apiKey, model, sr);
       }
-
-      // Qwen-ASR: OpenAI-compatible protocol
-      const baseUrl = pc.baseUrl;
-      if (!baseUrl) throw new Error('No DashScope base URL configured');
-      console.log(`[STT] DashScope Qwen-ASR protocol: ${model}`);
-      return new OpenAIRealtimeSession(buildQwenASRConfig(apiKey, model, baseUrl));
+      case 'qwen-asr-realtime': {
+        const wsUrl = 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime';
+        return new OpenAIRealtimeSession(buildQwenASRConfig(apiKey, model, wsUrl));
+      }
+      case 'openai-realtime':
+        return new OpenAIRealtimeSession(buildOpenAIConfig(apiKey, model));
+      default:
+        throw new Error(`Protocol "${protocol}" does not support streaming`);
     }
-
-    // OpenAI
-    const apiKey = pc.apiKey;
-    const model = pc.sttModel;
-    if (!apiKey) throw new Error('No OpenAI API key for Realtime STT');
-    if (!model) throw new Error('No OpenAI STT model configured');
-    return new OpenAIRealtimeSession(buildOpenAIConfig(apiKey, model));
   }
 
   async testConnection(config: AppConfig): Promise<{ success: boolean; text?: string; error?: string }> {

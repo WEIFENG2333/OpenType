@@ -640,7 +640,7 @@ function ContextSection({ title, enabled, hasData, t, children }: {
   t: (key: string) => string;
   children: React.ReactNode;
 }) {
-  const isDisabled = enabled === false || enabled === undefined;
+  const isDisabled = !enabled;
 
   return (
     <div className={`rounded-lg border px-3 py-2.5 ${

@@ -28,7 +28,7 @@ async function run(name: string, baseUrl: string, key: string, model: string, te
     const r = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, ...extra },
-      body: JSON.stringify({ model, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: text }], temperature: 0.3, max_tokens: 512 }),
+      body: JSON.stringify({ model, messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: text }], max_tokens: 512 }),
     });
     const ms = Date.now() - t;
     if (!r.ok) { console.log(`  [${name}] \x1b[31mFAIL\x1b[0m ${ms}ms — HTTP ${r.status}`); return; }

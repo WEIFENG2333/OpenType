@@ -34,8 +34,8 @@ export async function runPipeline(
     const r = await window.electronAPI.processPipeline(audioBuffer);
     return {
       success: r.success,
-      rawText: r.rawText ?? '',
-      processedText: r.processedText ?? '',
+      rawText: r.rawText,
+      processedText: r.processedText,
       skipped: r.skipped,
       error: r.error,
       systemPrompt: r.systemPrompt,

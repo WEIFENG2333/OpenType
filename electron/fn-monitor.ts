@@ -23,7 +23,13 @@ export function startFnMonitor(onToggle: () => void, onReregister: () => void) {
   const binPath = getFnMonitorPath();
   try {
     state.fnMonitorProcess = spawn(binPath, [], { stdio: ['ignore', 'pipe', 'pipe'] });
-    const rl = readline.createInterface({ input: state.fnMonitorProcess.stdout! });
+    if (!state.fnMonitorProcess.stdout) {
+      console.error('[FnMonitor] no stdout pipe');
+      state.fnMonitorProcess.kill('SIGKILL');
+      state.fnMonitorProcess = null;
+      return;
+    }
+    const rl = readline.createInterface({ input: state.fnMonitorProcess.stdout });
 
     let fnHeld = false;
     const fnComboShortcuts: string[] = [];
@@ -100,7 +106,9 @@ export function startFnMonitor(onToggle: () => void, onReregister: () => void) {
     });
 
     state.fnMonitorProcess.on('exit', (code) => {
-      console.log('[FnMonitor] exited with code', code);
+      if (code !== null && code !== 0) console.warn('[FnMonitor] exited with code', code);
+      rl.close();
+      unregisterFnCombos();
       state.fnMonitorProcess = null;
     });
 
@@ -117,15 +125,8 @@ export function restartFnMonitor(onToggle: () => void, onReregister: () => void)
 
 export function stopFnMonitor() {
   if (state.fnMonitorProcess) {
-    state.fnMonitorProcess.kill();
+    state.fnMonitorProcess.kill('SIGKILL');
     state.fnMonitorProcess = null;
   }
 }
 
-export function needsFnMonitor(): boolean {
-  if (!isMac) return false;
-  const hotkey = state.configStore!.get('globalHotkey') || '';
-  const pttKey = state.configStore!.get('pushToTalkKey') || '';
-  const pasteKey = state.configStore!.get('pasteLastKey') || '';
-  return [hotkey, pttKey, pasteKey].some((k) => k === 'Fn' || k.startsWith('Fn+'));
-}

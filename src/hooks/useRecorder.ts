@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { AudioRecorder } from '../services/audioRecorder';
 import { runPipeline } from '../services/pipeline';
 import { useConfigStore } from '../stores/configStore';
-import { HistoryItem } from '../types/config';
+import { HistoryItem, getSTTProviderOpts, getSTTModelMode } from '../types/config';
 import { countWords } from '../utils/wordCount';
 
 function playBeep(freq: number, duration: number, volume = 0.25) {
@@ -86,10 +86,14 @@ export function useRecorder() {
         }
       }
 
-      // Try to start Realtime STT session
+      // Start Realtime STT only if the selected model is streaming
       let useStreaming = false;
       let sttSampleRate = 24000;
-      if (window.electronAPI) {
+      const currentCfg = configRef.current;
+      const sttModel = getSTTProviderOpts(currentCfg).model;
+      const isStreamingModel = sttModel && getSTTModelMode(currentCfg.sttProvider, sttModel) === 'streaming';
+
+      if (window.electronAPI && isStreamingModel) {
         try {
           const r = await window.electronAPI.startRealtimeSTT();
           useStreaming = r.success;
@@ -166,8 +170,8 @@ export function useRecorder() {
       // and get context for history — both happen concurrently
       const [result, context] = await Promise.all([
         runPipeline(audioBuffer, config),
-        window.electronAPI ? window.electronAPI.getLastContext() : Promise.resolve({} as any),
-      ]) as [Awaited<ReturnType<typeof runPipeline>>, Record<string, any>];
+        window.electronAPI ? window.electronAPI.getLastContext() : Promise.resolve({} as Record<string, any>),
+      ]);
 
       const isStale = generationRef.current !== gen;
 

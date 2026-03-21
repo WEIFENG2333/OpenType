@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useConfigStore } from '../../stores/configStore';
-import { PROVIDERS, STTProviderID, LLMProviderID, getProviderConfig, ProviderConfig } from '../../types/config';
+import { PROVIDERS, STTProviderID, LLMProviderID, getProviderConfig, ProviderConfig, STTModelDef } from '../../types/config';
 import { testLLMConnection, testVLMConnection, testSTTConnection } from '../../services/llmService';
 import { Button, Select, PasswordInput, Input, SettingRow } from '../../components/ui';
 import { useTranslation } from '../../i18n';
@@ -98,7 +99,10 @@ export function ProviderSettings() {
             <ModelInput
               value={sttPC.sttModel}
               onChange={(v) => setField(config.sttProvider, 'sttModel', v)}
-              presets={sttMeta.sttModels}
+              presets={sttMeta.sttModels.map(m => m.id)}
+              badges={Object.fromEntries(sttMeta.sttModels.map(m => [
+                m.id, m.mode === 'streaming' ? 'streaming' : 'batch',
+              ]))}
             />
           </SettingRow>
         )}
@@ -118,7 +122,7 @@ export function ProviderSettings() {
           <Select
             value={config.llmProvider}
             onChange={(e) => { set('llmProvider', e.target.value as LLMProviderID); setTestResults({}); }}
-            options={PROVIDERS.map((p) => ({ value: p.id, label: p.name }))}
+            options={PROVIDERS.filter((p) => p.supportsLLM).map((p) => ({ value: p.id, label: p.name }))}
           />
         </SettingRow>
 
@@ -198,8 +202,25 @@ function ProviderSection({ icon, title, tooltip, children }: {
   );
 }
 
-function ModelInput({ value, onChange, presets }: {
+/** Tiny inline icon indicating streaming (wave) or non-streaming (file) */
+function ModeIcon({ mode }: { mode: string }) {
+  if (mode === 'streaming') {
+    return (
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-emerald-500">
+        <path d="M2 12h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2H2V6h2a2 2 0 0 1 2-2"/><path d="M10 6v12"/><path d="M14 2v20"/><path d="M18 6v12"/><path d="M22 8v8"/>
+      </svg>
+    );
+  }
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="shrink-0 text-surface-400">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+    </svg>
+  );
+}
+
+function ModelInput({ value, onChange, presets, labels, badges }: {
   value: string; onChange: (v: string) => void; presets: string[];
+  labels?: Record<string, string>; badges?: Record<string, string>;
 }) {
   const { t } = useTranslation();
   const [custom, setCustom] = useState(() => presets.length === 0 || (!!value && !presets.includes(value)));
@@ -208,6 +229,9 @@ function ModelInput({ value, onChange, presets }: {
     if (presets.length === 0) { setCustom(true); return; }
     if (presets.includes(value)) {
       setCustom(false);
+    } else if (value) {
+      // Keep user's custom model intact when switching providers
+      setCustom(true);
     } else {
       setCustom(false);
       onChange(presets[0]);
@@ -236,14 +260,61 @@ function ModelInput({ value, onChange, presets }: {
     );
   }
 
+  const selected = presets.includes(value) ? value : presets[0];
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+  const [dropOpen, setDropOpen] = useState(false);
+  const [dropStyle, setDropStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    if (!dropOpen || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const dropUp = spaceBelow < 200 && rect.top > spaceBelow;
+    setDropStyle({
+      position: 'fixed', left: rect.left, width: Math.max(rect.width, 360),
+      ...(dropUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.bottom + 4 }),
+      maxHeight: Math.min(dropUp ? rect.top - 8 : spaceBelow - 8, 300),
+    });
+    const onClick = (e: MouseEvent) => {
+      if (!triggerRef.current?.contains(e.target as Node) && !dropRef.current?.contains(e.target as Node)) setDropOpen(false);
+    };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [dropOpen]);
+
   return (
     <div className="flex items-center gap-1.5">
       <div className="flex-1 min-w-0">
-        <Select
-          value={presets.includes(value) ? value : presets[0]}
-          onChange={(e) => onChange(e.target.value)}
-          options={presets.map((m) => ({ value: m, label: m }))}
-        />
+        <button
+          ref={triggerRef}
+          type="button"
+          onClick={() => setDropOpen(!dropOpen)}
+          className="w-full bg-white dark:bg-surface-850 border border-surface-300 dark:border-surface-700 rounded-lg px-3.5 py-2 text-sm text-surface-800 dark:text-surface-200 text-left flex items-center justify-between focus:outline-none focus:border-brand-500 transition-colors cursor-pointer"
+        >
+          {badges?.[selected] && <ModeIcon mode={badges[selected]} />}
+          <span className="truncate font-mono text-xs">{labels?.[selected] ?? selected}</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            className={`shrink-0 ml-auto text-surface-400 transition-transform ${dropOpen ? 'rotate-180' : ''}`}>
+            <path d="m6 9 6 6 6-6"/>
+          </svg>
+        </button>
+        {dropOpen && createPortal(
+          <div ref={dropRef} style={dropStyle}
+            className="z-[9999] overflow-y-auto bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-700 rounded-lg shadow-xl py-1 animate-fade-in">
+            {presets.map((m) => (
+              <button key={m} onClick={() => { onChange(m); setDropOpen(false); }}
+                className={`w-full text-left px-3.5 py-2 text-sm transition-colors flex items-center gap-2
+                  ${m === selected
+                    ? 'bg-brand-50 dark:bg-brand-600/15 text-brand-600 dark:text-brand-400'
+                    : 'text-surface-800 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800'}`}>
+                {badges?.[m] && <ModeIcon mode={badges[m]} />}
+                <span className="font-mono text-xs">{labels?.[m] ?? m}</span>
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
       </div>
       <button
         onClick={() => setCustom(true)}
@@ -330,7 +401,7 @@ function TestRow({ category, testing, results, onTest, t }: {
       </Button>
       {items.map((item) =>
         item.ok ? (
-          <span key={item.label} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-emerald-500/8 border border-emerald-500/20">
+          <span key={item.label} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-emerald-500/10 border border-emerald-500/20">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-emerald-500 shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
             <span className="text-emerald-600 dark:text-emerald-400 font-medium">{item.label}</span>
             <span className="text-surface-400">·</span>

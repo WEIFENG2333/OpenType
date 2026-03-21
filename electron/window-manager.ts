@@ -22,7 +22,6 @@ export function createMainWindow() {
 
   if (isDev) {
     state.mainWindow.loadURL('http://localhost:5173');
-    state.mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {
     state.mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }

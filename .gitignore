@@ -1,6 +1,8 @@
 node_modules/
 dist/
 dist-electron/
+src/**/*.js
+src/**/*.js.map
 release/
 *.log
 test-fixtures/

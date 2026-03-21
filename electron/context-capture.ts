@@ -7,7 +7,7 @@ import { AppConfig } from '../src/types/config';
 
 function execAsync(cmd: string, opts: { input?: string; timeout?: number } = {}): Promise<string> {
   return new Promise((resolve, reject) => {
-    const proc = exec(cmd, { timeout: opts.timeout ?? 2000 }, (err, stdout) => {
+    const proc = exec(cmd, { timeout: opts.timeout ?? 2000, killSignal: 'SIGKILL' }, (err, stdout) => {
       if (err) reject(err);
       else resolve(stdout.toString().trim());
     });
@@ -279,8 +279,8 @@ async function captureContextLinux(): Promise<CapturedContext> {
 }
 
 export async function captureFullContext(config: AppConfig): Promise<CapturedContext> {
-  const l0Enabled = config.contextL0Enabled !== false;
-  const l1Enabled = !!config.contextL1Enabled;
+  const l0Enabled = config.contextL0Enabled;
+  const l1Enabled = config.contextL1Enabled;
 
   let ctx: CapturedContext = {};
 
@@ -327,8 +327,12 @@ function captureScreenMac(): string | null {
     // -x = no sound, -t jpg, -R = capture specific region
     execSync(`screencapture -x -t jpg -R ${x},${y},${width},${height} "${tmpPath}"`, { timeout: 3000 });
     if (!fs.existsSync(tmpPath)) return null;
-    // Resize to max 1280px wide (Retina screens capture at 2x+ physical pixels)
-    execSync(`sips --resampleWidth 1280 -s format jpeg -s formatOptions 70 "${tmpPath}" --out "${tmpPath}"`, { timeout: 2000 });
+    // Downscale to max 1280px wide if larger (Retina screens capture at 2x+ physical pixels)
+    const widthInfo = execSync(`sips -g pixelWidth "${tmpPath}"`, { timeout: 500 }).toString();
+    const currentWidth = parseInt(widthInfo.match(/pixelWidth:\s*(\d+)/)?.[1] || '0', 10);
+    if (currentWidth > 1280) {
+      execSync(`sips --resampleWidth 1280 -s format jpeg -s formatOptions 70 "${tmpPath}" --out "${tmpPath}"`, { timeout: 2000 });
+    }
     const buf = fs.readFileSync(tmpPath);
     if (buf.length < 100) return null;
     // sips -g is fast, just reads JPEG header

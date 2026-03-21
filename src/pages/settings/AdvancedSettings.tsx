@@ -9,6 +9,14 @@ export function AdvancedSettings() {
   return (
     <div className="space-y-3">
       <Toggle
+        checked={config.llmPostProcessing}
+        onChange={(v) => set('llmPostProcessing', v)}
+        label={t('settings.advanced.llmPostProcessing')}
+        description={t('settings.advanced.llmPostProcessingDesc')}
+      />
+
+      {config.llmPostProcessing && (<>
+      <Toggle
         checked={config.fillerWordRemoval}
         onChange={(v) => set('fillerWordRemoval', v)}
         label={t('settings.advanced.fillerRemoval')}
@@ -35,6 +43,7 @@ export function AdvancedSettings() {
         label={t('settings.advanced.autoFormat')}
         description={t('settings.advanced.autoFormatDesc')}
       />
+      </>)}
     </div>
   );
 }

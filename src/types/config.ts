@@ -12,17 +12,50 @@ export interface ProviderConfig {
   llmModel: string;
 }
 
+/** STT model mode — determines which transcription protocol to use */
+export type STTModelMode = 'batch' | 'streaming';
+
+/**
+ * STT protocol — determines which code path handles this model.
+ * Adding a new protocol = adding a handler in stt-service.ts.
+ */
+export type STTProtocol =
+  | 'openai-batch'           // POST /audio/transcriptions (multipart)
+  | 'dashscope-batch'        // POST /compatible-mode/v1/chat/completions (input_audio)
+  | 'openai-realtime'        // WSS OpenAI Realtime API
+  | 'qwen-asr-realtime'      // WSS DashScope Qwen-ASR (OpenAI-compatible)
+  | 'paraformer-realtime';   // WSS DashScope native inference (Paraformer/FunASR/Gummy)
+
+export interface STTModelDef {
+  id: string;
+  mode: STTModelMode;
+  protocol: STTProtocol;
+  label?: string;            // display label override (defaults to id)
+  sampleRate?: number;        // override for streaming (e.g., 8000 for 8k models)
+}
+
 export interface ProviderMeta {
   id: string;
   name: string;
   supportsSTT: boolean;
   supportsLLM: boolean;
   fixedBaseUrl: boolean;   // true = hide Base URL field in UI (URL is canonical)
-  sttModels: string[];
+  sttModels: STTModelDef[];
   llmModels: string[];
   vlmModels: string[];     // Vision Language Models (for screen OCR)
   extraHeaders?: Record<string, string>;  // OpenRouter's HTTP-Referer etc.
   defaultConfig: ProviderConfig;
+}
+
+/** Resolve STT model definition from PROVIDERS metadata */
+export function getSTTModelDef(providerId: string, modelId: string): STTModelDef | undefined {
+  const meta = PROVIDER_MAP.get(providerId);
+  return meta?.sttModels.find(m => m.id === modelId);
+}
+
+/** Resolve STT model mode from PROVIDERS metadata */
+export function getSTTModelMode(providerId: string, modelId: string): STTModelMode {
+  return getSTTModelDef(providerId, modelId)?.mode ?? 'batch';
 }
 
 export const PROVIDERS = [
@@ -33,7 +66,7 @@ export const PROVIDERS = [
     supportsLLM: true,
     fixedBaseUrl: true,
     sttModels: [
-      'FunAudioLLM/SenseVoiceSmall',              // 轻量·极快
+      { id: 'FunAudioLLM/SenseVoiceSmall', mode: 'batch', protocol: 'openai-batch' },
     ],
     llmModels: [
       // ── 高性能 ──
@@ -108,9 +141,9 @@ export const PROVIDERS = [
     supportsLLM: true,
     fixedBaseUrl: true,
     sttModels: [
-      'gpt-4o-transcribe',                       // 高性能·最准
-      'gpt-4o-mini-transcribe',                  // 轻量·低成本
-      'whisper-1',                               // 经典稳定
+      { id: 'gpt-4o-transcribe', mode: 'batch', protocol: 'openai-batch' },
+      { id: 'gpt-4o-mini-transcribe', mode: 'batch', protocol: 'openai-batch' },
+      { id: 'whisper-1', mode: 'batch', protocol: 'openai-batch' },
     ],
     llmModels: [
       // ── 高性能 ──
@@ -142,20 +175,21 @@ export const PROVIDERS = [
     supportsLLM: false,
     fixedBaseUrl: true,
     sttModels: [
-      // Qwen-ASR (OpenAI-compatible protocol)
-      'qwen3-asr-flash-realtime',            // Qwen3·极快（稳定版，推荐）
-      'qwen3-asr-flash-realtime-2026-02-10', // Qwen3 最新快照
-      'qwen3-asr-flash-realtime-2025-10-27', // Qwen3 快照
-      // Paraformer/FunASR/Gummy (native inference protocol)
-      'paraformer-realtime-v2',              // Paraformer V2·多语种
-      'fun-asr-realtime',                    // FunASR·稳定
+      // Qwen-ASR batch (chat/completions + input_audio)
+      { id: 'qwen3-asr-flash', mode: 'batch', protocol: 'dashscope-batch', label: 'Qwen3-ASR-Flash' },
+      // Qwen-ASR streaming (OpenAI-compatible WebSocket)
+      { id: 'qwen3-asr-flash-realtime', mode: 'streaming', protocol: 'qwen-asr-realtime' },
+      { id: 'qwen3-asr-flash-realtime-2026-02-10', mode: 'streaming', protocol: 'qwen-asr-realtime' },
+      // Paraformer/FunASR (native inference WebSocket)
+      { id: 'paraformer-realtime-v2', mode: 'streaming', protocol: 'paraformer-realtime' },
+      { id: 'fun-asr-realtime', mode: 'streaming', protocol: 'paraformer-realtime' },
     ],
     llmModels: [],
     vlmModels: [],
     defaultConfig: {
       apiKey: '',
-      baseUrl: 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime',
-      sttModel: 'qwen3-asr-flash-realtime',
+      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      sttModel: 'qwen3-asr-flash',
       llmModel: '',
     },
   },
@@ -166,9 +200,9 @@ export const PROVIDERS = [
     supportsLLM: true,
     fixedBaseUrl: false,
     sttModels: [
-      'gpt-4o-transcribe',
-      'gpt-4o-mini-transcribe',
-      'whisper-1',
+      { id: 'gpt-4o-transcribe', mode: 'batch', protocol: 'openai-batch' },
+      { id: 'gpt-4o-mini-transcribe', mode: 'batch', protocol: 'openai-batch' },
+      { id: 'whisper-1', mode: 'batch', protocol: 'openai-batch' },
     ],
     llmModels: [
       'gpt-5.2',
@@ -322,6 +356,7 @@ export interface AppConfig {
   historyRetention: HistoryRetention;
 
   // Advanced
+  llmPostProcessing: boolean;    // master switch: enable LLM post-processing of STT output
   autoFormatting: boolean;
   selfCorrectionDetection: boolean;
   fillerWordRemoval: boolean;
@@ -421,6 +456,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   historyEnabled: true,
   historyRetention: 'forever',
 
+  llmPostProcessing: true,
   autoFormatting: true,
   selfCorrectionDetection: true,
   fillerWordRemoval: true,

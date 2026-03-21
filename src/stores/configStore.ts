@@ -41,21 +41,18 @@ function persist(key: string, value: any) {
   }
 }
 
-function persistAll(config: AppConfig) {
-  if (window.electronAPI) {
-    Object.entries(config).forEach(([k, v]) => {
-      window.electronAPI!.setConfig(k as keyof AppConfig, v as any);
-    });
-  } else {
-    localStorage.setItem('opentype-config', JSON.stringify(config));
-  }
-}
+// Track listener cleanup functions to prevent double-registration
+let ipcCleanups: (() => void)[] = [];
 
 export const useConfigStore = create<ConfigStore>((set, get) => ({
   config: { ...DEFAULT_CONFIG },
   loaded: false,
 
   load: async () => {
+    // Clean up previous listeners (prevents double-register on re-load)
+    ipcCleanups.forEach(fn => fn());
+    ipcCleanups = [];
+
     try {
       let stored: Partial<AppConfig> = {};
       if (window.electronAPI) {
@@ -64,30 +61,27 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
         const raw = localStorage.getItem('opentype-config');
         if (raw) stored = JSON.parse(raw);
       }
-      // Migrate personalDictionary from string[] to DictionaryEntry[]
-      if (Array.isArray(stored.personalDictionary) && stored.personalDictionary.length > 0
-          && typeof (stored.personalDictionary as any)[0] === 'string') {
-        stored.personalDictionary = (stored.personalDictionary as unknown as string[]).map((w) => ({
-          word: w, source: 'manual' as const, addedAt: Date.now(),
-        }));
-      }
       set({ config: { ...DEFAULT_CONFIG, ...stored }, loaded: true });
 
       // Listen for cross-window history sync
       if (window.electronAPI?.onHistoryUpdated) {
-        window.electronAPI.onHistoryUpdated((history) => {
-          set((state) => ({ config: { ...state.config, history } }));
-        });
+        ipcCleanups.push(
+          window.electronAPI.onHistoryUpdated((history) => {
+            set((state) => ({ config: { ...state.config, history } }));
+          }),
+        );
       }
 
       // Listen for auto-learned dictionary terms from main process
       if (window.electronAPI?.onDictionaryAutoAdded) {
-        window.electronAPI.onDictionaryAutoAdded(async () => {
-          const dict = await window.electronAPI!.getConfig('personalDictionary');
-          if (Array.isArray(dict)) {
-            set((state) => ({ config: { ...state.config, personalDictionary: dict } }));
-          }
-        });
+        ipcCleanups.push(
+          window.electronAPI.onDictionaryAutoAdded(async () => {
+            const dict = await window.electronAPI!.getConfig('personalDictionary');
+            if (Array.isArray(dict)) {
+              set((state) => ({ config: { ...state.config, personalDictionary: dict } }));
+            }
+          }),
+        );
       }
     } catch (e) {
       console.error('[ConfigStore] load failed:', e);
@@ -97,17 +91,15 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
 
   set: (key, value) => {
     set((state) => {
-      const next = { ...state.config, [key]: value };
       persist(key as string, value);
-      return { config: next };
+      return { config: { ...state.config, [key]: value } };
     });
   },
 
   update: (partial) => {
     set((state) => {
-      const next = { ...state.config, ...partial };
       Object.entries(partial).forEach(([k, v]) => persist(k, v));
-      return { config: next };
+      return { config: { ...state.config, ...partial } };
     });
   },
 
@@ -116,27 +108,24 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
       if (!state.config.historyEnabled) return state;
       const history = [item, ...state.config.history].slice(0, 500);
       const totalWordsThisWeek = state.config.totalWordsThisWeek + item.wordCount;
-      const next = { ...state.config, history, totalWordsThisWeek };
       persist('history', history);
       persist('totalWordsThisWeek', totalWordsThisWeek);
-      return { config: next };
+      return { config: { ...state.config, history, totalWordsThisWeek } };
     });
   },
 
   clearHistory: () => {
     set((state) => {
-      const next = { ...state.config, history: [] };
       persist('history', []);
-      return { config: next };
+      return { config: { ...state.config, history: [] } };
     });
   },
 
   deleteHistoryItem: (id: string) => {
     set((state) => {
       const history = state.config.history.filter((h) => h.id !== id);
-      const next = { ...state.config, history };
       persist('history', history);
-      return { config: next };
+      return { config: { ...state.config, history } };
     });
   },
 
@@ -146,18 +135,16 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
       if (!trimmed || state.config.personalDictionary.some((e) => e.word === trimmed)) return state;
       const entry: DictionaryEntry = { word: trimmed, source, addedAt: Date.now() };
       const dict = [...state.config.personalDictionary, entry];
-      const next = { ...state.config, personalDictionary: dict };
       persist('personalDictionary', dict);
-      return { config: next };
+      return { config: { ...state.config, personalDictionary: dict } };
     });
   },
 
   removeDictionaryWord: (word: string) => {
     set((state) => {
       const dict = state.config.personalDictionary.filter((e) => e.word !== word);
-      const next = { ...state.config, personalDictionary: dict };
       persist('personalDictionary', dict);
-      return { config: next };
+      return { config: { ...state.config, personalDictionary: dict } };
     });
   },
 }));
