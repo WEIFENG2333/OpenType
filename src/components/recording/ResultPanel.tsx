@@ -2,6 +2,24 @@ import { useState } from 'react';
 import { Button } from '../ui';
 import { useTranslation } from '../../i18n';
 
+function friendlyErrorMessage(error: string, t: (k: string) => string): { title: string; detail: string } {
+  const lower = error.toLowerCase();
+  if (lower.includes('no api key') || lower.includes('api key required'))
+    return { title: t('recording.errorApiKey'), detail: t('recording.errorApiKeyDetail') };
+  if (lower.includes('no stt model') || lower.includes('no llm model'))
+    return { title: t('recording.errorNoModel'), detail: t('recording.errorNoModelDetail') };
+  if (lower.includes('microphone') || lower.includes('mic'))
+    return { title: t('recording.errorMic'), detail: error };
+  if (lower.includes('no speech'))
+    return { title: t('recording.errorNoSpeech'), detail: t('recording.errorNoSpeechDetail') };
+  if (lower.includes('timeout') || lower.includes('timed out'))
+    return { title: t('recording.errorTimeout'), detail: t('recording.errorTimeoutDetail') };
+  if (lower.includes('pipeline busy'))
+    return { title: t('recording.errorBusy'), detail: t('recording.errorBusyDetail') };
+  // Fallback: show technical error
+  return { title: t('recording.error'), detail: error };
+}
+
 interface ResultPanelProps {
   rawText: string;
   processedText: string;
@@ -14,13 +32,14 @@ export function ResultPanel({ rawText, processedText, error }: ResultPanelProps)
   const { t } = useTranslation();
 
   if (error) {
+    const friendlyError = friendlyErrorMessage(error, t);
     return (
       <div className="bg-red-500/5 border border-red-500/15 rounded-xl p-4 animate-fade-in">
-        <div className="flex items-center gap-2 text-red-400 mb-1.5">
+        <div className="flex items-center gap-2 text-red-500 dark:text-red-400 mb-1.5">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-          <span className="text-sm font-medium">{t('recording.error')}</span>
+          <span className="text-sm font-medium">{friendlyError.title}</span>
         </div>
-        <p className="text-sm text-red-300/70 leading-relaxed">{error}</p>
+        <p className="text-sm text-surface-500 dark:text-surface-400 leading-relaxed">{friendlyError.detail}</p>
       </div>
     );
   }

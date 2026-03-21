@@ -145,7 +145,18 @@
     "polished": "Polished",
     "raw": "Raw",
     "cleaned": "Cleaned: {chars} chars removed ({pct}% reduction)",
-    "error": "Error"
+    "error": "Error",
+    "errorApiKey": "API Key Missing",
+    "errorApiKeyDetail": "Please configure your API key in Settings → API Providers.",
+    "errorNoModel": "Model Not Configured",
+    "errorNoModelDetail": "Please select a model in Settings → API Providers.",
+    "errorMic": "Microphone Error",
+    "errorNoSpeech": "No Speech Detected",
+    "errorNoSpeechDetail": "We didn't hear anything. Please try again and speak clearly.",
+    "errorTimeout": "Request Timed Out",
+    "errorTimeoutDetail": "The API took too long to respond. Please try again.",
+    "errorBusy": "Processing In Progress",
+    "errorBusyDetail": "Please wait for the current transcription to finish."
   },
   "overlay": {
     "listening": "Listening...",

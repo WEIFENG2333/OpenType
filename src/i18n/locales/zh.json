@@ -145,7 +145,18 @@
     "polished": "润色后",
     "raw": "原始",
     "cleaned": "已清理：移除 {chars} 个字符（减少 {pct}%）",
-    "error": "错误"
+    "error": "错误",
+    "errorApiKey": "未配置 API 密钥",
+    "errorApiKeyDetail": "请在 设置 → API 提供商 中配置密钥。",
+    "errorNoModel": "未选择模型",
+    "errorNoModelDetail": "请在 设置 → API 提供商 中选择模型。",
+    "errorMic": "麦克风错误",
+    "errorNoSpeech": "未检测到语音",
+    "errorNoSpeechDetail": "没有听到声音，请靠近麦克风重试。",
+    "errorTimeout": "请求超时",
+    "errorTimeoutDetail": "API 响应时间过长，请稍后重试。",
+    "errorBusy": "正在处理中",
+    "errorBusyDetail": "请等待当前转录完成。"
   },
   "overlay": {
     "listening": "正在收听...",
