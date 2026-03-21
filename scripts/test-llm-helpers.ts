@@ -5,7 +5,8 @@
  * Usage: npx tsx scripts/test-llm-helpers.ts
  */
 import assert from 'node:assert/strict';
-import { smartTruncate, cursorCenteredTruncate, buildFieldContext, parseTermsResponse } from '../electron/llm-service';
+import { smartTruncate, cursorCenteredTruncate, buildFieldContext, parseTermsResponse, buildSystemPrompt } from '../electron/llm-service';
+import { DEFAULT_CONFIG, AppConfig } from '../src/types/config';
 
 let passed = 0;
 let failed = 0;
@@ -207,6 +208,99 @@ test('handles markdown code block with JSON', () => {
   const response = '```json\n["term1", "term2"]\n```';
   // The regex should still find the array
   assert.deepEqual(parseTermsResponse(response), ['term1', 'term2']);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// buildSystemPrompt
+// ═══════════════════════════════════════════════════════════════════════════
+console.log('\n=== buildSystemPrompt ===');
+
+const dummyToneResolver = (_cfg: AppConfig, _app: string) => ({ tone: 'professional' as string });
+
+test('minimal config produces base rules', () => {
+  const cfg = { ...DEFAULT_CONFIG, fillerWordRemoval: false, repetitionElimination: false, selfCorrectionDetection: false, autoFormatting: false };
+  const prompt = buildSystemPrompt(cfg, undefined, dummyToneResolver);
+  assert.ok(prompt.includes('transcription restater'));
+  assert.ok(prompt.includes('Fix obvious speech recognition errors'));
+  // Should NOT have filler/repetition/formatting rules
+  assert.ok(!prompt.includes('Remove filler'));
+  assert.ok(!prompt.includes('Remove stutters'));
+  assert.ok(!prompt.includes('punctuation'));
+});
+
+test('all toggles enabled adds all rules', () => {
+  const prompt = buildSystemPrompt(DEFAULT_CONFIG, undefined, dummyToneResolver);
+  assert.ok(prompt.includes('Remove filler'));
+  assert.ok(prompt.includes('Remove stutters'));
+  assert.ok(prompt.includes('self-corrections'));
+  assert.ok(prompt.includes('punctuation'));
+  assert.ok(prompt.includes('numbered list'));
+  assert.ok(prompt.includes('Arabic numerals'));
+});
+
+test('personal dictionary appears in prompt', () => {
+  const cfg = { ...DEFAULT_CONFIG, personalDictionary: [{ word: 'OpenType', source: 'manual' as const }, { word: 'Zustand', source: 'auto-llm' as const }] };
+  const prompt = buildSystemPrompt(cfg, undefined, dummyToneResolver);
+  assert.ok(prompt.includes('Hot Word Table'));
+  assert.ok(prompt.includes('OpenType'));
+  assert.ok(prompt.includes('Zustand'));
+});
+
+test('empty dictionary omits hot word section', () => {
+  const prompt = buildSystemPrompt(DEFAULT_CONFIG, undefined, dummyToneResolver);
+  assert.ok(!prompt.includes('Hot Word Table'));
+});
+
+test('context app name triggers tone', () => {
+  const ctx = { appName: 'Slack', windowTitle: 'general' } as any;
+  const resolver = (_cfg: AppConfig, _app: string) => ({ tone: 'casual' as string });
+  const prompt = buildSystemPrompt(DEFAULT_CONFIG, ctx, resolver);
+  assert.ok(prompt.includes('Active app "Slack"'));
+  assert.ok(prompt.includes('Casual'));
+  assert.ok(prompt.includes('Window title: "general"'));
+});
+
+test('custom tone includes customPrompt', () => {
+  const ctx = { appName: 'MyApp' } as any;
+  const resolver = (_cfg: AppConfig, _app: string) => ({ tone: 'custom', customPrompt: 'Be very concise.' });
+  const prompt = buildSystemPrompt(DEFAULT_CONFIG, ctx, resolver);
+  assert.ok(prompt.includes('Be very concise.'));
+});
+
+test('clipboard text included and truncated', () => {
+  const ctx = { clipboardText: 'A'.repeat(1000) } as any;
+  const prompt = buildSystemPrompt(DEFAULT_CONFIG, ctx, dummyToneResolver);
+  assert.ok(prompt.includes('Clipboard content'));
+  assert.ok(prompt.length < 3000); // truncation applied
+});
+
+test('screen context from OCR included', () => {
+  const ctx = { screenContext: 'User is editing a spreadsheet with sales data' } as any;
+  const prompt = buildSystemPrompt(DEFAULT_CONFIG, ctx, dummyToneResolver);
+  assert.ok(prompt.includes('Screen context (from OCR)'));
+  assert.ok(prompt.includes('spreadsheet'));
+});
+
+test('recent transcriptions included with numbering', () => {
+  const ctx = { recentTranscriptions: ['Hello world', 'Testing one two three'] } as any;
+  const prompt = buildSystemPrompt(DEFAULT_CONFIG, ctx, dummyToneResolver);
+  assert.ok(prompt.includes('Recent transcriptions'));
+  assert.ok(prompt.includes('1. Hello world'));
+  assert.ok(prompt.includes('2. Testing'));
+});
+
+test('field placeholder included', () => {
+  const ctx = { fieldPlaceholder: 'Type a message...' } as any;
+  const prompt = buildSystemPrompt(DEFAULT_CONFIG, ctx, dummyToneResolver);
+  assert.ok(prompt.includes('placeholder reads: "Type a message..."'));
+});
+
+test('no context produces clean prompt', () => {
+  const prompt = buildSystemPrompt(DEFAULT_CONFIG, undefined, dummyToneResolver);
+  assert.ok(!prompt.includes('Active app'));
+  assert.ok(!prompt.includes('Clipboard'));
+  assert.ok(!prompt.includes('Screen context'));
+  assert.ok(!prompt.includes('Recent transcriptions'));
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
