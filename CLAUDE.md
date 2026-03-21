@@ -23,7 +23,8 @@ electron/                → Electron main process (CommonJS, compiled to dist-e
   app-state.ts           → Shared mutable state singleton (windows, services, flags)
   config-store.ts        → JSON file persistence (~/Library/Application Support/OpenType/config.json)
   ipc-handlers.ts        → All ipcMain.handle() registrations (config, pipeline, media, context, etc.)
-  stt-service.ts         → STT API calls (batch + realtime WebSocket streaming for DashScope/OpenAI)
+  stt-service.ts         → STT: protocol-driven dispatch (5 protocols), batch REST + realtime WebSocket
+  auto-dict-utils.ts     → Pure functions for auto-dict (skip logic, prompt building) — no Electron deps
   llm-service.ts         → Server-side LLM API calls, prompt builder, smart truncation, VLM calls, term extraction
   context-capture.ts     → CapturedContext interface, macOS/Win/Linux context capture, screen OCR (native screencapture + sips)
   shortcut-manager.ts    → Global hotkey registration, toggleRecording() logic, context capture trigger
@@ -35,7 +36,7 @@ electron/                → Electron main process (CommonJS, compiled to dist-e
   fn-monitor.ts          → macOS Fn key monitoring (child process)
 
 src/                     → React renderer (ESM, bundled by Vite to dist/)
-  types/config.ts        → Central types: ProviderConfig, ProviderMeta, STTModelDef, PROVIDERS, AppConfig, DEFAULT_CONFIG, getProviderConfig/getSTTProviderOpts/getLLMProviderOpts/getSTTModelMode helpers
+  types/config.ts        → Central types: ProviderConfig, ProviderMeta, STTModelDef, STTProtocol, PROVIDERS, AppConfig, DEFAULT_CONFIG, helper functions (getProviderConfig, getSTTProviderOpts, getLLMProviderOpts, getSTTModelDef, getSTTModelMode, getDefaultBatchProtocol)
   types/electron.d.ts    → Type declarations for window.electronAPI (must match preload.ts)
   stores/configStore.ts  → Zustand store: load, set, update, history CRUD, dictionary CRUD, cross-window sync
   services/              → Dual-mode services (Electron IPC or direct fetch)
@@ -57,17 +58,22 @@ src/                     → React renderer (ESM, bundled by Vite to dist/)
                            ToneRules, Privacy, Context, Advanced
 
 scripts/                 → Utility & test scripts
+  # Unit tests (run via `npm test`, no API keys needed)
+  test-config-helpers.ts → Provider resolution, STT model mode/protocol, defaults (48 tests)
+  test-migration.ts      → Config migration: all edge cases, idempotency (17 tests)
+  test-llm-helpers.ts    → Truncation, cursor markers, term parsing (27 tests)
+  test-auto-dict.ts      → Skip logic, prompt building (25 tests)
+  test-word-count.ts     → CJK/Latin/mixed word counting (23 tests)
+  test-i18n.ts           → resolve, interpolate, locale file structure (23 tests)
+  # Integration tests (require API keys / network)
   test-api.ts            → API connectivity test
   test-stt.ts            → STT test
   test-pipeline.ts       → Full pipeline test
-  test-migration.ts      → Config migration test (old flat fields → providers map)
-  test-realtime-providers.ts → Provider config resolution test for all STT providers
+  test-realtime-providers.ts → Provider config resolution for all STT providers
   test-realtime-stt.ts   → Realtime STT streaming test
   test-stt-connection.ts → STT connection test
-  test-dashscope-models.ts → DashScope model list test
-  test-dashscope-realtime.ts → DashScope realtime STT test
-  test-paraformer-realtime.ts → DashScope Paraformer native inference protocol test
-  test-dashscope-transcribe.ts → DashScope models transcription test (OpenAI-compat protocol)
+  test-dashscope-*.ts    → DashScope-specific model/protocol tests
+  test-paraformer-realtime.ts → Paraformer native inference protocol test
   clean-history-base64.ts→ One-time migration: strip base64 from config.json
 
 test-fixtures/             → Test audio files (not committed, .gitignore'd)
@@ -93,7 +99,7 @@ Running `tsc --noEmit` alone only checks frontend — Electron errors will be mi
 npm run dev              # Vite dev server (frontend only, http://localhost:5173)
 npm run electron:dev     # Full Electron dev mode (Vite + Electron)
 npm run typecheck        # Check BOTH frontend + electron TypeScript
-npm test                 # Run all unit tests (config, migration, LLM, auto-dict)
+npm test                 # Run all 163 unit tests (6 suites: config, migration, LLM, auto-dict, wordCount, i18n)
 npm run check            # typecheck + all unit tests (use before committing)
 npm run build            # Build frontend (vite build) + compile electron (tsc)
 npm run electron:build   # Full package (build + electron-builder, auto-detects platform)
@@ -130,11 +136,16 @@ Five providers defined in `PROVIDERS` array (`src/types/config.ts`): SiliconFlow
 
 Each provider is a `ProviderMeta` entry with `defaultConfig`, model lists, `extraHeaders`, etc. Per-user config lives in `AppConfig.providers: Record<string, ProviderConfig>` where `ProviderConfig = { apiKey, baseUrl, sttModel, llmModel }`.
 
-**STT Model Modes**: Each STT model is `STTModelDef = { id, mode: 'batch' | 'streaming', label? }`. The mode determines which transcription protocol is used:
-- `batch` — REST API (OpenAI `/audio/transcriptions` multipart or DashScope `chat/completions` with `input_audio`)
-- `streaming` — WebSocket (OpenAI Realtime, Qwen-ASR, or Paraformer native inference)
+**STT Model Modes**: Each STT model is `STTModelDef = { id, mode, protocol, label?, sampleRate? }`:
+- `mode: 'batch' | 'streaming'` — determines recording behavior (batch = record-then-send, streaming = send-while-recording)
+- `protocol: STTProtocol` — determines which code path handles the API call:
+  - `'openai-batch'` — POST `/audio/transcriptions` (multipart)
+  - `'dashscope-batch'` — POST `/compatible-mode/v1/chat/completions` (input_audio)
+  - `'openai-realtime'` — WSS OpenAI Realtime API
+  - `'qwen-asr-realtime'` — WSS DashScope Qwen-ASR (OpenAI-compatible)
+  - `'paraformer-realtime'` — WSS DashScope native inference (Paraformer/FunASR/Gummy)
 
-`getSTTModelMode(providerId, modelId)` resolves mode from PROVIDERS metadata. `supportsStreaming()` and `transcribe()` in stt-service.ts use this for zero if-else dispatch.
+`getSTTModelDef(providerId, modelId)` resolves full model definition. `getSTTModelMode()` resolves mode. `getDefaultBatchProtocol(providerId)` handles custom models not in PROVIDERS. All dispatch in stt-service.ts is `switch(protocol)` — zero provider-specific if-else.
 
 Helper functions (`getProviderConfig`, `getSTTProviderOpts`, `getLLMProviderOpts`) resolve config with zero if-else — all driven by the `PROVIDERS` array and `PROVIDER_MAP`. Adding a new provider only requires adding an entry to `PROVIDERS`.
 
