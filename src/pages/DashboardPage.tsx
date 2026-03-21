@@ -276,8 +276,17 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
                 )}
               </div>
             ) : (
-              <div className="border border-surface-200 dark:border-surface-800 rounded-2xl py-10 text-center text-sm text-surface-400">
-                {t('dashboard.noRecent')}
+              <div className="border border-surface-200 dark:border-surface-800 rounded-2xl py-10 flex flex-col items-center gap-3">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-surface-300 dark:text-surface-600"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                <p className="text-sm text-surface-400 dark:text-surface-500">{t('dashboard.noRecent')}</p>
+                {onNavigate && (
+                  <button
+                    onClick={() => onNavigate('dictation')}
+                    className="mt-1 px-4 py-1.5 text-xs font-medium text-brand-600 dark:text-brand-400 bg-brand-50 dark:bg-brand-500/10 rounded-lg hover:bg-brand-100 dark:hover:bg-brand-500/20 transition-colors"
+                  >
+                    {t('dashboard.startDictation')}
+                  </button>
+                )}
               </div>
             )}
           </div>
