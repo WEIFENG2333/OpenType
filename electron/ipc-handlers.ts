@@ -1,5 +1,5 @@
-import { app, ipcMain, clipboard, systemPreferences, screen } from 'electron';
-import { execSync } from 'child_process';
+import { app, ipcMain, clipboard, globalShortcut, systemPreferences, screen } from 'electron';
+import { exec, execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { autoUpdater } from 'electron-updater';
@@ -8,15 +8,22 @@ import { registerShortcuts, toggleRecording } from './shortcut-manager';
 import { captureScreenAndOcr } from './context-capture';
 import { restartFnMonitor } from './fn-monitor';
 import { schedulePostPipelineExtraction, recordTypedText } from './auto-dict';
+import { restoreSystemAudio } from './audio-control';
+import type { IRealtimeSession } from './stt-service';
+import { AppConfig, getSTTProviderOpts, getLLMProviderOpts, LLMProviderID } from '../src/types/config';
+
+// ─── Module state ───────────────────────────────────────────────────────────
 
 let pipelineRunning = false;
 let pipelineStartedAt = 0;
+let realtimeSession: IRealtimeSession | null = null;
+let audioChunkCount = 0;
 const PIPELINE_TIMEOUT_MS = 60_000; // 60s safety valve
 
 export function setupIPC() {
   // Config
-  ipcMain.handle('config:get', (_e, key: string) => state.configStore!.get(key));
-  ipcMain.handle('config:set', (event, key: string, val: any) => {
+  ipcMain.handle('config:get', (_e, key: keyof AppConfig) => state.configStore!.get(key));
+  ipcMain.handle('config:set', (event, key: keyof AppConfig, val: any) => {
     state.configStore!.set(key, val);
     // Broadcast history changes to all OTHER windows so they stay in sync
     if (key === 'history') {
@@ -76,7 +83,7 @@ export function setupIPC() {
   });
 
   ipcMain.handle('shortcuts:suspend', () => {
-    require('electron').globalShortcut.unregisterAll();
+    globalShortcut.unregisterAll();
     state.shortcutsSuspended = true;
     return true;
   });
@@ -102,6 +109,74 @@ export function setupIPC() {
     }
   });
 
+  // STT test connection (works for all providers including DashScope WebSocket)
+  ipcMain.handle('stt:testConnection', async () => {
+    try {
+      const cfg = state.configStore!.getAll();
+      return await state.sttService!.testConnection(cfg);
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  });
+
+  // Realtime STT
+  ipcMain.handle('stt:startRealtime', async () => {
+    try {
+      const cfg = state.configStore!.getAll();
+      if (!state.sttService!.supportsStreaming(cfg)) {
+        return { success: false, error: 'Provider does not support streaming STT' };
+      }
+      // Close any existing session
+      if (realtimeSession) {
+        realtimeSession.close();
+        realtimeSession = null;
+      }
+      audioChunkCount = 0;
+      realtimeSession = state.sttService!.createRealtimeSession(cfg);
+      const sampleRate = realtimeSession.sampleRate;
+      const overlayWC = state.overlayWindow?.webContents;
+      realtimeSession.onDelta = (delta, accumulated) => {
+        if (overlayWC && !overlayWC.isDestroyed()) {
+          overlayWC.send('pipeline:stt-delta', { delta, accumulated });
+        }
+      };
+      realtimeSession.onError = (error) => {
+        console.error('[RealtimeSTT] error:', error);
+      };
+      await realtimeSession.connect();
+      return { success: true, sampleRate };
+    } catch (e: any) {
+      console.error('[RealtimeSTT] start failed:', e.message);
+      realtimeSession = null;
+      return { success: false, error: e.message };
+    }
+  });
+
+  ipcMain.handle('stt:sendAudio', (_e, pcm16Base64: string) => {
+    if (realtimeSession) {
+      audioChunkCount++;
+      if (audioChunkCount <= 3 || audioChunkCount % 50 === 0) {
+        console.log(`[RealtimeSTT] sendAudio chunk #${audioChunkCount}, len=${pcm16Base64.length}`);
+      }
+      realtimeSession.sendAudio(pcm16Base64);
+    }
+  });
+
+  ipcMain.handle('stt:cancelRealtime', () => {
+    if (realtimeSession) {
+      realtimeSession.close();
+      realtimeSession = null;
+    }
+    // Ensure system audio is restored when recording is cancelled (e.g. overlay X button)
+    if (state.isRecording) {
+      state.isRecording = false;
+      const cfg = state.configStore!.getAll();
+      if (cfg.muteSystemAudio) {
+        restoreSystemAudio();
+      }
+    }
+  });
+
   // LLM
   ipcMain.handle('llm:process', async (_e, text: string, ctx: any) => {
     try {
@@ -113,7 +188,7 @@ export function setupIPC() {
   });
 
   // Resolve context: wait for contextPromise + ocrPromise, merge OCR results
-  async function resolveContext(): Promise<any> {
+  async function resolveContext() {
     if (state.contextPromise) {
       try { await state.contextPromise; } catch {}
       state.contextPromise = null;
@@ -134,6 +209,12 @@ export function setupIPC() {
     return state.lastCapturedContext;
   }
 
+  // Helper: send phase updates to overlay
+  function sendPhase(phase: string) {
+    const wc = state.overlayWindow?.webContents;
+    if (wc && !wc.isDestroyed()) wc.send('pipeline:phase', phase);
+  }
+
   // Pipeline: STT runs in parallel with context/OCR resolution
   ipcMain.handle('pipeline:process', async (_e, buf: ArrayBuffer) => {
     // Safety valve: if previous pipeline has been stuck for too long, force unlock
@@ -145,28 +226,62 @@ export function setupIPC() {
     pipelineRunning = true;
     pipelineStartedAt = Date.now();
     const cfg = state.configStore!.getAll();
-    const sttProvider = cfg.sttProvider || 'siliconflow';
-    const llmProvider = cfg.llmProvider || 'siliconflow';
-    const sttModel = sttProvider === 'siliconflow' ? cfg.siliconflowSttModel : cfg.openaiSttModel;
-    const llmModel = llmProvider === 'siliconflow' ? cfg.siliconflowLlmModel
-      : llmProvider === 'openrouter' ? cfg.openrouterLlmModel : cfg.openaiLlmModel;
+    const sttProvider = cfg.sttProvider;
+    const llmProvider = cfg.llmProvider;
+    const sttModel = getSTTProviderOpts(cfg).model;
+    const llmModel = getLLMProviderOpts(cfg).model;
 
     let sttDurationMs = 0;
     let llmDurationMs = 0;
+    const overlayWC = state.overlayWindow?.webContents;
 
     try {
-      // STT and context resolution run in parallel — STT doesn't need context
-      console.log('[Pipeline] STT via', sttProvider, sttModel);
-      const sttStart = Date.now();
-      const [raw, ctx] = await Promise.all([
-        state.sttService!.transcribe(Buffer.from(buf), cfg),
-        resolveContext(),
-      ]);
-      sttDurationMs = Date.now() - sttStart;
-      console.log('[Pipeline] STT done in', sttDurationMs, 'ms:', raw.slice(0, 100));
+      let raw: string;
+      let ctx: any;
 
-      if (!raw.trim()) return { success: true, rawText: '', processedText: '', skipped: true, sttDurationMs };
+      if (realtimeSession) {
+        // ── Realtime streaming mode ──
+        // STT already happened via WebSocket during recording.
+        // Commit and wait for final transcript.
+        console.log('[Pipeline] Realtime STT commit + context resolve');
+        sendPhase('stt');
+        const sttStart = Date.now();
+        const [sttText, resolvedCtx] = await Promise.all([
+          realtimeSession.commit(),
+          resolveContext(),
+        ]);
+        raw = sttText;
+        ctx = resolvedCtx;
+        sttDurationMs = Date.now() - sttStart;
+        realtimeSession.close();
+        realtimeSession = null;
+        console.log('[Pipeline] Realtime STT final in', sttDurationMs, 'ms:', raw.slice(0, 100));
+      } else {
+        // ── Batch mode (non-streaming) ──
+        sendPhase('stt');
+        console.log('[Pipeline] STT via', sttProvider, sttModel);
+        const sttStart = Date.now();
+        const [sttText, resolvedCtx] = await Promise.all([
+          state.sttService!.transcribe(Buffer.from(buf), cfg),
+          resolveContext(),
+        ]);
+        raw = sttText;
+        ctx = resolvedCtx;
+        sttDurationMs = Date.now() - sttStart;
+        console.log('[Pipeline] STT done in', sttDurationMs, 'ms:', raw.slice(0, 100));
 
+        // For non-streaming: send the full STT text so overlay can display it
+        if (overlayWC && !overlayWC.isDestroyed() && raw.trim()) {
+          overlayWC.send('pipeline:stt-delta', { delta: raw, accumulated: raw });
+        }
+      }
+
+      if (!raw.trim()) {
+        sendPhase('done');
+        return { success: true, rawText: '', processedText: '', skipped: true, sttDurationMs };
+      }
+
+      sendPhase('llm');
       console.log('[Pipeline] LLM via', llmProvider, llmModel);
       const llmStart = Date.now();
       const llmResult = await state.llmService!.process(raw, cfg, ctx);
@@ -176,6 +291,7 @@ export function setupIPC() {
       schedulePostPipelineExtraction(raw, llmResult.text, cfg);
 
       state.isRecording = false;
+      sendPhase('done');
 
       return {
         success: true,
@@ -187,6 +303,12 @@ export function setupIPC() {
       };
     } catch (e: any) {
       state.isRecording = false;
+      sendPhase('done');
+      // Clean up realtime session if it was in use
+      if (realtimeSession) {
+        realtimeSession.close();
+        realtimeSession = null;
+      }
       return { success: false, error: e.message, sttProvider, llmProvider, sttModel, llmModel, sttDurationMs, llmDurationMs };
     } finally {
       pipelineRunning = false;
@@ -315,11 +437,11 @@ export function setupIPC() {
     if (!isMac) return 'granted';
     // Use screencapture to test — getMediaAccessStatus('screen') is unreliable
     try {
-      const tmpPath = require('path').join(require('electron').app.getPath('temp'), 'opentype-perm-test.jpg');
-      require('child_process').execSync(`screencapture -x -t jpg "${tmpPath}"`, { timeout: 2000 });
-      const exists = require('fs').existsSync(tmpPath);
-      const size = exists ? require('fs').statSync(tmpPath).size : 0;
-      try { if (exists) require('fs').unlinkSync(tmpPath); } catch {}
+      const tmpPath = path.join(app.getPath('temp'), 'opentype-perm-test.jpg');
+      execSync(`screencapture -x -t jpg "${tmpPath}"`, { timeout: 2000 });
+      const exists = fs.existsSync(tmpPath);
+      const size = exists ? fs.statSync(tmpPath).size : 0;
+      try { if (exists) fs.unlinkSync(tmpPath); } catch {}
       return size > 100 ? 'granted' : 'denied';
     } catch {
       return 'denied';
@@ -328,7 +450,7 @@ export function setupIPC() {
 
   ipcMain.handle('context:openScreenPrefs', () => {
     if (isMac) {
-      require('child_process').exec('open "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"');
+      exec('open "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"');
     }
     return true;
   });
@@ -346,7 +468,7 @@ export function setupIPC() {
   });
 
   // API test
-  ipcMain.handle('api:test', async (_e, provider: string) => {
+  ipcMain.handle('api:test', async (_e, provider: LLMProviderID) => {
     try {
       const msg = await state.llmService!.testConnection(state.configStore!.getAll(), provider);
       return { success: true, message: msg };
@@ -355,8 +477,4 @@ export function setupIPC() {
     }
   });
 
-  // Audio devices
-  ipcMain.handle('audio:devices', async () => {
-    return [];
-  });
 }

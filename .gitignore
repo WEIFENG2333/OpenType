@@ -3,6 +3,7 @@ dist/
 dist-electron/
 release/
 *.log
+test-fixtures/
 .DS_Store
 Thumbs.db
 .env

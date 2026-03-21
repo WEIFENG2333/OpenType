@@ -3,6 +3,32 @@
  * These APIs are exposed on window.electronAPI in the renderer process.
  */
 
+import type { AppConfig, HistoryItem, LLMProviderID } from './config';
+import type { HistoryContext } from './config';
+
+// Mirrors electron/context-capture.ts CapturedContext (subset used by renderer)
+interface CapturedContext {
+  appName?: string;
+  windowTitle?: string;
+  bundleId?: string;
+  url?: string;
+  selectedText?: string;
+  fieldText?: string;
+  fieldRole?: string;
+  fieldRoleDescription?: string;
+  fieldLabel?: string;
+  fieldPlaceholder?: string;
+  cursorPosition?: number;
+  selectionRange?: { location: number; length: number };
+  numberOfCharacters?: number;
+  insertionLineNumber?: number;
+  clipboardText?: string;
+  recentTranscriptions?: string[];
+  screenContext?: string;
+  screenshotDataUrl?: string;
+  ocrDurationMs?: number;
+}
+
 export interface PipelineResult {
   success: boolean;
   rawText?: string;
@@ -30,9 +56,9 @@ export interface ElectronAPI {
   platform: string; // 'darwin' | 'win32' | 'linux'
 
   // ─── Config ───────────────────────────────────────────
-  getConfig: (key: string) => Promise<any>;
-  setConfig: (key: string, value: any) => Promise<boolean>;
-  getAllConfig: () => Promise<any>;
+  getConfig: <K extends keyof AppConfig>(key: K) => Promise<AppConfig[K]>;
+  setConfig: <K extends keyof AppConfig>(key: K, value: AppConfig[K]) => Promise<boolean>;
+  getAllConfig: () => Promise<AppConfig>;
 
   // ─── Media Files ────────────────────────────────────────
   saveMedia: (filename: string, base64: string) => Promise<string>;
@@ -49,7 +75,7 @@ export interface ElectronAPI {
   resumeShortcuts: () => Promise<boolean>;
 
   // ─── STT ──────────────────────────────────────────────
-  transcribe: (audioBuffer: ArrayBuffer, options?: any) => Promise<{
+  transcribe: (audioBuffer: ArrayBuffer, options?: { language?: string }) => Promise<{
     success: boolean;
     text?: string;
     error?: string;
@@ -63,7 +89,7 @@ export interface ElectronAPI {
   }>;
 
   // ─── Full Pipeline (STT + LLM) ───────────────────────
-  processPipeline: (audioBuffer: ArrayBuffer, context?: any) => Promise<PipelineResult>;
+  processPipeline: (audioBuffer: ArrayBuffer) => Promise<PipelineResult>;
 
   // ─── Voice Superpowers (rewrite selected text) ────────
   rewriteText: (selectedText: string, instruction: string) => Promise<{
@@ -86,11 +112,7 @@ export interface ElectronAPI {
   resizeOverlay: (w: number, h: number) => Promise<void>;
 
   // ─── API testing ──────────────────────────────────────
-  testAPI: (provider: string) => Promise<APITestResult>;
-  testSTT: (provider: string) => Promise<APITestResult>;
-
-  // ─── Audio devices ────────────────────────────────────
-  getAudioDevices: () => Promise<MediaDeviceInfo[]>;
+  testAPI: (provider: LLMProviderID) => Promise<APITestResult>;
 
   // ─── Auto Updater ───────────────────────────────────────
   checkForUpdates: () => Promise<any>;
@@ -104,32 +126,24 @@ export interface ElectronAPI {
   onUpdateError: (callback: (message: string) => void) => () => void;
 
   // ─── Context Awareness ──────────────────────────────────
-  getLastContext: () => Promise<{
-    appName?: string;
-    windowTitle?: string;
-    bundleId?: string;
-    url?: string;
-    selectedText?: string;
-    fieldText?: string;
-    fieldRole?: string;
-    fieldRoleDescription?: string;
-    fieldLabel?: string;
-    fieldPlaceholder?: string;
-    cursorPosition?: number;
-    selectionRange?: { location: number; length: number };
-    numberOfCharacters?: number;
-    insertionLineNumber?: number;
-    clipboardText?: string;
-    recentTranscriptions?: string[];
-    screenContext?: string;
-    screenshotDataUrl?: string;
-    ocrDurationMs?: number;
-  }>;
+  getLastContext: () => Promise<CapturedContext>;
   checkAccessibility: () => Promise<'granted' | 'not-determined'>;
   requestAccessibility: () => Promise<boolean>;
   checkScreenPermission: () => Promise<string>;
   openScreenPrefs: () => Promise<boolean>;
   captureAndOcr: () => Promise<string | null>;
+
+  // ─── STT test ────────────────────────────────────────────
+  testSTTConnection: () => Promise<{ success: boolean; text?: string; error?: string }>;
+
+  // ─── Realtime STT ──────────────────────────────────────
+  startRealtimeSTT: () => Promise<{ success: boolean; sampleRate?: number; error?: string }>;
+  sendAudioChunk: (pcm16Base64: string) => Promise<void>;
+  cancelRealtimeSTT: () => Promise<void>;
+
+  // ─── Pipeline streaming events ────────────────────────
+  onSttDelta: (callback: (data: { delta: string; accumulated: string }) => void) => () => void;
+  onPipelinePhase: (callback: (phase: string) => void) => () => void;
 
   // ─── Events from main process ─────────────────────────
   onToggleRecording: (callback: () => void) => () => void;
@@ -137,7 +151,7 @@ export interface ElectronAPI {
   onNavigate: (callback: (page: string) => void) => () => void;
   onDictionaryAutoAdded: (callback: (words: string[]) => void) => () => void;
   onFnKeyEvent: (callback: (event: string) => void) => () => void;
-  onHistoryUpdated: (callback: (history: any[]) => void) => () => void;
+  onHistoryUpdated: (callback: (history: HistoryItem[]) => void) => () => void;
 }
 
 declare global {

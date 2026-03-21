@@ -61,6 +61,11 @@ scripts/                 → Utility scripts
   test-stt.ts            → STT test
   test-pipeline.ts       → Full pipeline test
   clean-history-base64.ts→ One-time migration: strip base64 from config.json
+  test-paraformer-realtime.ts → Test DashScope Paraformer native inference protocol (real audio)
+  test-dashscope-transcribe.ts → Test all DashScope models transcription (OpenAI-compat protocol)
+
+test-fixtures/             → Test audio files (not committed, .gitignore'd)
+  angry.wav                → 3.2s Chinese speech "你是不是觉得我很好欺负" (48kHz PCM16 mono)
 
 build/                   → entitlements.mac.plist (microphone + accessibility permissions)
 ```

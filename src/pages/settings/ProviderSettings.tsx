@@ -1,62 +1,22 @@
 import { useState, useEffect } from 'react';
 import { useConfigStore } from '../../stores/configStore';
-import { PROVIDERS, STTProviderID, LLMProviderID, AppConfig } from '../../types/config';
+import { PROVIDERS, STTProviderID, LLMProviderID, getProviderConfig, ProviderConfig } from '../../types/config';
 import { testLLMConnection, testVLMConnection, testSTTConnection } from '../../services/llmService';
 import { Button, Select, PasswordInput, Input, SettingRow } from '../../components/ui';
 import { useTranslation } from '../../i18n';
 
-// ─── Helper functions ────────────────────────────────────────────────────────
+// ─── Helper: update a single field inside providers[id] ─────────────────────
 
-type ConfigKey = keyof AppConfig;
-
-function providerApiKey(provider: string): ConfigKey {
-  if (provider === 'siliconflow') return 'siliconflowApiKey';
-  if (provider === 'openrouter') return 'openrouterApiKey';
-  if (provider === 'openai-compatible') return 'compatibleApiKey';
-  return 'openaiApiKey';
+function useProviderField() {
+  const { config, set } = useConfigStore();
+  return (providerId: string, field: keyof ProviderConfig, value: string) => {
+    const current = getProviderConfig(config, providerId);
+    set('providers', {
+      ...config.providers,
+      [providerId]: { ...current, [field]: value },
+    });
+  };
 }
-
-function providerBaseUrlKey(provider: string): ConfigKey {
-  if (provider === 'siliconflow') return 'siliconflowBaseUrl';
-  if (provider === 'openrouter') return 'openrouterBaseUrl';
-  if (provider === 'openai-compatible') return 'compatibleBaseUrl';
-  return 'openaiBaseUrl';
-}
-
-function getApiKey(config: any, provider: string): string {
-  return config[providerApiKey(provider)] ?? '';
-}
-
-function getBaseUrl(config: any, provider: string): string {
-  return config[providerBaseUrlKey(provider)] ?? '';
-}
-
-function getSttModel(config: any, provider: string): string {
-  if (provider === 'siliconflow') return config.siliconflowSttModel;
-  if (provider === 'openai-compatible') return config.compatibleSttModel;
-  return config.openaiSttModel;
-}
-
-function setSttModelKey(provider: string): ConfigKey {
-  if (provider === 'siliconflow') return 'siliconflowSttModel';
-  if (provider === 'openai-compatible') return 'compatibleSttModel';
-  return 'openaiSttModel';
-}
-
-function getLlmModel(config: any, provider: string): string {
-  if (provider === 'siliconflow') return config.siliconflowLlmModel;
-  if (provider === 'openrouter') return config.openrouterLlmModel;
-  if (provider === 'openai-compatible') return config.compatibleLlmModel;
-  return config.openaiLlmModel;
-}
-
-function setLlmModelKey(provider: string): ConfigKey {
-  if (provider === 'siliconflow') return 'siliconflowLlmModel';
-  if (provider === 'openrouter') return 'openrouterLlmModel';
-  if (provider === 'openai-compatible') return 'compatibleLlmModel';
-  return 'openaiLlmModel';
-}
-
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
@@ -65,6 +25,7 @@ export function ProviderSettings() {
   const [testing, setTesting] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; msg: string }>>({});
   const { t } = useTranslation();
+  const setField = useProviderField();
 
   const handleTest = async (category: string) => {
     setTesting(category);
@@ -95,6 +56,8 @@ export function ProviderSettings() {
   const sttProviders = PROVIDERS.filter((p) => p.supportsSTT);
   const sttMeta = PROVIDERS.find((p) => p.id === config.sttProvider);
   const llmMeta = PROVIDERS.find((p) => p.id === config.llmProvider);
+  const sttPC = getProviderConfig(config, config.sttProvider);
+  const llmPC = getProviderConfig(config, config.llmProvider);
 
   return (
     <div className="space-y-6">
@@ -114,8 +77,8 @@ export function ProviderSettings() {
 
         <SettingRow wide label={t('settings.providers.apiKey')} description={t('settings.providers.apiKeyDesc')}>
           <PasswordInput
-            value={getApiKey(config, config.sttProvider)}
-            onChange={(e) => set(providerApiKey(config.sttProvider), e.target.value)}
+            value={sttPC.apiKey}
+            onChange={(e) => setField(config.sttProvider, 'apiKey', e.target.value)}
             placeholder="sk-..."
           />
         </SettingRow>
@@ -123,8 +86,8 @@ export function ProviderSettings() {
         {!sttMeta?.fixedBaseUrl && (
           <SettingRow wide label={t('settings.providers.baseUrl')} description={t('settings.providers.baseUrlDesc')}>
             <Input
-              value={getBaseUrl(config, config.sttProvider)}
-              onChange={(e) => set(providerBaseUrlKey(config.sttProvider), e.target.value)}
+              value={sttPC.baseUrl}
+              onChange={(e) => setField(config.sttProvider, 'baseUrl', e.target.value)}
               placeholder="https://..."
             />
           </SettingRow>
@@ -133,8 +96,8 @@ export function ProviderSettings() {
         {sttMeta && (
           <SettingRow wide label={t('settings.providers.sttModel')} description={t('settings.providers.sttModelDesc')}>
             <ModelInput
-              value={getSttModel(config, config.sttProvider)}
-              onChange={(v) => set(setSttModelKey(config.sttProvider), v)}
+              value={sttPC.sttModel}
+              onChange={(v) => setField(config.sttProvider, 'sttModel', v)}
               presets={sttMeta.sttModels}
             />
           </SettingRow>
@@ -161,8 +124,8 @@ export function ProviderSettings() {
 
         <SettingRow wide label={t('settings.providers.apiKey')} description={t('settings.providers.apiKeyDesc')}>
           <PasswordInput
-            value={getApiKey(config, config.llmProvider)}
-            onChange={(e) => set(providerApiKey(config.llmProvider), e.target.value)}
+            value={llmPC.apiKey}
+            onChange={(e) => setField(config.llmProvider, 'apiKey', e.target.value)}
             placeholder="sk-..."
           />
         </SettingRow>
@@ -170,8 +133,8 @@ export function ProviderSettings() {
         {!llmMeta?.fixedBaseUrl && (
           <SettingRow wide label={t('settings.providers.baseUrl')} description={t('settings.providers.baseUrlDesc')}>
             <Input
-              value={getBaseUrl(config, config.llmProvider)}
-              onChange={(e) => set(providerBaseUrlKey(config.llmProvider), e.target.value)}
+              value={llmPC.baseUrl}
+              onChange={(e) => setField(config.llmProvider, 'baseUrl', e.target.value)}
               placeholder="https://..."
             />
           </SettingRow>
@@ -180,8 +143,8 @@ export function ProviderSettings() {
         {llmMeta && (
           <SettingRow wide label={t('settings.providers.llmModel')} description={t('settings.providers.llmModelDesc')}>
             <ModelInput
-              value={getLlmModel(config, config.llmProvider)}
-              onChange={(v) => set(setLlmModelKey(config.llmProvider), v)}
+              value={llmPC.llmModel}
+              onChange={(v) => setField(config.llmProvider, 'llmModel', v)}
               presets={llmMeta.llmModels}
             />
           </SettingRow>

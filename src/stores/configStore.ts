@@ -32,7 +32,7 @@ interface ConfigStore {
 
 function persist(key: string, value: any) {
   if (window.electronAPI) {
-    window.electronAPI.setConfig(key, value);
+    window.electronAPI.setConfig(key as keyof AppConfig, value);
   } else {
     const stored = localStorage.getItem('opentype-config');
     const obj = stored ? JSON.parse(stored) : {};
@@ -44,7 +44,7 @@ function persist(key: string, value: any) {
 function persistAll(config: AppConfig) {
   if (window.electronAPI) {
     Object.entries(config).forEach(([k, v]) => {
-      window.electronAPI!.setConfig(k, v);
+      window.electronAPI!.setConfig(k as keyof AppConfig, v as any);
     });
   } else {
     localStorage.setItem('opentype-config', JSON.stringify(config));

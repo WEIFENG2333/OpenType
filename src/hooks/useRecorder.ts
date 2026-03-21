@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { AudioRecorder, prewarmMicrophone } from '../services/audioRecorder';
+import { AudioRecorder } from '../services/audioRecorder';
 import { runPipeline } from '../services/pipeline';
 import { useConfigStore } from '../stores/configStore';
 import { HistoryItem } from '../types/config';
@@ -30,6 +30,8 @@ export interface RecorderState {
   processedText: string;
   error: string | null;
   outputFailed: boolean;
+  streamingText: string;
+  pipelinePhase: string | null; // 'stt-streaming' | 'stt' | 'llm' | 'done' | null
 }
 
 export function useRecorder() {
@@ -46,6 +48,8 @@ export function useRecorder() {
     processedText: '',
     error: null,
     outputFailed: false,
+    streamingText: '',
+    pipelinePhase: null,
   });
 
   const recorderRef = useRef<AudioRecorder | null>(null);
@@ -54,10 +58,17 @@ export function useRecorder() {
   const startTimeRef = useRef(0);
   const generationRef = useRef(0);
   const stopRecordingRef = useRef<() => void>(() => {});
+  const isStreamingRef = useRef(false);
 
   const startRecording = useCallback(async () => {
     try {
-      setState((s) => ({ ...s, error: null, rawText: '', processedText: '', outputFailed: false, status: 'recording', duration: 0 }));
+      // Defensive cleanup: if a previous recorder is still lingering, stop it
+      if (recorderRef.current) {
+        try { recorderRef.current.stop().catch(() => {}); } catch {}
+        recorderRef.current = null;
+      }
+      setState((s) => ({ ...s, error: null, rawText: '', processedText: '', outputFailed: false, status: 'recording', duration: 0, streamingText: '', pipelinePhase: null }));
+      isStreamingRef.current = false;
 
       // Pre-flight: check microphone permission in Electron
       if (window.electronAPI) {
@@ -75,12 +86,31 @@ export function useRecorder() {
         }
       }
 
+      // Try to start Realtime STT session
+      let useStreaming = false;
+      let sttSampleRate = 24000;
+      if (window.electronAPI) {
+        try {
+          const r = await window.electronAPI.startRealtimeSTT();
+          useStreaming = r.success;
+          if (r.sampleRate) sttSampleRate = r.sampleRate;
+        } catch {}
+      }
+      isStreamingRef.current = useStreaming;
+      if (useStreaming) {
+        setState((s) => ({ ...s, pipelinePhase: 'stt-streaming' }));
+      }
+
       const recorder = new AudioRecorder();
       recorderRef.current = recorder;
 
-      await recorder.start((level) => {
-        setState((s) => ({ ...s, audioLevel: level }));
-      });
+      await recorder.start(
+        (level) => setState((s) => ({ ...s, audioLevel: level })),
+        useStreaming
+          ? (pcm16Base64) => window.electronAPI?.sendAudioChunk(pcm16Base64)
+          : undefined,
+        sttSampleRate,
+      );
 
       if (configRef.current.soundEnabled) playBeep(880, 0.12);
       startTimeRef.current = Date.now();
@@ -291,12 +321,17 @@ export function useRecorder() {
       clearTimeout(maxTimerRef.current);
       maxTimerRef.current = null;
     }
+    // Cancel Realtime STT session if active
+    if (isStreamingRef.current) {
+      window.electronAPI?.cancelRealtimeSTT();
+      isStreamingRef.current = false;
+    }
     // Stop recorder without processing the audio
     if (recorderRef.current) {
       try { recorderRef.current.stop().catch(() => {}); } catch {}
       recorderRef.current = null;
     }
-    setState({ status: 'idle', duration: 0, audioLevel: 0, rawText: '', processedText: '', error: null, outputFailed: false });
+    setState({ status: 'idle', duration: 0, audioLevel: 0, rawText: '', processedText: '', error: null, outputFailed: false, streamingText: '', pipelinePhase: null });
   }, []);
 
   const toggleRecording = useCallback(async () => {
@@ -312,9 +347,22 @@ export function useRecorder() {
     }
   }, [state.status, startRecording, stopRecording]);
 
-  // Pre-warm microphone on mount so first recording starts instantly
+  // Listen for streaming STT deltas and pipeline phase changes
   useEffect(() => {
-    prewarmMicrophone();
+    if (!window.electronAPI) return;
+    const cleanups = [
+      window.electronAPI.onSttDelta((data) => {
+        setState((s) => ({ ...s, streamingText: data.accumulated }));
+      }),
+      window.electronAPI.onPipelinePhase((phase) => {
+        setState((s) => ({ ...s, pipelinePhase: phase }));
+      }),
+    ];
+    return () => cleanups.forEach((c) => c());
+  }, []);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
       if (maxTimerRef.current) clearTimeout(maxTimerRef.current);

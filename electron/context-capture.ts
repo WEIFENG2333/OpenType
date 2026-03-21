@@ -3,6 +3,7 @@ import { exec, execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { state, isMac } from './app-state';
+import { AppConfig } from '../src/types/config';
 
 function execAsync(cmd: string, opts: { input?: string; timeout?: number } = {}): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -277,7 +278,7 @@ async function captureContextLinux(): Promise<CapturedContext> {
   return ctx;
 }
 
-export async function captureFullContext(config: Record<string, any>): Promise<CapturedContext> {
+export async function captureFullContext(config: AppConfig): Promise<CapturedContext> {
   const l0Enabled = config.contextL0Enabled !== false;
   const l1Enabled = !!config.contextL1Enabled;
 
@@ -304,11 +305,10 @@ export async function captureFullContext(config: Record<string, any>): Promise<C
   } catch {}
 
   try {
-    const history: any[] = config.history || [];
-    const recent = history
-      .filter((h: any) => h.processedText && !h.error)
+    const recent = config.history
+      .filter(h => h.processedText && !h.error)
       .slice(0, 3)
-      .map((h: any) => h.processedText);
+      .map(h => h.processedText);
     if (recent.length > 0) {
       ctx.recentTranscriptions = recent;
     }
@@ -365,7 +365,7 @@ async function captureScreenElectron(): Promise<string | null> {
   return `data:image/jpeg;base64,${jpegBuffer.toString('base64')}`;
 }
 
-export async function captureScreenAndOcr(config: Record<string, any>): Promise<{ text: string; screenshot?: string; durationMs: number } | null> {
+export async function captureScreenAndOcr(config: AppConfig): Promise<{ text: string; screenshot?: string; durationMs: number } | null> {
   if (!config.contextOcrModel) throw new Error('contextOcrModel not configured');
   const model = config.contextOcrModel;
   try {

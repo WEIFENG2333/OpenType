@@ -14,13 +14,7 @@ export function AudioSettings() {
   const [devices, setDevices] = useState<AudioDevice[]>([]);
 
   useEffect(() => {
-    if (window.electronAPI?.getAudioDevices) {
-      window.electronAPI.getAudioDevices().then((devs: AudioDevice[]) => {
-        setDevices(devs.filter((d: AudioDevice) => d.deviceId && d.label));
-      }).catch(() => loadBrowserDevices());
-    } else {
-      loadBrowserDevices();
-    }
+    loadBrowserDevices();
   }, []);
 
   const loadBrowserDevices = async () => {

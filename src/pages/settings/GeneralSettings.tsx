@@ -27,13 +27,6 @@ export function GeneralSettings() {
 
   useEffect(() => {
     const load = async () => {
-      if (window.electronAPI?.getAudioDevices) {
-        try {
-          const devs = await window.electronAPI.getAudioDevices();
-          setAudioDevices(devs.filter((d: AudioDevice) => d.deviceId && d.label));
-          return;
-        } catch {}
-      }
       try {
         await navigator.mediaDevices.getUserMedia({ audio: true });
         const all = await navigator.mediaDevices.enumerateDevices();

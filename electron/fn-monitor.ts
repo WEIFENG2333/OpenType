@@ -46,7 +46,7 @@ export function startFnMonitor(onToggle: () => void, onReregister: () => void) {
           try {
             globalShortcut.register(rest, () => {
               const inputMode = state.configStore!.get('inputMode') || 'toggle';
-              if (inputMode === 'pushToTalk') onToggle();
+              if (inputMode === 'push-to-talk') onToggle();
             });
             fnComboShortcuts.push(rest);
           } catch (e) { console.error('[FnCombo] register failed:', rest, e); }
@@ -81,14 +81,14 @@ export function startFnMonitor(onToggle: () => void, onReregister: () => void) {
 
       if (trimmed === 'fn-down') {
         if (hotkey === 'Fn') onToggle();
-        if (inputMode === 'pushToTalk' && pttKey === 'Fn' && !state.isRecording) onToggle();
+        if (inputMode === 'push-to-talk' && pttKey === 'Fn' && !state.isRecording) onToggle();
 
         const hasFnCombo = [hotkey, pttKey].some((k) => k.startsWith('Fn+'));
         if (hasFnCombo) registerFnCombos();
       }
 
       if (trimmed === 'fn-up') {
-        if (inputMode === 'pushToTalk' && pttKey === 'Fn' && state.isRecording) onToggle();
+        if (inputMode === 'push-to-talk' && pttKey === 'Fn' && state.isRecording) onToggle();
 
         unregisterFnCombos();
         onReregister();

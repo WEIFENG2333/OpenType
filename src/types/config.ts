@@ -5,8 +5,12 @@
 
 // ─── Provider Definitions ───────────────────────────────────────────────────
 
-export type STTProviderID = 'siliconflow' | 'openai' | 'openai-compatible';
-export type LLMProviderID = 'siliconflow' | 'openrouter' | 'openai' | 'openai-compatible';
+export interface ProviderConfig {
+  apiKey: string;
+  baseUrl: string;
+  sttModel: string;
+  llmModel: string;
+}
 
 export interface ProviderMeta {
   id: string;
@@ -14,20 +18,20 @@ export interface ProviderMeta {
   supportsSTT: boolean;
   supportsLLM: boolean;
   fixedBaseUrl: boolean;   // true = hide Base URL field in UI (URL is canonical)
-  defaultBaseUrl: string;
   sttModels: string[];
   llmModels: string[];
   vlmModels: string[];     // Vision Language Models (for screen OCR)
+  extraHeaders?: Record<string, string>;  // OpenRouter's HTTP-Referer etc.
+  defaultConfig: ProviderConfig;
 }
 
-export const PROVIDERS: ProviderMeta[] = [
+export const PROVIDERS = [
   {
     id: 'siliconflow',
     name: 'SiliconFlow',
     supportsSTT: true,
     supportsLLM: true,
     fixedBaseUrl: true,
-    defaultBaseUrl: 'https://api.siliconflow.cn/v1',
     sttModels: [
       'FunAudioLLM/SenseVoiceSmall',              // 轻量·极快
     ],
@@ -53,6 +57,12 @@ export const PROVIDERS: ProviderMeta[] = [
       'Qwen/Qwen3-VL-8B-Instruct',
       'Pro/Qwen/Qwen2.5-VL-7B-Instruct',
     ],
+    defaultConfig: {
+      apiKey: '',
+      baseUrl: 'https://api.siliconflow.cn/v1',
+      sttModel: 'FunAudioLLM/SenseVoiceSmall',
+      llmModel: 'Pro/deepseek-ai/DeepSeek-V3.2',
+    },
   },
   {
     id: 'openrouter',
@@ -60,7 +70,6 @@ export const PROVIDERS: ProviderMeta[] = [
     supportsSTT: false,
     supportsLLM: true,
     fixedBaseUrl: true,
-    defaultBaseUrl: 'https://openrouter.ai/api/v1',
     sttModels: [],
     llmModels: [
       // ── 高性能 ──
@@ -84,6 +93,13 @@ export const PROVIDERS: ProviderMeta[] = [
       'google/gemini-2.5-flash',
       'anthropic/claude-sonnet-4.6',
     ],
+    extraHeaders: { 'HTTP-Referer': 'https://opentype.app', 'X-Title': 'OpenType' },
+    defaultConfig: {
+      apiKey: '',
+      baseUrl: 'https://openrouter.ai/api/v1',
+      sttModel: '',
+      llmModel: 'google/gemini-2.5-flash',
+    },
   },
   {
     id: 'openai',
@@ -91,7 +107,6 @@ export const PROVIDERS: ProviderMeta[] = [
     supportsSTT: true,
     supportsLLM: true,
     fixedBaseUrl: true,
-    defaultBaseUrl: 'https://api.openai.com/v1',
     sttModels: [
       'gpt-4o-transcribe',                       // 高性能·最准
       'gpt-4o-mini-transcribe',                  // 轻量·低成本
@@ -113,6 +128,36 @@ export const PROVIDERS: ProviderMeta[] = [
       // ── 轻量 ──
       'gpt-5-mini',
     ],
+    defaultConfig: {
+      apiKey: '',
+      baseUrl: 'https://api.openai.com/v1',
+      sttModel: 'gpt-4o-transcribe',
+      llmModel: 'gpt-5-mini',
+    },
+  },
+  {
+    id: 'dashscope',
+    name: 'DashScope (阿里云)',
+    supportsSTT: true,
+    supportsLLM: false,
+    fixedBaseUrl: true,
+    sttModels: [
+      // Qwen-ASR (OpenAI-compatible protocol)
+      'qwen3-asr-flash-realtime',            // Qwen3·极快（稳定版，推荐）
+      'qwen3-asr-flash-realtime-2026-02-10', // Qwen3 最新快照
+      'qwen3-asr-flash-realtime-2025-10-27', // Qwen3 快照
+      // Paraformer/FunASR/Gummy (native inference protocol)
+      'paraformer-realtime-v2',              // Paraformer V2·多语种
+      'fun-asr-realtime',                    // FunASR·稳定
+    ],
+    llmModels: [],
+    vlmModels: [],
+    defaultConfig: {
+      apiKey: '',
+      baseUrl: 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime',
+      sttModel: 'qwen3-asr-flash-realtime',
+      llmModel: '',
+    },
   },
   {
     id: 'openai-compatible',
@@ -120,7 +165,6 @@ export const PROVIDERS: ProviderMeta[] = [
     supportsSTT: true,
     supportsLLM: true,
     fixedBaseUrl: false,
-    defaultBaseUrl: '',
     sttModels: [
       'gpt-4o-transcribe',
       'gpt-4o-mini-transcribe',
@@ -138,8 +182,19 @@ export const PROVIDERS: ProviderMeta[] = [
       'gpt-5',
       'gpt-5-mini',
     ],
+    defaultConfig: {
+      apiKey: '',
+      baseUrl: '',
+      sttModel: 'whisper-1',
+      llmModel: '',
+    },
   },
-];
+] satisfies ProviderMeta[];
+
+export type STTProviderID = 'siliconflow' | 'openai' | 'openai-compatible' | 'dashscope';
+export type LLMProviderID = 'siliconflow' | 'openrouter' | 'openai' | 'openai-compatible';
+
+const PROVIDER_MAP = new Map<string, ProviderMeta>(PROVIDERS.map(p => [p.id, p]));
 
 // ─── Tone Rules ─────────────────────────────────────────────────────────────
 
@@ -235,28 +290,8 @@ export interface AppConfig {
   sttProvider: STTProviderID;
   llmProvider: LLMProviderID;
 
-  // SiliconFlow
-  siliconflowApiKey: string;
-  siliconflowBaseUrl: string;
-  siliconflowSttModel: string;
-  siliconflowLlmModel: string;
-
-  // OpenRouter
-  openrouterApiKey: string;
-  openrouterBaseUrl: string;
-  openrouterLlmModel: string;
-
-  // OpenAI
-  openaiApiKey: string;
-  openaiBaseUrl: string;
-  openaiSttModel: string;
-  openaiLlmModel: string;
-
-  // OpenAI-Compatible (custom endpoint)
-  compatibleApiKey: string;
-  compatibleBaseUrl: string;
-  compatibleSttModel: string;
-  compatibleLlmModel: string;
+  // Provider configurations (keyed by provider id)
+  providers: Record<string, ProviderConfig>;
 
   // General
   theme: 'system' | 'dark' | 'light';
@@ -275,7 +310,7 @@ export interface AppConfig {
   inputVolume: number;             // 0-100
   soundEnabled: boolean;           // play beep on recording start/stop
   muteSystemAudio: boolean;        // mute system audio during recording (macOS)
-whisperMode: boolean;
+  whisperMode: boolean;
   whisperSensitivity: number;      // 0-100
 
   // Tone Rules
@@ -314,28 +349,45 @@ whisperMode: boolean;
   weekStartTimestamp: number;
 }
 
+// ─── Provider Resolution Helpers ────────────────────────────────────────────
+
+export interface ProviderOpts {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  extraHeaders?: Record<string, string>;
+}
+
+export function getProviderConfig(config: AppConfig, id: string): ProviderConfig {
+  return config.providers[id] ?? PROVIDER_MAP.get(id)?.defaultConfig ?? { apiKey: '', baseUrl: '', sttModel: '', llmModel: '' };
+}
+
+export function getSTTProviderOpts(config: AppConfig): ProviderOpts {
+  const pc = getProviderConfig(config, config.sttProvider);
+  const meta = PROVIDER_MAP.get(config.sttProvider);
+  return { baseUrl: pc.baseUrl, apiKey: pc.apiKey, model: pc.sttModel, extraHeaders: meta?.extraHeaders };
+}
+
+export function getLLMProviderOpts(config: AppConfig, provider?: LLMProviderID): ProviderOpts {
+  const pid = provider || config.llmProvider;
+  const pc = getProviderConfig(config, pid);
+  const meta = PROVIDER_MAP.get(pid);
+  return { baseUrl: pc.baseUrl, apiKey: pc.apiKey, model: pc.llmModel, extraHeaders: meta?.extraHeaders };
+}
+
+function buildDefaultProviders(): Record<string, ProviderConfig> {
+  const result: Record<string, ProviderConfig> = {};
+  for (const p of PROVIDERS) {
+    result[p.id] = { ...p.defaultConfig };
+  }
+  return result;
+}
+
 export const DEFAULT_CONFIG: AppConfig = {
   sttProvider: 'siliconflow',
   llmProvider: 'siliconflow',
 
-  siliconflowApiKey: '',
-  siliconflowBaseUrl: 'https://api.siliconflow.cn/v1',
-  siliconflowSttModel: 'FunAudioLLM/SenseVoiceSmall',
-  siliconflowLlmModel: 'Pro/deepseek-ai/DeepSeek-V3.2',
-
-  openrouterApiKey: '',
-  openrouterBaseUrl: 'https://openrouter.ai/api/v1',
-  openrouterLlmModel: 'google/gemini-2.5-flash',
-
-  openaiApiKey: '',
-  openaiBaseUrl: 'https://api.openai.com/v1',
-  openaiSttModel: 'gpt-4o-transcribe',
-  openaiLlmModel: 'gpt-5-mini',
-
-  compatibleApiKey: '',
-  compatibleBaseUrl: '',
-  compatibleSttModel: 'whisper-1',
-  compatibleLlmModel: '',
+  providers: buildDefaultProviders(),
 
   theme: 'light',
   uiLanguage: 'auto',
@@ -351,7 +403,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   inputVolume: 80,
   soundEnabled: true,
   muteSystemAudio: true,
-whisperMode: false,
+  whisperMode: false,
   whisperSensitivity: 50,
 
   toneRules: [

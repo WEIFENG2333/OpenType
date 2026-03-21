@@ -151,7 +151,8 @@
     "processing": "Processing...",
     "transcribing": "Transcribing & polishing",
     "pressHotkey": "Press hotkey to start",
-    "copiedToClipboard": "Copied to clipboard"
+    "copiedToClipboard": "Copied to clipboard",
+    "tapToCopy": "Tap text to copy"
   },
   "feedback": {
     "title": "Feedback & Help",

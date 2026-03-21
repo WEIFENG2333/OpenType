@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useConfigStore } from '../stores/configStore';
 import { useTranslation } from '../i18n';
 import type { HistoryItem } from '../types/config';
@@ -93,14 +93,45 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
     setTimeout(() => setUpdateStatus('idle'), 3000);
   };
 
-  // Stats
-  const totalSeconds = config.totalTimeSavedSeconds || 0;
-  const totalHr = Math.floor(totalSeconds / 3600);
-  const totalMin = Math.round((totalSeconds % 3600) / 60);
-  const totalWords = config.totalWordsThisWeek || 0;
-  const savedMinutes = Math.round(totalSeconds / 60);
-  const avgWPM = config.averageWPM || 0;
-  const hasStats = totalWords > 0 || savedMinutes > 0 || avgWPM > 0;
+  // Stats — computed from history (single pass)
+  const stats = useMemo(() => {
+    const history: HistoryItem[] = config.history || [];
+    const now = Date.now();
+    const weekAgo = now - 7 * 24 * 3600 * 1000;
+
+    let totalWords = 0;
+    let totalDictationMs = 0;  // sum of recording durations
+    let weekWords = 0;
+    let weekDictationMs = 0;
+
+    for (const item of history) {
+      if (item.error && !item.processedText) continue; // skip pure errors
+      totalWords += item.wordCount || 0;
+      totalDictationMs += item.durationMs || 0;
+      if (item.timestamp >= weekAgo) {
+        weekWords += item.wordCount || 0;
+        weekDictationMs += item.durationMs || 0;
+      }
+    }
+
+    const totalDictationSec = Math.round(totalDictationMs / 1000);
+    const totalDictationMin = Math.round(totalDictationSec / 60);
+    const totalHr = Math.floor(totalDictationMin / 60);
+    const totalMin = totalDictationMin % 60;
+
+    // Time saved: typing at ~40 WPM vs dictation speed
+    // savedTime = (totalWords / 40) minutes - actualDictationMinutes
+    const typingMinutes = totalWords / 40;
+    const savedMinutes = Math.max(0, Math.round(typingMinutes - totalDictationMin));
+
+    // Average WPM based on this week's data
+    const weekDictationMin = weekDictationMs / 60000;
+    const avgWPM = weekDictationMin > 0.1 ? Math.round(weekWords / weekDictationMin) : 0;
+
+    return { totalWords, totalHr, totalMin, totalDictationMin, savedMinutes, avgWPM };
+  }, [config.history]);
+
+  const hasStats = stats.totalWords > 0 || stats.totalDictationMin > 0 || stats.avgWPM > 0;
 
   // Recent transcriptions (last 3)
   const recentItems: HistoryItem[] = (config.history || []).slice(0, 3);
@@ -147,23 +178,23 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
               <StatCard
                 icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>}
                 label={t('dashboard.totalTime')}
-                value={totalHr > 0 ? `${totalHr} ${t('dashboard.hr')} ${totalMin} ${t('dashboard.min')}` : `${totalMin} ${t('dashboard.min')}`}
+                value={stats.totalHr > 0 ? `${stats.totalHr} ${t('dashboard.hr')} ${stats.totalMin} ${t('dashboard.min')}` : `${stats.totalMin} ${t('dashboard.min')}`}
               />
               <StatCard
                 icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>}
                 label={t('dashboard.totalWords')}
-                value={totalWords >= 1000 ? `${(totalWords / 1000).toFixed(1)}K` : `${totalWords}`}
+                value={stats.totalWords >= 1000 ? `${(stats.totalWords / 1000).toFixed(1)}K` : `${stats.totalWords}`}
                 unit={t('dashboard.wordsUnit')}
               />
               <StatCard
                 icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>}
                 label={t('dashboard.timeSaved')}
-                value={savedMinutes > 60 ? `${Math.floor(savedMinutes / 60)} ${t('dashboard.hr')} ${savedMinutes % 60} ${t('dashboard.min')}` : `${savedMinutes} ${t('dashboard.min')}`}
+                value={stats.savedMinutes > 60 ? `${Math.floor(stats.savedMinutes / 60)} ${t('dashboard.hr')} ${stats.savedMinutes % 60} ${t('dashboard.min')}` : `${stats.savedMinutes} ${t('dashboard.min')}`}
               />
               <StatCard
                 icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>}
                 label={t('dashboard.avgSpeed')}
-                value={`${avgWPM}`}
+                value={`${stats.avgWPM}`}
                 unit="WPM"
               />
             </div>

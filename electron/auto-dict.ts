@@ -5,6 +5,7 @@
 
 import { state } from './app-state';
 import { CapturedContext } from './context-capture';
+import { AppConfig, DictionaryEntry } from '../src/types/config';
 
 // ─── Prompts ────────────────────────────────────────────────────────────────
 
@@ -55,10 +56,10 @@ function buildEditDiffPrompt(lastTypedText: string, currentFieldText: string): s
 
 // ─── Dictionary persistence ────────────────────────────────────────────────
 
-export function saveDictionaryTerms(terms: string[], source: string): string[] {
+export function saveDictionaryTerms(terms: string[], source: DictionaryEntry['source']): string[] {
   if (!terms.length) return [];
-  const dictEntries: any[] = state.configStore!.get('personalDictionary') || [];
-  const existingWords = new Set(dictEntries.map((e: any) => (typeof e === 'string' ? e : e.word).toLowerCase()));
+  const dictEntries = state.configStore!.get('personalDictionary');
+  const existingWords = new Set(dictEntries.map(e => e.word.toLowerCase()));
   const newTerms = terms.filter(t => !existingWords.has(t.toLowerCase()));
   if (!newTerms.length) return [];
   const newEntries = newTerms.map(w => ({ word: w, source, addedAt: Date.now() }));
@@ -69,13 +70,12 @@ export function saveDictionaryTerms(terms: string[], source: string): string[] {
 }
 
 function getDictWords(): string[] {
-  const entries: any[] = state.configStore!.get('personalDictionary') || [];
-  return entries.map((e: any) => typeof e === 'string' ? e : e.word);
+  return state.configStore!.get('personalDictionary').map(e => e.word);
 }
 
 // ─── Pipeline post-extraction (fire-and-forget) ────────────────────────────
 
-export function schedulePostPipelineExtraction(raw: string, processed: string, cfg: Record<string, any>) {
+export function schedulePostPipelineExtraction(raw: string, processed: string, cfg: AppConfig) {
   if (cfg.autoLearnDictionary === false || raw.length < 5) return;
 
   setImmediate(() => {
@@ -97,7 +97,7 @@ export interface EditDetectionParams {
 }
 
 /** Snapshot state for edit detection. Must be called before context capture clears state. */
-export function prepareEditDetection(cfg: Record<string, any>): EditDetectionParams | null {
+export function prepareEditDetection(cfg: AppConfig): EditDetectionParams | null {
   if (!state.lastTypedText || cfg.autoLearnDictionary === false || !cfg.contextL1Enabled) return null;
 
   const timeSince = Date.now() - state.lastTypedAt;
@@ -115,7 +115,7 @@ export function prepareEditDetection(cfg: Record<string, any>): EditDetectionPar
 }
 
 /** Run edit detection using an already-captured context (no extra osascript call). */
-export function runEditDetection(params: EditDetectionParams, currentCtx: CapturedContext, cfg: Record<string, any>) {
+export function runEditDetection(params: EditDetectionParams, currentCtx: CapturedContext, cfg: AppConfig) {
   const { lastTypedText, lastCtx } = params;
 
   if (currentCtx.bundleId !== lastCtx.bundleId || currentCtx.fieldRole !== lastCtx.fieldRole) {

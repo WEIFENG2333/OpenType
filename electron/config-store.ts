@@ -1,49 +1,11 @@
 import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
-
-const DEFAULT_CONFIG: Record<string, any> = {
-  sttProvider: 'siliconflow',
-  llmProvider: 'siliconflow',
-  siliconflowApiKey: '',
-  siliconflowBaseUrl: 'https://api.siliconflow.cn/v1',
-  siliconflowSttModel: 'FunAudioLLM/SenseVoiceSmall',
-  siliconflowLlmModel: 'Pro/deepseek-ai/DeepSeek-V3.2',
-  openrouterApiKey: '',
-  openrouterBaseUrl: 'https://openrouter.ai/api/v1',
-  openrouterLlmModel: 'google/gemini-2.5-flash',
-  openaiApiKey: '',
-  openaiBaseUrl: 'https://api.openai.com/v1',
-  openaiSttModel: 'gpt-4o-transcribe',
-  openaiLlmModel: 'gpt-5-mini',
-  compatibleApiKey: '',
-  compatibleBaseUrl: '',
-  compatibleSttModel: 'whisper-1',
-  compatibleLlmModel: '',
-  theme: 'light',
-  uiLanguage: 'auto',
-  globalHotkey: 'CommandOrControl+Shift+Space',
-  pushToTalkKey: 'CommandOrControl+Shift+R',
-  pasteLastKey: 'CommandOrControl+Shift+V',
-  soundEnabled: true,
-  muteSystemAudio: true,
-  personalDictionary: [],
-  historyEnabled: true,
-  historyRetention: 'forever',
-  autoFormatting: true,
-  selfCorrectionDetection: true,
-  fillerWordRemoval: true,
-  repetitionElimination: true,
-  toneRules: [],
-  defaultTone: 'professional',
-  autoLearnDictionary: true,
-  history: [],
-  totalWordsThisWeek: 0,
-};
+import { AppConfig, DEFAULT_CONFIG } from '../src/types/config';
 
 export class ConfigStore {
   private filePath: string;
-  private data: Record<string, any>;
+  private data: AppConfig;
   private _needsSave = false;
 
   constructor() {
@@ -56,7 +18,7 @@ export class ConfigStore {
     }
   }
 
-  private load(): Record<string, any> {
+  private load(): AppConfig {
     try {
       if (fs.existsSync(this.filePath)) {
         const raw = { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(this.filePath, 'utf-8')) };
@@ -68,6 +30,37 @@ export class ConfigStore {
           }));
           this._needsSave = true;
         }
+        // Migrate flat provider fields → providers map
+        // Always merge old flat fields if they exist (handles partial migration)
+        const OLD_PREFIXES: Record<string, { prefix: string; hasStt: boolean; hasLlm: boolean }> = {
+          siliconflow: { prefix: 'siliconflow', hasStt: true, hasLlm: true },
+          openrouter:  { prefix: 'openrouter', hasStt: false, hasLlm: true },
+          openai:      { prefix: 'openai', hasStt: true, hasLlm: true },
+          dashscope:   { prefix: 'dashscope', hasStt: true, hasLlm: false },
+          'openai-compatible': { prefix: 'compatible', hasStt: true, hasLlm: true },
+        };
+        if (!raw.providers || typeof raw.providers !== 'object' || Array.isArray(raw.providers)) {
+          raw.providers = { ...DEFAULT_CONFIG.providers };
+        }
+        let hasOldFields = false;
+        for (const [id, info] of Object.entries(OLD_PREFIXES)) {
+          const oldKey = raw[`${info.prefix}ApiKey`];
+          if (oldKey === undefined) continue;
+          hasOldFields = true;
+          const existing = raw.providers[id] || DEFAULT_CONFIG.providers[id] || { apiKey: '', baseUrl: '', sttModel: '', llmModel: '' };
+          raw.providers[id] = {
+            apiKey: raw[`${info.prefix}ApiKey`] ?? existing.apiKey,
+            baseUrl: raw[`${info.prefix}BaseUrl`] ?? existing.baseUrl,
+            sttModel: info.hasStt ? (raw[`${info.prefix}SttModel`] ?? existing.sttModel) : existing.sttModel,
+            llmModel: info.hasLlm ? (raw[`${info.prefix}LlmModel`] ?? existing.llmModel) : existing.llmModel,
+          };
+          // Clean up old flat fields
+          delete raw[`${info.prefix}ApiKey`];
+          delete raw[`${info.prefix}BaseUrl`];
+          if (info.hasStt) delete raw[`${info.prefix}SttModel`];
+          if (info.hasLlm) delete raw[`${info.prefix}LlmModel`];
+        }
+        if (hasOldFields) this._needsSave = true;
         return raw;
       }
     } catch (e) {
@@ -86,16 +79,16 @@ export class ConfigStore {
     }
   }
 
-  get(key: string): any {
+  get<K extends keyof AppConfig>(key: K): AppConfig[K] {
     return this.data[key];
   }
 
-  set(key: string, value: any): void {
+  set<K extends keyof AppConfig>(key: K, value: AppConfig[K]): void {
     this.data[key] = value;
     this.save();
   }
 
-  getAll(): Record<string, any> {
+  getAll(): AppConfig {
     return { ...this.data };
   }
 }

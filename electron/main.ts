@@ -1,7 +1,10 @@
 import {
   app, BrowserWindow, globalShortcut,
   session, systemPreferences, Menu,
+  protocol, net,
 } from 'electron';
+import * as path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { state, isDev, isMac } from './app-state';
 import { ConfigStore } from './config-store';
 import { STTService } from './stt-service';
@@ -12,6 +15,7 @@ import { registerShortcuts, toggleRecording } from './shortcut-manager';
 import { setupIPC } from './ipc-handlers';
 import { setupAutoUpdater } from './auto-updater';
 import { stopFnMonitor } from './fn-monitor';
+import { restoreSystemAudio } from './audio-control';
 
 // ─── Microphone Permissions ─────────────────────────────────────────────────
 
@@ -65,9 +69,30 @@ function setupAppMenu() {
   }
 }
 
+// ─── Custom Protocol: media:// ──────────────────────────────────────────────
+// Serves local media files (audio/screenshots) without base64 IPC roundtrips.
+// Usage in renderer: new Audio('media:///path/to/file.wav')
+
+protocol.registerSchemesAsPrivileged([{
+  scheme: 'media',
+  privileges: { secure: true, supportFetchAPI: true, stream: true, bypassCSP: true },
+}]);
+
 // ─── App Lifecycle ──────────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
+  // Register media:// handler — streams local files via net.fetch
+  // URL format: media:///absolute/path/to/file (non-standard scheme, raw path after media://)
+  const userDataDir = app.getPath('userData');
+  protocol.handle('media', (req) => {
+    const filePath = decodeURIComponent(req.url.replace(/^media:\/\//, ''));
+    const resolved = path.resolve(filePath);
+    // Security: only serve files under userData directory (case-insensitive for macOS)
+    if (!resolved.toLowerCase().startsWith(userDataDir.toLowerCase())) {
+      return new Response('Forbidden', { status: 403 });
+    }
+    return net.fetch(pathToFileURL(resolved).toString());
+  });
   state.configStore = new ConfigStore();
   state.sttService = new STTService();
   state.llmService = new LLMService();
@@ -102,7 +127,14 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('will-quit', () => { globalShortcut.unregisterAll(); stopFnMonitor(); });
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+  stopFnMonitor();
+  // Always restore system audio on quit — safety net
+  if (state.savedSystemVolume != null) {
+    restoreSystemAudio();
+  }
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

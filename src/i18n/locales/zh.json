@@ -151,7 +151,8 @@
     "processing": "处理中...",
     "transcribing": "正在转录和润色",
     "pressHotkey": "按快捷键开始",
-    "copiedToClipboard": "已复制到剪贴板"
+    "copiedToClipboard": "已复制到剪贴板",
+    "tapToCopy": "点击文字复制"
   },
   "feedback": {
     "title": "反馈与帮助",

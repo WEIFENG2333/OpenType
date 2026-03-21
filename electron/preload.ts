@@ -50,10 +50,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // API testing
   testAPI: (provider: string) => ipcRenderer.invoke('api:test', provider),
-  testSTT: (provider: string) => ipcRenderer.invoke('api:testSTT', provider),
-
-  // Audio devices
-  getAudioDevices: () => ipcRenderer.invoke('audio:devices'),
 
   // Auto updater
   checkForUpdates: () => ipcRenderer.invoke('updater:check'),
@@ -89,6 +85,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   checkScreenPermission: () => ipcRenderer.invoke('context:checkScreenPermission'),
   openScreenPrefs: () => ipcRenderer.invoke('context:openScreenPrefs'),
   captureAndOcr: () => ipcRenderer.invoke('context:captureAndOcr'),
+
+  // STT test
+  testSTTConnection: () => ipcRenderer.invoke('stt:testConnection'),
+
+  // Realtime STT
+  startRealtimeSTT: () => ipcRenderer.invoke('stt:startRealtime'),
+  sendAudioChunk: (pcm16Base64: string) => ipcRenderer.invoke('stt:sendAudio', pcm16Base64),
+  cancelRealtimeSTT: () => ipcRenderer.invoke('stt:cancelRealtime'),
+
+  // Pipeline streaming events
+  onSttDelta: (cb: (data: { delta: string; accumulated: string }) => void) => {
+    ipcRenderer.on('pipeline:stt-delta', (_e, data) => cb(data));
+    return () => { ipcRenderer.removeAllListeners('pipeline:stt-delta'); };
+  },
+  onPipelinePhase: (cb: (phase: string) => void) => {
+    ipcRenderer.on('pipeline:phase', (_e, phase) => cb(phase));
+    return () => { ipcRenderer.removeAllListeners('pipeline:phase'); };
+  },
 
   // Events
   onToggleRecording: (cb: () => void) => {

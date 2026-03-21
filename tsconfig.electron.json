@@ -4,7 +4,7 @@
     "module": "CommonJS",
     "moduleResolution": "node",
     "outDir": "dist-electron",
-    "rootDir": "electron",
+    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -12,5 +12,5 @@
     "declaration": false,
     "sourceMap": true
   },
-  "include": ["electron/**/*.ts"]
+  "include": ["electron/**/*.ts", "src/types/**/*.ts"]
 }

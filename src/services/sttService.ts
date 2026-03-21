@@ -3,7 +3,7 @@
  * Calls STT API (SiliconFlow or OpenAI-compatible) to transcribe audio.
  */
 
-import { AppConfig } from '../types/config';
+import { AppConfig, getSTTProviderOpts } from '../types/config';
 
 export interface STTResult {
   success: boolean;
@@ -28,24 +28,10 @@ async function transcribeWeb(
   config: AppConfig,
   options?: { language?: string },
 ): Promise<STTResult> {
-  const provider = config.sttProvider;
-
-  let baseUrl: string;
-  let apiKey: string;
-  let model: string;
-
-  if (provider === 'siliconflow') {
-    baseUrl = config.siliconflowBaseUrl;
-    apiKey = config.siliconflowApiKey;
-    model = config.siliconflowSttModel;
-  } else {
-    baseUrl = config.openaiBaseUrl;
-    apiKey = config.openaiApiKey;
-    model = config.openaiSttModel;
-  }
+  const { baseUrl, apiKey, model } = getSTTProviderOpts(config);
 
   if (!apiKey) {
-    return { success: false, error: `No API key configured for ${provider}` };
+    return { success: false, error: `No API key configured for ${config.sttProvider}` };
   }
 
   const formData = new FormData();

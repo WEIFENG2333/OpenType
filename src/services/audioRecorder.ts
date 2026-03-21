@@ -1,75 +1,78 @@
 /**
  * Browser-based audio recorder using Web Audio API.
  * Records microphone input, monitors audio level, outputs WAV buffer.
- *
- * Uses a warm (pre-acquired) MediaStream so that recording starts instantly
- * without waiting for getUserMedia each time.
  */
-
-// Shared warm stream — survives across AudioRecorder instances
-let warmStream: MediaStream | null = null;
-let warmStreamPromise: Promise<MediaStream> | null = null;
 
 const MIC_CONSTRAINTS: MediaStreamConstraints = {
   audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 },
 };
 
-async function acquireStream(): Promise<MediaStream> {
-  // If a warm stream exists and its tracks are still live, reuse it
-  if (warmStream && warmStream.getAudioTracks().some((t) => t.readyState === 'live')) {
-    return warmStream;
-  }
-  // If an acquisition is already in-flight, wait for it
-  if (warmStreamPromise) return warmStreamPromise;
-
-  warmStreamPromise = navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS).then((s) => {
-    warmStream = s;
-    warmStreamPromise = null;
-    return s;
-  }).catch((e) => {
-    warmStreamPromise = null;
-    throw e;
-  });
-  return warmStreamPromise;
-}
-
-/** Pre-warm the microphone so the first recording starts instantly. */
-export function prewarmMicrophone(): void {
-  acquireStream().catch(() => {});
-}
-
 export class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private stream: MediaStream | null = null;
-  private ownsStream = false;
   private analyser: AnalyserNode | null = null;
   private audioContext: AudioContext | null = null;
   private animationFrame: number | null = null;
+  private scriptProcessor: ScriptProcessorNode | null = null;
   private onLevelChange?: (level: number) => void;
 
-  async start(onLevelChange?: (level: number) => void): Promise<void> {
+  async start(
+    onLevelChange?: (level: number) => void,
+    onPCMChunk?: (pcm16Base64: string) => void,
+    targetSampleRate = 24000,
+  ): Promise<void> {
     this.onLevelChange = onLevelChange;
     this.audioChunks = [];
 
-    // Try to reuse the warm stream; fall back to a fresh one
-    try {
-      this.stream = await acquireStream();
-      this.ownsStream = false;
-    } catch {
-      this.stream = await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
-      this.ownsStream = true;
-    }
+    this.stream = await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
 
     // Audio analysis for level metering
     this.audioContext = new AudioContext();
+    if (this.audioContext.state === 'suspended') await this.audioContext.resume();
     const source = this.audioContext.createMediaStreamSource(this.stream);
     this.analyser = this.audioContext.createAnalyser();
     this.analyser.fftSize = 256;
     source.connect(this.analyser);
     this.monitorLevel();
 
-    // MediaRecorder
+    // Real-time PCM streaming for Realtime STT
+    if (onPCMChunk) {
+      this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      source.connect(this.scriptProcessor);
+      this.scriptProcessor.connect(this.audioContext.destination);
+
+      this.scriptProcessor.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        const inputRate = this.audioContext!.sampleRate;
+        const outputRate = targetSampleRate;
+        const ratio = outputRate / inputRate;
+        const outputLength = Math.ceil(input.length * ratio);
+        const output = new Int16Array(outputLength);
+
+        // Linear interpolation resampling + float32 → int16
+        for (let i = 0; i < outputLength; i++) {
+          const srcIdx = i / ratio;
+          const idx0 = Math.floor(srcIdx);
+          const idx1 = Math.min(idx0 + 1, input.length - 1);
+          const frac = srcIdx - idx0;
+          const sample = input[idx0] * (1 - frac) + input[idx1] * frac;
+          const clamped = Math.max(-1, Math.min(1, sample));
+          output[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF;
+        }
+
+        // Convert to base64
+        const bytes = new Uint8Array(output.buffer);
+        let binary = '';
+        const CHUNK = 8192;
+        for (let i = 0; i < bytes.length; i += CHUNK) {
+          binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+        }
+        onPCMChunk(btoa(binary));
+      };
+    }
+
+    // MediaRecorder (always active — needed for WAV export and non-streaming fallback)
     const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
       ? 'audio/webm;codecs=opus'
       : 'audio/webm';
@@ -177,9 +180,12 @@ export class AudioRecorder {
 
   private cleanup() {
     if (this.animationFrame) cancelAnimationFrame(this.animationFrame);
+    if (this.scriptProcessor) {
+      this.scriptProcessor.disconnect();
+      this.scriptProcessor = null;
+    }
     this.audioContext?.close();
-    // Only stop tracks if we created a fresh stream (not the shared warm one)
-    if (this.ownsStream && this.stream) {
+    if (this.stream) {
       this.stream.getTracks().forEach((t) => t.stop());
     }
     this.animationFrame = null;

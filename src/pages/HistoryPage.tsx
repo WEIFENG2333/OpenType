@@ -1,20 +1,141 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useConfigStore } from '../stores/configStore';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Button } from '../components/ui';
 import { HistoryItem } from '../types/config';
 import { useTranslation } from '../i18n';
 
-function ScreenshotThumbnail({ path }: { path: string }) {
-  const [src, setSrc] = useState<string | null>(null);
+// ─── Audio helpers ───────────────────────────────────────────────────────────
+
+/** Convert a local media file path to a media:// URL for direct streaming. */
+function mediaUrl(filePath: string): string {
+  return `media://${encodeURI(filePath)}`;
+}
+
+/** Parse WAV header to get duration in seconds. WAV files always have a known size. */
+async function getWavDuration(url: string): Promise<number> {
+  try {
+    const resp = await fetch(url, { headers: { Range: 'bytes=0-43' } });
+    const buf = await resp.arrayBuffer();
+    const view = new DataView(buf);
+    // WAV header: bytes 24-27 = sampleRate (uint32 LE), bytes 34-35 = bitsPerSample (uint16 LE)
+    // bytes 40-43 = data chunk size (uint32 LE), bytes 22-23 = numChannels (uint16 LE)
+    const sampleRate = view.getUint32(24, true);
+    const bitsPerSample = view.getUint16(34, true);
+    const numChannels = view.getUint16(22, true);
+    const dataSize = view.getUint32(40, true);
+    if (sampleRate && bitsPerSample && numChannels) {
+      return dataSize / (sampleRate * numChannels * (bitsPerSample / 8));
+    }
+  } catch { /* fall through */ }
+  return 0;
+}
+
+/** Compact inline audio player for detail modal. Stops on unmount. */
+function AudioPlayerBar({ audioPath }: { audioPath: string }) {
+  const [playing, setPlaying] = useState(false);
+  const [current, setCurrent] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const barRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    if (!window.electronAPI) return;
-    window.electronAPI.readMedia(path).then((b64) => {
-      if (b64) setSrc(`data:image/jpeg;base64,${b64}`);
-    });
-  }, [path]);
-  if (!src) return null;
-  return <img src={src} alt="Screenshot" className="w-full max-h-40 object-contain rounded border border-surface-200 dark:border-surface-800 mb-1.5" />;
+    let cancelled = false;
+    const src = mediaUrl(audioPath);
+    const a = new Audio(src);
+    audioRef.current = a;
+
+    // WAV over streaming protocol often yields Infinity duration.
+    // Parse WAV header ourselves for reliable duration.
+    getWavDuration(src).then((d) => { if (!cancelled && d > 0) setDuration(d); });
+
+    // Also listen for browser-provided duration as fallback
+    const onDurationChange = () => {
+      if (!cancelled && isFinite(a.duration) && a.duration > 0) setDuration(a.duration);
+    };
+    const onTimeUpdate = () => { if (!cancelled) setCurrent(a.currentTime); };
+    const onEnded = () => { if (!cancelled) { setPlaying(false); setCurrent(0); } };
+
+    a.addEventListener('durationchange', onDurationChange);
+    a.addEventListener('loadedmetadata', onDurationChange);
+    a.addEventListener('timeupdate', onTimeUpdate);
+    a.addEventListener('ended', onEnded);
+
+    return () => {
+      cancelled = true;
+      a.pause();
+      a.removeEventListener('durationchange', onDurationChange);
+      a.removeEventListener('loadedmetadata', onDurationChange);
+      a.removeEventListener('timeupdate', onTimeUpdate);
+      a.removeEventListener('ended', onEnded);
+      a.src = '';
+    };
+  }, [audioPath]);
+
+  const toggle = useCallback(() => {
+    if (!audioRef.current) return;
+    if (playing) {
+      audioRef.current.pause();
+      setPlaying(false);
+    } else {
+      audioRef.current.play();
+      setPlaying(true);
+    }
+  }, [playing]);
+
+  const seek = useCallback((e: React.MouseEvent) => {
+    if (!audioRef.current || !barRef.current || !duration || !isFinite(duration)) return;
+    const rect = barRef.current.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const t = pct * duration;
+    audioRef.current.currentTime = t;
+    setCurrent(t);
+  }, [duration]);
+
+  const fmt = (s: number) => {
+    if (!isFinite(s) || s < 0) return '0:00';
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  const safeDuration = isFinite(duration) && duration > 0 ? duration : 0;
+  const pct = safeDuration > 0 ? (current / safeDuration) * 100 : 0;
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={toggle}
+        className="w-6 h-6 flex items-center justify-center rounded-md text-surface-500 hover:text-brand-500 transition-colors flex-shrink-0"
+      >
+        {playing ? (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+        ) : (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+        )}
+      </button>
+      <span className="text-[10px] font-mono tabular-nums text-surface-400 w-8 flex-shrink-0">
+        {fmt(current)}
+      </span>
+      <div
+        ref={barRef}
+        onClick={seek}
+        className="flex-1 h-1 rounded-full bg-surface-200 dark:bg-surface-700 cursor-pointer relative group"
+      >
+        <div
+          className="absolute inset-y-0 left-0 bg-brand-500 rounded-full transition-[width] duration-75"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-[10px] font-mono tabular-nums text-surface-400 w-8 flex-shrink-0 text-right">
+        {safeDuration > 0 ? fmt(safeDuration) : '--:--'}
+      </span>
+    </div>
+  );
+}
+
+function ScreenshotThumbnail({ path: imgPath }: { path: string }) {
+  return <img src={mediaUrl(imgPath)} alt="Screenshot" className="w-full max-h-40 object-contain rounded border border-surface-200 dark:border-surface-800 mb-1.5" />;
 }
 
 export function HistoryPage() {
@@ -65,22 +186,21 @@ export function HistoryPage() {
     } catch {}
   };
 
-  const readAudioBase64 = async (item: HistoryItem): Promise<string | null> => {
-    if (item.audioPath && window.electronAPI) {
-      return window.electronAPI.readMedia(item.audioPath);
-    }
-    return null;
+  /** Fetch audio ArrayBuffer via media:// protocol */
+  const fetchAudioBuffer = async (audioPath: string): Promise<ArrayBuffer | null> => {
+    try {
+      const resp = await fetch(mediaUrl(audioPath));
+      if (!resp.ok) return null;
+      return resp.arrayBuffer();
+    } catch { return null; }
   };
 
   const handleRetry = async (item: HistoryItem) => {
     if (!item.audioPath || !window.electronAPI) return;
-    const b64 = await readAudioBase64(item);
-    if (!b64) return;
-    const binary = atob(b64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const buf = await fetchAudioBuffer(item.audioPath);
+    if (!buf) return;
     try {
-      const result = await window.electronAPI.processPipeline(bytes.buffer);
+      const result = await window.electronAPI.processPipeline(buf);
       if (result?.success && result.processedText) {
         await handleCopy(result.processedText, item.id);
       }
@@ -88,12 +208,10 @@ export function HistoryPage() {
   };
 
   const handleDownloadAudio = async (item: HistoryItem) => {
-    const b64 = await readAudioBase64(item);
-    if (!b64) return;
-    const binary = atob(b64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    const blob = new Blob([bytes], { type: 'audio/wav' });
+    if (!item.audioPath) return;
+    const buf = await fetchAudioBuffer(item.audioPath);
+    if (!buf) return;
+    const blob = new Blob([buf], { type: 'audio/wav' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -110,7 +228,7 @@ export function HistoryPage() {
     <div className="flex-1 flex flex-col overflow-hidden">
       {/* Detail modal overlay */}
       {selectedItem && (
-        <DetailModal item={selectedItem} onClose={() => setSelectedItem(null)} t={t} />
+        <DetailModal item={selectedItem} onClose={() => setSelectedItem(null)} t={t} onDownloadAudio={handleDownloadAudio} />
       )}
 
       <PageHeader
@@ -197,15 +315,6 @@ export function HistoryPage() {
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
                       )}
                     </button>
-                    {item.audioPath && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); handleDownloadAudio(item); }}
-                        className="w-7 h-7 flex items-center justify-center rounded-md text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                        title={t('history.downloadAudio')}
-                      >
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      </button>
-                    )}
                     {item.error && item.audioPath && (
                       <button
                         onClick={(e) => { e.stopPropagation(); handleRetry(item); }}
@@ -233,7 +342,7 @@ export function HistoryPage() {
   );
 }
 
-function DetailModal({ item, onClose, t }: { item: HistoryItem; onClose: () => void; t: (key: string) => string }) {
+function DetailModal({ item, onClose, t, onDownloadAudio }: { item: HistoryItem; onClose: () => void; t: (key: string) => string; onDownloadAudio: (item: HistoryItem) => void }) {
   const ctx = item.context;
   const isError = !!item.error;
   const [expandedPrompt, setExpandedPrompt] = useState(false);
@@ -287,6 +396,21 @@ function DetailModal({ item, onClose, t }: { item: HistoryItem; onClose: () => v
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
+
+        {/* Audio Player — compact strip */}
+        {item.audioPath && (
+          <div className="flex items-center gap-1.5 px-5 py-2 border-b border-surface-200 dark:border-surface-800/40 flex-shrink-0">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-surface-400 flex-shrink-0"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <div className="flex-1 min-w-0"><AudioPlayerBar audioPath={item.audioPath} /></div>
+            <button
+              onClick={() => onDownloadAudio(item)}
+              className="w-6 h-6 flex items-center justify-center rounded-md text-surface-400 hover:text-surface-600 dark:hover:text-surface-300 transition-colors flex-shrink-0"
+              title={t('history.downloadAudio')}
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            </button>
+          </div>
+        )}
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-0">
