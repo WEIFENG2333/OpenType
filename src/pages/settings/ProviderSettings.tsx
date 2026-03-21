@@ -202,19 +202,16 @@ function ProviderSection({ icon, title, tooltip, children }: {
   );
 }
 
-/** Tiny inline dot indicating streaming (green pulse) or non-streaming (gray) */
-function ModeIcon({ mode }: { mode: string }) {
+/** Tiny text badge indicating streaming or non-streaming mode */
+function ModeBadge({ mode }: { mode: string }) {
   if (mode === 'streaming') {
-    // Green pulsing dot — universally understood as "live/streaming"
     return (
-      <span className="relative shrink-0 flex h-2.5 w-2.5">
-        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-50" />
-        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+      <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none bg-brand-500/10 text-brand-600 dark:text-brand-400">
+        实时
       </span>
     );
   }
-  // Static gray dot — "batch/offline"
-  return <span className="shrink-0 inline-flex h-2.5 w-2.5 rounded-full bg-surface-300 dark:bg-surface-600" />;
+  return null; // non-streaming is the default, no badge needed
 }
 
 function ModelInput({ value, onChange, presets, labels, badges }: {
@@ -294,7 +291,7 @@ function ModelInput({ value, onChange, presets, labels, badges }: {
           onClick={() => setDropOpen(!dropOpen)}
           className="w-full bg-white dark:bg-surface-850 border border-surface-300 dark:border-surface-700 rounded-lg px-3.5 py-2 text-sm text-surface-800 dark:text-surface-200 text-left flex items-center justify-between focus:outline-none focus:border-brand-500 transition-colors cursor-pointer"
         >
-          {badges?.[selected] && <ModeIcon mode={badges[selected]} />}
+          {badges?.[selected] && <ModeBadge mode={badges[selected]} />}
           <span className="truncate font-mono text-xs">{labels?.[selected] ?? selected}</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
             className={`shrink-0 ml-auto text-surface-400 transition-transform ${dropOpen ? 'rotate-180' : ''}`}>
@@ -310,7 +307,7 @@ function ModelInput({ value, onChange, presets, labels, badges }: {
                   ${m === selected
                     ? 'bg-brand-50 dark:bg-brand-600/15 text-brand-600 dark:text-brand-400'
                     : 'text-surface-800 dark:text-surface-200 hover:bg-surface-50 dark:hover:bg-surface-800'}`}>
-                {badges?.[m] && <ModeIcon mode={badges[m]} />}
+                {badges?.[m] && <ModeBadge mode={badges[m]} />}
                 <span className="font-mono text-xs">{labels?.[m] ?? m}</span>
               </button>
             ))}
