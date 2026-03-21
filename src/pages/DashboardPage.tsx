@@ -73,7 +73,8 @@ function PermissionWarnings() {
 }
 
 export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => void }) {
-  const config = useConfigStore((s) => s.config);
+  const history = useConfigStore((s) => s.config.history) || [];
+  const globalHotkey = useConfigStore((s) => s.config.globalHotkey);
   const { t } = useTranslation();
   const [version, setVersion] = useState('');
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'latest'>('idle');
@@ -93,7 +94,6 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
 
   // Stats — computed from history (single pass)
   const stats = useMemo(() => {
-    const history: HistoryItem[] = config.history || [];
     const now = Date.now();
     const weekAgo = now - 7 * 24 * 3600 * 1000;
 
@@ -127,15 +127,15 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
     const avgWPM = weekDictationMin > 0.1 ? Math.round(weekWords / weekDictationMin) : 0;
 
     return { totalWords, totalHr, totalMin, totalDictationMin, savedMinutes, avgWPM };
-  }, [config.history]);
+  }, [history]);
 
   const hasStats = stats.totalWords > 0 || stats.totalDictationMin > 0 || stats.avgWPM > 0;
 
   // Recent transcriptions (last 3)
-  const recentItems: HistoryItem[] = (config.history || []).slice(0, 3);
+  const recentItems: HistoryItem[] = history.slice(0, 3);
 
   // Hotkey display
-  const hotkey = (config.globalHotkey || 'CommandOrControl+Shift+Space')
+  const hotkey = (globalHotkey || 'CommandOrControl+Shift+Space')
     .replace('CommandOrControl', 'Ctrl')
     .replace(/\+/g, ' + ');
 
