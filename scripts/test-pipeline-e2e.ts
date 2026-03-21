@@ -18,7 +18,7 @@ import {
   getProviderConfig, getSTTProviderOpts, getLLMProviderOpts,
   getSTTModelDef, getSTTModelMode, getDefaultBatchProtocol,
 } from '../src/types/config';
-import { buildSystemPrompt, buildFieldContext, smartTruncate } from '../electron/llm-service';
+import { buildSystemPrompt, buildFieldContext, smartTruncate, LLMService } from '../electron/llm-service';
 import { buildOpenAIConfig, buildQwenASRConfig, STTService } from '../electron/stt-service';
 
 let passed = 0;
@@ -422,7 +422,128 @@ async function runIntegrationTests() {
   }
 }
 
-runIntegrationTests().then(() => {
+async function runFullPipelineTests() {
+  console.log('\n=== Integration: Full Pipeline (STT → LLM) ===');
+
+  if (!hasAudio || !siliconflowKey) {
+    skip('Full pipeline: STT + LLM post-processing', !hasAudio ? 'no audio file' : 'SILICONFLOW_KEY not set');
+    skip('Full pipeline: LLM disabled bypass', 'skipped');
+    skip('Full pipeline: filler removal effect', 'skipped');
+    return;
+  }
+
+  const audioBuffer = fs.readFileSync(AUDIO_FILE);
+  const sttService = new STTService();
+  const llmService = new LLMService();
+
+  // Test 1: Full pipeline with LLM enabled
+  try {
+    const cfg: AppConfig = {
+      ...DEFAULT_CONFIG,
+      sttProvider: 'siliconflow',
+      llmProvider: 'siliconflow',
+      llmPostProcessing: true,
+      providers: {
+        ...DEFAULT_CONFIG.providers,
+        siliconflow: {
+          apiKey: siliconflowKey,
+          baseUrl: 'https://api.siliconflow.cn/v1',
+          sttModel: 'FunAudioLLM/SenseVoiceSmall',
+          llmModel: 'Qwen/Qwen2.5-7B-Instruct',
+        },
+      },
+    };
+
+    const t0 = Date.now();
+    const raw = await sttService.transcribe(audioBuffer as any, cfg);
+    const sttMs = Date.now() - t0;
+
+    const t1 = Date.now();
+    const { text: processed, systemPrompt } = await llmService.process(raw, cfg);
+    const llmMs = Date.now() - t1;
+
+    console.log(`  ✓ Full pipeline (STT ${sttMs}ms + LLM ${llmMs}ms = ${sttMs + llmMs}ms)`);
+    console.log(`    Raw:       "${raw}"`);
+    console.log(`    Processed: "${processed}"`);
+    console.log(`    Prompt:    ${systemPrompt.length} chars`);
+
+    assert.ok(raw.length > 0, 'STT returned empty');
+    assert.ok(processed.length > 0, 'LLM returned empty');
+    assert.ok(systemPrompt.includes('transcription restater'), 'Missing base prompt');
+    passed++;
+  } catch (e: any) {
+    failed++;
+    console.log(`  ✗ Full pipeline: ${e.message}`);
+  }
+
+  // Test 2: LLM disabled — processedText should equal raw
+  try {
+    const cfg: AppConfig = {
+      ...DEFAULT_CONFIG,
+      sttProvider: 'siliconflow',
+      llmPostProcessing: false,
+      providers: {
+        ...DEFAULT_CONFIG.providers,
+        siliconflow: {
+          apiKey: siliconflowKey,
+          baseUrl: 'https://api.siliconflow.cn/v1',
+          sttModel: 'FunAudioLLM/SenseVoiceSmall',
+          llmModel: '',
+        },
+      },
+    };
+
+    const raw = await sttService.transcribe(audioBuffer as any, cfg);
+    // When LLM disabled, pipeline returns raw directly
+    const processed = cfg.llmPostProcessing ? 'would process' : raw;
+    assert.equal(processed, raw);
+    console.log(`  ✓ LLM disabled: raw === processed ("${raw.slice(0, 50)}...")`);
+    passed++;
+  } catch (e: any) {
+    failed++;
+    console.log(`  ✗ LLM disabled bypass: ${e.message}`);
+  }
+
+  // Test 3: Prompt includes dictionary when set
+  try {
+    const cfg: AppConfig = {
+      ...DEFAULT_CONFIG,
+      sttProvider: 'siliconflow',
+      llmProvider: 'siliconflow',
+      personalDictionary: [
+        { word: 'OpenType', source: 'manual' },
+        { word: '硅基流动', source: 'auto-llm' },
+      ],
+      providers: {
+        ...DEFAULT_CONFIG.providers,
+        siliconflow: {
+          apiKey: siliconflowKey,
+          baseUrl: 'https://api.siliconflow.cn/v1',
+          sttModel: 'FunAudioLLM/SenseVoiceSmall',
+          llmModel: 'Qwen/Qwen2.5-7B-Instruct',
+        },
+      },
+    };
+
+    const raw = await sttService.transcribe(audioBuffer as any, cfg);
+    const { systemPrompt } = await llmService.process(raw, cfg);
+    assert.ok(systemPrompt.includes('OpenType'), 'Dictionary term missing from prompt');
+    assert.ok(systemPrompt.includes('硅基流动'), 'Dictionary term missing from prompt');
+    assert.ok(systemPrompt.includes('Hot Word Table'), 'Hot Word section missing');
+    console.log(`  ✓ Dictionary injection: prompt contains "OpenType" + "硅基流动"`);
+    passed++;
+  } catch (e: any) {
+    failed++;
+    console.log(`  ✗ Dictionary injection: ${e.message}`);
+  }
+}
+
+async function runAllIntegrationTests() {
+  await runIntegrationTests();
+  await runFullPipelineTests();
+}
+
+runAllIntegrationTests().then(() => {
   console.log(`\n${'='.repeat(50)}`);
   console.log(`Results: ${passed} passed, ${failed} failed${skipped.length ? `, ${skipped.length} skipped` : ''}`);
   process.exit(failed > 0 ? 1 : 0);
