@@ -7,6 +7,7 @@
     "email": "liangweifeng@bytedance.com"
   },
   "license": "MIT",
+  "engines": { "node": ">=20.0.0" },
   "main": "dist-electron/electron/main.js",
   "scripts": {
     "dev": "vite",
