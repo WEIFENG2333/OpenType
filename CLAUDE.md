@@ -229,6 +229,23 @@ LLM 驱动的智能词典学习，3 个渠道，全部后台异步不阻塞 pipe
 - **10-minute auto-stop**: `startRecording()` sets a 600s timeout that triggers `stopRecording()`
 - **Generation tracking**: `generationRef` prevents stale pipeline results from updating UI, but history is **always saved** regardless of staleness
 - **All outcomes saved**: success, skipped (no speech), and error all create history entries
+- **LLM post-processing switch**: `config.llmPostProcessing` master toggle — when off, pipeline returns raw STT output directly
+- **Recorder ref isolation**: `stopRecording` captures recorder in local variable before `await stop()`, preventing concurrent `startRecording` from being orphaned
+
+### Timeouts & Error Handling
+- **STT batch**: 30s `AbortController` timeout (`STT_REQUEST_TIMEOUT_MS` in `stt-service.ts`)
+- **LLM call**: 30s `AbortController` timeout (in `llm-service.ts`)
+- **WebSocket connect**: 10s timeout with settled flag (prevents double-reject race)
+- **WebSocket commit**: 30s timeout, closes WebSocket on expiry (prevents resource leak)
+- **getLastContext**: 10s `Promise.race` timeout (prevents osascript hang → permanent processing)
+- **Pipeline mutex**: 60s safety valve with force-unlock
+- **Friendly error messages**: `friendlyErrorMessage()` in `ResultPanel.tsx` maps technical errors (401/429/5xx) to localized user-friendly messages. `parseApiError()` in `stt-service.ts` extracts human-readable message from JSON error bodies.
+
+### Security
+- **Media path traversal protection**: `assertMediaPath()` in `ipc-handlers.ts` validates all file paths are under `mediaDir` before read/write/delete
+- **Atomic config save**: `config-store.ts` writes to `.tmp` then `renameSync` (prevents partial writes on crash). Backs up to `.bak` before overwriting. `load()` attempts `.bak` recovery if main file is corrupted.
+- **Dictionary cap**: `addDictionaryWord()` limits to 2000 entries, evicting oldest auto-learned words first (manual words preserved)
+- **Single instance lock**: `app.requestSingleInstanceLock()` prevents multiple app instances
 
 ---
 
