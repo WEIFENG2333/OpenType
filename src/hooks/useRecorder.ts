@@ -75,12 +75,14 @@ export function useRecorder() {
         const status = await window.electronAPI.checkMicPermission();
         if (status === 'denied' || status === 'restricted') {
           setState((s) => ({ ...s, status: 'idle', error: 'Microphone access denied. Please grant microphone permission in System Settings.' }));
+          window.electronAPI.cancelRealtimeSTT(); // sync main process state.isRecording = false
           return;
         }
         if (status === 'not-determined') {
           const granted = await window.electronAPI.requestMicPermission();
           if (!granted) {
             setState((s) => ({ ...s, status: 'idle', error: 'Microphone permission is required for voice dictation.' }));
+            window.electronAPI.cancelRealtimeSTT();
             return;
           }
         }
@@ -128,6 +130,7 @@ export function useRecorder() {
       }, 600000);
     } catch (e: any) {
       setState((s) => ({ ...s, status: 'idle', error: `Microphone error: ${e.message}` }));
+      window.electronAPI?.cancelRealtimeSTT(); // sync main process state.isRecording = false
     }
   }, []);
 
