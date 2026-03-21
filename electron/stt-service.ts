@@ -46,7 +46,7 @@ interface OpenAIRealtimeConfig {
   commitEvent?: any;
 }
 
-function buildOpenAIConfig(apiKey: string, model: string): OpenAIRealtimeConfig {
+export function buildOpenAIConfig(apiKey: string, model: string): OpenAIRealtimeConfig {
   return {
     wsUrl: 'wss://api.openai.com/v1/realtime?intent=transcription',
     headers: { 'Authorization': `Bearer ${apiKey}`, 'OpenAI-Beta': 'realtime=v1' },
@@ -73,7 +73,7 @@ function buildOpenAIConfig(apiKey: string, model: string): OpenAIRealtimeConfig 
   };
 }
 
-function buildQwenASRConfig(apiKey: string, model: string, baseUrl: string): OpenAIRealtimeConfig {
+export function buildQwenASRConfig(apiKey: string, model: string, baseUrl: string): OpenAIRealtimeConfig {
   return {
     wsUrl: `${baseUrl}?model=${model}`,
     headers: { 'Authorization': `Bearer ${apiKey}`, 'OpenAI-Beta': 'realtime=v1' },
