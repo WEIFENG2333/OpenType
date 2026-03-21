@@ -219,36 +219,47 @@ export class LLMService {
 
   private async call(opts: {
     baseUrl: string; apiKey: string; model: string;
-    messages: Array<{ role: string; content: string }>;
+    messages: Array<{ role: string; content: any }>;
     extraHeaders?: Record<string, string>;
     temperature?: number; maxTokens?: number;
   }): Promise<string> {
     if (!opts.apiKey) throw new Error('API key required');
 
-    const res = await fetch(`${opts.baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${opts.apiKey}`,
-        ...opts.extraHeaders,
-      },
-      body: JSON.stringify({
-        model: opts.model,
-        messages: opts.messages,
-        ...(opts.temperature != null && { temperature: opts.temperature }),
-        max_tokens: opts.maxTokens ?? 2048,
-      }),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`LLM ${res.status}: ${err.slice(0, 300)}`);
+    try {
+      const res = await fetch(`${opts.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${opts.apiKey}`,
+          ...opts.extraHeaders,
+        },
+        body: JSON.stringify({
+          model: opts.model,
+          messages: opts.messages,
+          ...(opts.temperature != null && { temperature: opts.temperature }),
+          max_tokens: opts.maxTokens ?? 2048,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const err = await res.text().catch(() => '');
+        throw new Error(`LLM ${res.status}: ${err.slice(0, 300)}`);
+      }
+
+      const json = await res.json();
+      const content = json.choices?.[0]?.message?.content?.trim();
+      if (!content) throw new Error('Empty LLM response');
+      return content;
+    } catch (e: any) {
+      if (e.name === 'AbortError') throw new Error('LLM request timed out (30s)');
+      throw e;
+    } finally {
+      clearTimeout(timeout);
     }
-
-    const json = await res.json();
-    const content = json.choices?.[0]?.message?.content?.trim();
-    if (!content) throw new Error('Empty LLM response');
-    return content;
   }
 
   async process(rawText: string, config: AppConfig, context?: CapturedContext): Promise<{ text: string; systemPrompt: string }> {
