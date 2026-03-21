@@ -475,6 +475,8 @@ function parseApiError(status: number, body: string): string {
 // STTService — public API
 // ═════════════════════════════════════════════════════════════════════════════
 
+const STT_REQUEST_TIMEOUT_MS = 30_000;
+
 export class STTService {
   /**
    * Batch transcribe audio. Protocol-driven dispatch from STTModelDef.protocol.
@@ -498,7 +500,7 @@ export class STTService {
 
     switch (protocol) {
       case 'dashscope-batch':
-        return this.transcribeDashScopeBatch(apiKey, model, audioBuffer, options);
+        return this.transcribeDashScopeBatch(baseUrl, apiKey, model, audioBuffer, options);
       case 'openai-batch':
         return this.transcribeOpenAIBatch(provider, baseUrl, apiKey, model, audioBuffer, options);
       default:
@@ -508,10 +510,10 @@ export class STTService {
 
   /** DashScope batch via chat/completions + input_audio (Qwen3-ASR-Flash) */
   private async transcribeDashScopeBatch(
-    apiKey: string, model: string, audioBuffer: Buffer, options?: { language?: string },
+    baseUrl: string, apiKey: string, model: string, audioBuffer: Buffer, options?: { language?: string },
   ): Promise<string> {
     const base64Audio = `data:audio/wav;base64,${audioBuffer.toString('base64')}`;
-    const url = 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions';
+    const url = `${baseUrl || 'https://dashscope.aliyuncs.com/compatible-mode/v1'}/chat/completions`;
     console.log(`[STT] dashscope batch → ${url} model=${model}`);
 
     const body: any = {
@@ -527,7 +529,7 @@ export class STTService {
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
+    const timeout = setTimeout(() => controller.abort(), STT_REQUEST_TIMEOUT_MS);
     let res: Response;
     try {
       res = await fetch(url, {
@@ -569,7 +571,7 @@ export class STTService {
     console.log(`[STT] ${provider} → ${url} model=${model}`);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
+    const timeout = setTimeout(() => controller.abort(), STT_REQUEST_TIMEOUT_MS);
     let res: Response;
     try {
       res = await fetch(url, {
