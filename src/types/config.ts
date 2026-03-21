@@ -58,6 +58,13 @@ export function getSTTModelMode(providerId: string, modelId: string): STTModelMo
   return getSTTModelDef(providerId, modelId)?.mode ?? 'batch';
 }
 
+/** Get the default batch protocol for a provider (used when model not in PROVIDERS list) */
+export function getDefaultBatchProtocol(providerId: string): STTProtocol {
+  const meta = PROVIDER_MAP.get(providerId);
+  const firstBatch = meta?.sttModels.find(m => m.mode === 'batch');
+  return firstBatch?.protocol ?? 'openai-batch';
+}
+
 export const PROVIDERS = [
   {
     id: 'siliconflow',

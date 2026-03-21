@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import {
   AppConfig, DEFAULT_CONFIG, PROVIDERS, ProviderConfig,
   getProviderConfig, getSTTProviderOpts, getLLMProviderOpts, getSTTModelMode,
-  getSTTModelDef,
+  getSTTModelDef, getDefaultBatchProtocol,
 } from '../src/types/config';
 import { migrateConfig } from '../electron/config-store';
 
@@ -283,6 +283,25 @@ test('OpenAI models use openai-batch protocol', () => {
     const def = getSTTModelDef('openai', m);
     assert.equal(def?.protocol, 'openai-batch', `openai/${m}`);
   }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log('\n=== getDefaultBatchProtocol ===');
+
+test('DashScope defaults to dashscope-batch for unknown models', () => {
+  assert.equal(getDefaultBatchProtocol('dashscope'), 'dashscope-batch');
+});
+
+test('SiliconFlow defaults to openai-batch', () => {
+  assert.equal(getDefaultBatchProtocol('siliconflow'), 'openai-batch');
+});
+
+test('OpenAI defaults to openai-batch', () => {
+  assert.equal(getDefaultBatchProtocol('openai'), 'openai-batch');
+});
+
+test('unknown provider defaults to openai-batch', () => {
+  assert.equal(getDefaultBatchProtocol('some-new-provider'), 'openai-batch');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

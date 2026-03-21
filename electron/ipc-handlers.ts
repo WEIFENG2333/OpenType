@@ -131,22 +131,28 @@ export function setupIPC() {
         realtimeSession = null;
       }
       audioChunkCount = 0;
-      realtimeSession = state.sttService!.createRealtimeSession(cfg);
-      const sampleRate = realtimeSession.sampleRate;
+      // Create + connect in a local variable to avoid race with cancelRealtime
+      const session = state.sttService!.createRealtimeSession(cfg);
+      const sampleRate = session.sampleRate;
       const overlayWC = state.overlayWindow?.webContents;
-      realtimeSession.onDelta = (delta, accumulated) => {
+      session.onDelta = (delta, accumulated) => {
         if (overlayWC && !overlayWC.isDestroyed()) {
           overlayWC.send('pipeline:stt-delta', { delta, accumulated });
         }
       };
-      realtimeSession.onError = (error) => {
+      session.onError = (error) => {
         console.error('[RealtimeSTT] error:', error);
       };
-      await realtimeSession.connect();
+      await session.connect();
+      // If user cancelled during connect, don't publish the session
+      if (!state.isRecording) {
+        session.close();
+        return { success: false, error: 'cancelled' };
+      }
+      realtimeSession = session;
       return { success: true, sampleRate };
     } catch (e: any) {
       console.error('[RealtimeSTT] start failed:', e.message);
-      realtimeSession = null;
       return { success: false, error: e.message };
     }
   });

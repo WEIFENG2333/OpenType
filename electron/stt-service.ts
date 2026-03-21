@@ -10,7 +10,7 @@
 
 import WebSocket from 'ws';
 import { randomUUID } from 'node:crypto';
-import { AppConfig, getSTTProviderOpts, getProviderConfig, getSTTModelMode, getSTTModelDef, STTProtocol } from '../src/types/config';
+import { AppConfig, getSTTProviderOpts, getProviderConfig, getSTTModelMode, getSTTModelDef, getDefaultBatchProtocol, STTProtocol } from '../src/types/config';
 
 // ─── Public interface for all realtime sessions ─────────────────────────────
 
@@ -473,7 +473,7 @@ export class STTService {
     if (!model) throw new Error(`No STT model configured for "${provider}"`);
 
     const def = getSTTModelDef(provider, model);
-    const protocol = def?.protocol ?? 'openai-batch';
+    const protocol = def?.protocol ?? getDefaultBatchProtocol(provider);
 
     if (def?.mode === 'streaming') {
       throw new Error(`Model "${model}" is streaming-only. Recording will use streaming automatically.`);
