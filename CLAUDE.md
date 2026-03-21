@@ -2,6 +2,27 @@
 
 This file provides context for AI assistants working on the OpenType codebase.
 
+## Quick Start (5-min overview)
+
+```
+快捷键 → captureContext (异步) → 录音 → stopRecording
+         │                         │
+         │  [Batch] 录完整段       [Streaming] 边录边 WebSocket
+         │                         │
+         └─── pipeline:process ────┘
+               │
+               ├─ STT (switch on protocol: openai-batch / dashscope-batch / realtime)
+               ├─ LLM post-processing (动态 prompt: 词典 + 上下文 + 语气)
+               └─ typeAtCursor → 粘贴到光标
+```
+
+**新人必读 5 个文件**：
+1. `src/types/config.ts` — 类型中枢: AppConfig、PROVIDERS、STT 协议、helper 函数
+2. `electron/ipc-handlers.ts` — IPC 调度入口, pipeline:process 是核心
+3. `electron/stt-service.ts` — 5 种 STT 协议分派 (switch on protocol)
+4. `electron/llm-service.ts` — LLM 润色: prompt 构建、上下文截断、VLM
+5. `src/hooks/useRecorder.ts` — 前端录音状态机 (idle→recording→processing→idle)
+
 ## Project Overview
 
 OpenType is an Electron desktop app for intelligent voice dictation. It captures microphone audio, transcribes it via STT APIs, then polishes the text using LLM post-processing (removing fillers, fixing repetitions, detecting self-corrections, adding punctuation). It also captures rich context (active window, focused field, clipboard, screen OCR) to improve transcription quality.
