@@ -253,8 +253,12 @@ export function useRecorder() {
             } catch {
               outputSuccess = false;
             }
-            if (config.alsoWriteClipboard || !outputSuccess) {
+            if (!outputSuccess) {
+              // Paste failed — write to clipboard as fallback (restore already happened immediately)
               await window.electronAPI.writeClipboard(text);
+            } else if (config.alsoWriteClipboard) {
+              // Wait for typeAtCursor's 500ms clipboard restore to complete, then write
+              setTimeout(() => window.electronAPI?.writeClipboard(text), 600);
             }
           } else {
             try { await navigator.clipboard.writeText(text); } catch {}

@@ -358,13 +358,14 @@ export function setupIPC() {
 
   // Type text at cursor
   ipcMain.handle('text:typeAtCursor', async (_e, text: string) => {
+    let prevClipboard = '';
+    let pasted = false;
     try {
-      const prevClipboard = clipboard.readText();
+      prevClipboard = clipboard.readText();
       clipboard.writeText(text);
       await new Promise((r) => setTimeout(r, 50));
 
       if (isMac) {
-        // Sanitize to prevent shell injection — bundle IDs and app names should only contain safe chars
         const bid = (state.lastCapturedContext?.bundleId || '').replace(/[^a-zA-Z0-9._-]/g, '');
         const targetApp = (state.lastCapturedContext?.appName || '').replace(/[^a-zA-Z0-9 ._-]/g, '');
         if (bid) {
@@ -387,23 +388,27 @@ export function setupIPC() {
       } else if (process.platform === 'win32') {
         execSync(`powershell -Command "Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('^v')"`);
       } else {
-        try {
-          execSync('xdotool key ctrl+v');
-        } catch {
-          execSync('xsel --clipboard --output | xargs -0 xdotool type --');
-        }
+        try { execSync('xdotool key ctrl+v'); } catch { execSync('xsel --clipboard --output | xargs -0 xdotool type --'); }
       }
-
-      setTimeout(() => {
-        try { clipboard.writeText(prevClipboard); } catch {}
-      }, 500);
+      pasted = true;
 
       recordTypedText(text);
-
       return { success: true };
     } catch (e: any) {
       console.error('[TypeText] error:', e.message);
       return { success: false, error: e.message };
+    } finally {
+      // Always restore clipboard after a delay (even on error)
+      // Only restore if we actually modified it and paste completed
+      if (pasted) {
+        setTimeout(() => {
+          // Only restore if clipboard still contains our text (user may have copied something else)
+          try { if (clipboard.readText() === text) clipboard.writeText(prevClipboard); } catch {}
+        }, 500);
+      } else {
+        // Paste failed — restore immediately
+        try { clipboard.writeText(prevClipboard); } catch {}
+      }
     }
   });
 
