@@ -100,7 +100,7 @@ export function DictationPage() {
                 </h1>
                 <p className="text-[13px] text-surface-400 dark:text-surface-500">
                   {t('dictation.clickOrPress')}{' '}
-                  <kbd className="inline-block px-1.5 py-0.5 bg-surface-100 dark:bg-surface-800 border border-surface-200 dark:border-surface-700 rounded text-[11px] text-surface-500 dark:text-surface-400 font-mono">
+                  <kbd className="inline-block px-1.5 py-0.5 bg-surface-100 dark:bg-surface-700 border border-surface-200 dark:border-surface-600 rounded text-[11px] text-surface-500 dark:text-surface-300 font-mono">
                     {hotkey}
                   </kbd>
                 </p>
@@ -110,9 +110,9 @@ export function DictationPage() {
 
           {/* Idle state: subtle visual decoration */}
           {recorder.status === 'idle' && !hasResult && (
-            <div className="flex items-end justify-center gap-[3px] h-4 mt-2 opacity-30">
+            <div className="flex items-end justify-center gap-[3px] h-4 mt-2 opacity-30 dark:opacity-40">
               {[3, 5, 8, 12, 16, 20, 16, 12, 8, 5, 3].map((h, i) => (
-                <div key={i} className="w-[2.5px] rounded-full bg-surface-400 dark:bg-surface-600" style={{ height: `${h}px` }} />
+                <div key={i} className="w-[2.5px] rounded-full bg-surface-400 dark:bg-surface-500" style={{ height: `${h}px` }} />
               ))}
             </div>
           )}
