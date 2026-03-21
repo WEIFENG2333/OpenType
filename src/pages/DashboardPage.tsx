@@ -82,15 +82,12 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
     window.electronAPI?.getVersion?.().then(setVersion);
   }, []);
 
-  const handleCheckUpdate = async () => {
+  const handleCheckUpdate = () => {
     setUpdateStatus('checking');
-    try {
-      await window.electronAPI?.checkForUpdates?.();
-      setUpdateStatus('latest');
-    } catch {
-      setUpdateStatus('latest');
-    }
-    setTimeout(() => setUpdateStatus('idle'), 3000);
+    window.electronAPI?.checkForUpdates?.().catch(() => {
+      setUpdateStatus('idle');
+    });
+    // Status will be set by onUpdateAvailable/onUpdateNotAvailable event listeners
   };
 
   // Stats — computed from history (single pass)
@@ -139,7 +136,7 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
   // Hotkey display
   const hotkey = (config.globalHotkey || 'CommandOrControl+Shift+Space')
     .replace('CommandOrControl', 'Ctrl')
-    .replace('+', ' + ');
+    .replace(/\+/g, ' + ');
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -295,7 +292,7 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
       {/* ── Footer ── */}
       <div className="px-8 py-3 border-t border-surface-100 dark:border-surface-800/30 flex items-center justify-between text-[11px] text-surface-400 dark:text-surface-600 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <span>OpenType {version || 'v1.3.0'}</span>
+          <span>OpenType {version || ''}</span>
           <button
             onClick={handleCheckUpdate}
             className="text-brand-500 hover:text-brand-400 transition-colors"

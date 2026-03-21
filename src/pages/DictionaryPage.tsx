@@ -106,9 +106,9 @@ export function DictionaryPage() {
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-2">
-            {filtered.map((entry) => (
+            {filtered.map((entry, idx) => (
               <div
-                key={entry.word}
+                key={`${entry.word}-${idx}`}
                 className="group flex items-center gap-2 bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-800 rounded-lg px-3 py-2.5 hover:border-surface-300 dark:hover:border-surface-700 transition-colors"
               >
                 {/* Source icon */}

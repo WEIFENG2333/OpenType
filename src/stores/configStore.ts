@@ -132,7 +132,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
   addDictionaryWord: (word: string, source: 'manual' | 'auto' = 'manual') => {
     set((state) => {
       const trimmed = word.trim();
-      if (!trimmed || state.config.personalDictionary.some((e) => e.word === trimmed)) return state;
+      if (!trimmed || state.config.personalDictionary.some((e) => e.word.toLowerCase() === trimmed.toLowerCase())) return state;
       const entry: DictionaryEntry = { word: trimmed, source, addedAt: Date.now() };
       const dict = [...state.config.personalDictionary, entry];
       persist('personalDictionary', dict);
