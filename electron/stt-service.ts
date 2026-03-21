@@ -526,11 +526,21 @@ export class STTService {
       body.extra_body = { asr_options: { language: options.language } };
     }
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify(body),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (e: any) {
+      clearTimeout(timeout);
+      throw new Error(e.name === 'AbortError' ? 'DashScope STT request timed out (30s)' : e.message);
+    }
+    clearTimeout(timeout);
 
     if (!res.ok) {
       throw new Error(`DashScope STT ${parseApiError(res.status, await res.text().catch(() => ''))}`);
@@ -558,11 +568,21 @@ export class STTService {
     const url = `${baseUrl}/audio/transcriptions`;
     console.log(`[STT] ${provider} → ${url} model=${model}`);
 
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: formData,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: formData,
+        signal: controller.signal,
+      });
+    } catch (e: any) {
+      clearTimeout(timeout);
+      throw new Error(e.name === 'AbortError' ? 'STT request timed out (30s)' : e.message);
+    }
+    clearTimeout(timeout);
 
     if (!res.ok) {
       throw new Error(`STT ${parseApiError(res.status, await res.text().catch(() => ''))}`);
