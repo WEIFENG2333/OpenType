@@ -10,3 +10,4 @@ test-fixtures/
 Thumbs.db
 .env
 .env.local
+.claude/
