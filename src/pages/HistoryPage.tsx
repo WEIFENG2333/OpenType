@@ -139,15 +139,13 @@ function ScreenshotThumbnail({ path: imgPath }: { path: string }) {
 }
 
 export function HistoryPage() {
-  const config = useConfigStore((s) => s.config);
+  const history = useConfigStore((s) => s.config.history) || [];
   const clearHistory = useConfigStore((s) => s.clearHistory);
   const deleteHistoryItem = useConfigStore((s) => s.deleteHistoryItem);
   const [search, setSearch] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null);
   const { t } = useTranslation();
-
-  const history = config.history || [];
   const filtered = useMemo(() => {
     if (!search.trim()) return history;
     const q = search.toLowerCase();

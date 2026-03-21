@@ -5,10 +5,10 @@ import { useTranslation } from '../i18n';
 
 export function DictationPage() {
   const recorder = useRecorder();
-  const config = useConfigStore((s) => s.config);
+  const globalHotkey = useConfigStore((s) => s.config.globalHotkey);
   const { t } = useTranslation();
 
-  const hotkey = (config.globalHotkey || 'CommandOrControl+Shift+Space')
+  const hotkey = (globalHotkey || 'CommandOrControl+Shift+Space')
     .replace('CommandOrControl', 'Ctrl')
     .replace(/\+/g, ' + ');
 

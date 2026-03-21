@@ -7,7 +7,8 @@ const GITHUB_URL = 'https://github.com/WEIFENG2333/OpenType';
 
 /* ── Permission warning banner ── */
 function PermissionWarnings() {
-  const config = useConfigStore((s) => s.config);
+  const contextL1Enabled = useConfigStore((s) => s.config.contextL1Enabled);
+  const contextOcrEnabled = useConfigStore((s) => s.config.contextOcrEnabled);
   const { t } = useTranslation();
   const [missing, setMissing] = useState<('mic' | 'accessibility' | 'screen')[]>([]);
 
@@ -21,14 +22,14 @@ function PermissionWarnings() {
         if (s !== 'granted') results.push('mic');
       })
     );
-    if (config.contextL1Enabled) {
+    if (contextL1Enabled) {
       checks.push(
         window.electronAPI.checkAccessibility().then((s) => {
           if (s !== 'granted') results.push('accessibility');
         })
       );
     }
-    if (config.contextOcrEnabled) {
+    if (contextOcrEnabled) {
       checks.push(
         window.electronAPI.checkScreenPermission().then((s) => {
           if (s !== 'granted') results.push('screen');
@@ -36,7 +37,7 @@ function PermissionWarnings() {
       );
     }
     Promise.all(checks).then(() => setMissing(results));
-  }, [config.contextL1Enabled, config.contextOcrEnabled]);
+  }, [contextL1Enabled, contextOcrEnabled]);
 
   if (missing.length === 0) return null;
 
