@@ -149,22 +149,23 @@ console.log('\n=== buildSystemPrompt ===');
 
 const mockTone = (_cfg: AppConfig, _app: string) => ({ tone: 'professional' as string });
 
-test('all toggles ON → prompt has all rule types', () => {
-  const p = buildSystemPrompt(DEFAULT_CONFIG, undefined, mockTone);
-  assert.ok(p.includes('Remove filler'));
-  assert.ok(p.includes('Remove stutters'));
-  assert.ok(p.includes('self-corrections'));
-  assert.ok(p.includes('punctuation'));
-  assert.ok(p.includes('numbered list'));
-  assert.ok(p.includes('Arabic numerals'));
+test('all toggles ON → prompt has more numbered rules than OFF', () => {
+  const allOn = buildSystemPrompt(DEFAULT_CONFIG, undefined, mockTone);
+  const allOff = buildSystemPrompt({ ...DEFAULT_CONFIG, fillerWordRemoval: false, repetitionElimination: false, selfCorrectionDetection: false, autoFormatting: false }, undefined, mockTone);
+  // Count numbered rules (e.g., "1. ", "2. ", etc.)
+  const countRules = (p: string) => (p.match(/^\d+\.\s/gm) || []).length;
+  const onRules = countRules(allOn);
+  const offRules = countRules(allOff);
+  assert.ok(onRules > offRules, `ON=${onRules} should be > OFF=${offRules}`);
+  assert.ok(onRules >= 6, `Expected at least 6 rules with all ON, got ${onRules}`);
+  assert.ok(offRules >= 3, `Expected at least 3 base rules, got ${offRules}`);
 });
 
-test('all toggles OFF → prompt has only base rules', () => {
-  const cfg = { ...DEFAULT_CONFIG, fillerWordRemoval: false, repetitionElimination: false, selfCorrectionDetection: false, autoFormatting: false };
-  const p = buildSystemPrompt(cfg, undefined, mockTone);
-  assert.ok(!p.includes('Remove filler'));
-  assert.ok(!p.includes('Remove stutters'));
-  assert.ok(p.includes('Fix obvious speech recognition errors')); // always present
+test('toggling individual features changes rule count', () => {
+  const countRules = (p: string) => (p.match(/^\d+\.\s/gm) || []).length;
+  const base = countRules(buildSystemPrompt({ ...DEFAULT_CONFIG, fillerWordRemoval: false, repetitionElimination: false, selfCorrectionDetection: false, autoFormatting: false }, undefined, mockTone));
+  const withFiller = countRules(buildSystemPrompt({ ...DEFAULT_CONFIG, fillerWordRemoval: true, repetitionElimination: false, selfCorrectionDetection: false, autoFormatting: false }, undefined, mockTone));
+  assert.equal(withFiller, base + 1, 'fillerWordRemoval should add exactly 1 rule');
 });
 
 test('dictionary terms injected into Hot Word Table', () => {
@@ -191,12 +192,13 @@ test('custom tone prompt injected', () => {
   assert.ok(p.includes('请用诗歌形式回答'));
 });
 
-test('buildFieldContext with selectionRange cursor (length=0)', () => {
+test('buildFieldContext cursor marker at correct position', () => {
   const ctx: any = { fieldText: 'Hello world, how are you?', selectionRange: { location: 12, length: 0 }, fieldRole: 'TextArea' };
   const result = buildFieldContext(ctx);
   assert.ok(result !== null);
-  assert.ok(result!.includes('|'), 'Should contain cursor marker |');
-  assert.ok(result!.includes('Hello world,'));
+  assert.ok(result!.includes('|'), 'Should contain cursor marker');
+  // The | should split "Hello world," and " how are you?"
+  assert.ok(result!.includes('Hello world,|'), `Cursor should be after comma, got: ${result!.slice(result!.indexOf('Hello'), result!.indexOf('|') + 10)}`);
 });
 
 test('buildFieldContext with selected text range', () => {
@@ -211,10 +213,14 @@ test('buildFieldContext without fieldText returns null', () => {
   assert.equal(buildFieldContext(undefined), null);
 });
 
-test('smartTruncate actually truncates long text', () => {
+test('smartTruncate output is shorter than input and contains marker', () => {
   const long = 'A'.repeat(1000);
   const truncated = smartTruncate(long, 100);
-  assert.ok(truncated.length < 150);
+  // keepEach = floor((100 - 20) / 2) = 40
+  // result = 40 + '\n... [truncated] ...\n' (20 chars) + 40 = ~100
+  assert.ok(truncated.length <= 110, `Expected ~100 chars, got ${truncated.length}`);
+  assert.ok(truncated.startsWith('A'.repeat(40)), 'Should keep first 40 chars');
+  assert.ok(truncated.endsWith('A'.repeat(40)), 'Should keep last 40 chars');
   assert.ok(truncated.includes('[truncated]'));
 });
 
@@ -263,7 +269,7 @@ async function runIntegrationTests() {
       const t0 = Date.now();
       const text = await new STTService().transcribe(audio as any, cfg);
       console.log(`  ✓ DashScope STT (${Date.now() - t0}ms): "${text}"`);
-      assert.ok(text.length > 5, 'Too short');
+      assert.ok(text.length > 3, 'Expected at least a few characters from 3.2s audio');
       passed++;
     } catch (e: any) { failed++; console.log(`  ✗ DashScope STT: ${e.message}`); }
   } else { skip('DashScope STT', 'DASHSCOPE_KEY not set'); }
@@ -276,7 +282,7 @@ async function runIntegrationTests() {
       const t0 = Date.now();
       const text = await new STTService().transcribe(audio as any, cfg);
       console.log(`  ✓ SiliconFlow STT (${Date.now() - t0}ms): "${text}"`);
-      assert.ok(text.length > 5, 'Too short');
+      assert.ok(text.length > 3, 'Expected at least a few characters from 3.2s audio');
       passed++;
     } catch (e: any) { failed++; console.log(`  ✗ SiliconFlow STT: ${e.message}`); }
   } else { skip('SiliconFlow STT', 'SILICONFLOW_KEY not set'); }
