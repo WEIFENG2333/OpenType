@@ -290,6 +290,10 @@
   },
   "common": {
     "close": "关闭",
-    "clickToSet": "点击设置"
+    "clickToSet": "点击设置",
+    "copy": "复制",
+    "delete": "删除",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码"
   }
 }

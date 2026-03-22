@@ -290,6 +290,10 @@
   },
   "common": {
     "close": "Close",
-    "clickToSet": "Click to set"
+    "clickToSet": "Click to set",
+    "copy": "Copy",
+    "delete": "Delete",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password"
   }
 }

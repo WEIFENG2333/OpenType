@@ -309,7 +309,7 @@ export function HistoryPage() {
                     <button
                       onClick={(e) => { e.stopPropagation(); handleCopy(item.processedText || item.rawText, item.id); }}
                       className="w-7 h-7 flex items-center justify-center rounded-md text-surface-400 hover:text-surface-700 dark:hover:text-surface-200 hover:bg-surface-100 dark:hover:bg-surface-800 transition-colors"
-                      title="Copy"
+                      title={t('common.copy')}
                     >
                       {copiedId === item.id ? (
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"/></svg>
@@ -329,7 +329,7 @@ export function HistoryPage() {
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteHistoryItem(item.id); }}
                       className="w-7 h-7 flex items-center justify-center rounded-md text-surface-400 hover:text-red-500 hover:bg-red-500/5 transition-colors"
-                      title="Delete"
+                      title={t('common.delete')}
                     >
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>

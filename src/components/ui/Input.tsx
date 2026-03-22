@@ -1,4 +1,5 @@
 import { InputHTMLAttributes, forwardRef, useState } from 'react';
+import { useTranslation } from '../../i18n';
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -33,13 +34,14 @@ interface PasswordInputProps extends Omit<InputProps, 'type'> {}
 export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
   ({ className = '', ...props }, ref) => {
     const [visible, setVisible] = useState(false);
+    const { t } = useTranslation();
     return (
       <div className="relative">
         <Input ref={ref} type={visible ? 'text' : 'password'} className={`pr-10 font-mono ${className}`} {...props} />
         <button
           type="button"
           onClick={() => setVisible(!visible)}
-          aria-label={visible ? 'Hide password' : 'Show password'}
+          aria-label={visible ? t('common.hidePassword') : t('common.showPassword')}
           className="absolute right-2.5 bottom-[7px] text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 p-1"
           tabIndex={-1}
         >
