@@ -55,6 +55,7 @@ electron/                → Electron main process (CommonJS, compiled to dist-e
   audio-control.ts       → macOS system audio mute/restore during recording
   auto-updater.ts        → electron-updater integration
   fn-monitor.ts          → macOS Fn key monitoring (child process)
+  utils.ts               → errMsg() helper — type-safe error message extraction (no Electron deps)
 
 src/                     → React renderer (ESM, bundled by Vite to dist/)
   types/config.ts        → Central types: ProviderConfig, ProviderMeta, STTModelDef, STTProtocol, PROVIDERS, AppConfig, DEFAULT_CONFIG, helper functions (getProviderConfig, getSTTProviderOpts, getLLMProviderOpts, getSTTModelDef, getSTTModelMode, getDefaultBatchProtocol)
@@ -66,14 +67,19 @@ src/                     → React renderer (ESM, bundled by Vite to dist/)
     llmService.ts        → LLM post-processing API calls
     pipeline.ts          → Full pipeline orchestrator (STT + LLM)
   hooks/useRecorder.ts   → Recording state machine (idle → recording → processing → idle)
+  utils/                 → Shared pure utilities
+    wordCount.ts         → CJK/Latin/mixed word counting
+    errMsg.ts            → Type-safe error message extraction (ESM equivalent of electron/utils.ts)
+    friendlyError.ts     → Map technical errors to localized user-friendly messages
   i18n/                  → Internationalization
     index.ts             → I18nProvider, useTranslation hook, detectLocale
     locales/en.json      → English strings
     locales/zh.json      → Chinese strings (must mirror en.json structure exactly)
   components/
-    ui/                  → Primitives: Button, Input, Select, Toggle, Slider, Badge, HotkeyCapture, SettingRow, SettingSection
+    ui/                  → Primitives: Button, Input, Select, Toggle, Slider, HotkeyCapture, SettingRow, SettingSection
     layout/              → TitleBar, Sidebar, PageHeader
     recording/           → RecordButton, ResultPanel
+    UpdateNotification.tsx → Auto-update notification banner
   pages/                 → DashboardPage, DictationPage, HistoryPage, DictionaryPage, OverlayPage
     settings/            → SettingsLayout + sub-panels: Provider, General, Hotkey,
                            ToneRules, Context, Advanced, Privacy
@@ -82,7 +88,7 @@ scripts/                 → Test scripts
   # Unit tests (run via `npm test`, no API keys needed)
   test-config-helpers.ts → Provider resolution, STT model mode/protocol, defaults (44 tests)
   test-migration.ts      → Config migration: all edge cases, idempotency (17 tests)
-  test-llm-helpers.ts    → Truncation, cursor markers, term parsing (46 tests)
+  test-llm-helpers.ts    → Truncation, cursor markers, term parsing, friendlyErrorMessage (58 tests)
   test-auto-dict.ts      → Skip logic, prompt building (24 tests)
   test-word-count.ts     → CJK/Latin/mixed word counting (23 tests)
   test-i18n.ts           → resolve, interpolate, locale file structure (21 tests)
@@ -119,7 +125,7 @@ Running `tsc --noEmit` alone only checks frontend — Electron errors will be mi
 npm run dev              # Vite dev server (frontend only, http://localhost:5173)
 npm run electron:dev     # Full Electron dev mode (Vite + Electron)
 npm run typecheck        # Check BOTH frontend + electron TypeScript
-npm test                 # Run all 206 unit tests (7 suites)
+npm test                 # Run all 218 unit tests (7 suites)
 npm run check            # typecheck + all unit tests (use before committing)
 npm run build            # Build frontend (vite build) + compile electron (tsc)
 npm run electron:build   # Full package (build + electron-builder, auto-detects platform)
@@ -260,7 +266,7 @@ LLM 驱动的智能词典学习，3 个渠道，全部后台异步不阻塞 pipe
 - **WebSocket commit**: 30s timeout, closes WebSocket on expiry (prevents resource leak)
 - **getLastContext**: 10s `Promise.race` timeout (prevents osascript hang → permanent processing)
 - **Pipeline mutex**: 60s safety valve with force-unlock
-- **Friendly error messages**: `friendlyErrorMessage()` in `ResultPanel.tsx` maps technical errors (401/429/5xx) to localized user-friendly messages. `parseApiError()` in `stt-service.ts` extracts human-readable message from JSON error bodies.
+- **Friendly error messages**: `friendlyErrorMessage()` in `src/utils/friendlyError.ts` maps technical errors (401/429/5xx) to localized user-friendly messages. Used by ResultPanel, DashboardPage, and HistoryPage. `parseApiError()` in `stt-service.ts` extracts human-readable message from JSON error bodies.
 
 ### Security
 - **Media path traversal protection**: `assertMediaPath()` in `ipc-handlers.ts` validates all file paths are under `mediaDir` before read/write/delete
