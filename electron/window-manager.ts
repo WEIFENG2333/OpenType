@@ -1,6 +1,23 @@
-import { BrowserWindow, screen } from 'electron';
+import { BrowserWindow, screen, shell } from 'electron';
 import path from 'path';
 import { state, isDev, isMac } from './app-state';
+
+/** Lock down a window: block navigation to foreign URLs, open external links in system browser */
+function hardenWindow(win: BrowserWindow) {
+  // Block in-app navigation to foreign origins
+  win.webContents.on('will-navigate', (e, url) => {
+    const allowed = isDev ? 'http://localhost:5173' : `file://${path.join(__dirname, '..')}`;
+    if (!url.startsWith(allowed)) {
+      e.preventDefault();
+      shell.openExternal(url);
+    }
+  });
+  // Block new window creation; open in system browser instead
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+}
 
 export function createMainWindow() {
   state.mainWindow = new BrowserWindow({
@@ -26,6 +43,7 @@ export function createMainWindow() {
     state.mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
+  hardenWindow(state.mainWindow);
   state.mainWindow.once('ready-to-show', () => state.mainWindow?.show());
 
   state.mainWindow.on('close', (e) => {
@@ -71,5 +89,6 @@ export function createOverlayWindow() {
     state.overlayWindow.loadFile(path.join(__dirname, '../dist/index.html'), { hash: '/overlay' });
   }
 
+  hardenWindow(state.overlayWindow);
   state.overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 }

@@ -68,7 +68,7 @@ function setupAppMenu() {
 
 protocol.registerSchemesAsPrivileged([{
   scheme: 'media',
-  privileges: { secure: true, supportFetchAPI: true, stream: true, bypassCSP: true },
+  privileges: { secure: true, supportFetchAPI: true, stream: true },
 }]);
 
 // ─── Single Instance Lock ──────────────────────────────────────────────────
