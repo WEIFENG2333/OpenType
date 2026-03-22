@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useConfigStore } from '../../stores/configStore';
 import { Select, Toggle, Button, SettingRow } from '../../components/ui';
 import { useTranslation } from '../../i18n';
+import type { AppConfig } from '../../types/config';
 
 interface AudioDevice { deviceId: string; label: string; }
 
@@ -47,7 +48,7 @@ export function GeneralSettings() {
       <SettingRow label={t('settings.general.appearance')} description={t('settings.general.themeHint')}>
         <Select
           value={config.theme}
-          onChange={(e) => set('theme', e.target.value as any)}
+          onChange={(e) => set('theme', e.target.value as AppConfig['theme'])}
           options={[
             { value: 'dark', label: t('settings.general.dark') },
             { value: 'light', label: t('settings.general.light') },
@@ -81,7 +82,7 @@ export function GeneralSettings() {
       <SettingRow label={t('settings.general.inputMode')} description={t('settings.general.inputModeHint')}>
         <Select
           value={config.inputMode}
-          onChange={(e) => set('inputMode', e.target.value as any)}
+          onChange={(e) => set('inputMode', e.target.value as AppConfig['inputMode'])}
           options={[
             { value: 'toggle', label: t('settings.general.toggle') },
             { value: 'push-to-talk', label: t('settings.general.pushToTalk') },

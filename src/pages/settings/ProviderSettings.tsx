@@ -41,8 +41,10 @@ export function ProviderSettings() {
         testLLMConnection(config.llmProvider, config),
         testVLMConnection(config.llmProvider, config),
       ]);
-      const llm = llmR.status === 'fulfilled' ? llmR.value : { success: false, text: undefined, error: String((llmR as any).reason?.message) };
-      const vlm = vlmR.status === 'fulfilled' ? vlmR.value : { success: false, text: undefined, error: String((vlmR as any).reason?.message) };
+      const rejMsg = (r: PromiseSettledResult<unknown>) =>
+        r.status === 'rejected' ? String(r.reason instanceof Error ? r.reason.message : r.reason) : 'Unknown error';
+      const llm = llmR.status === 'fulfilled' ? llmR.value : { success: false, text: undefined, error: rejMsg(llmR) };
+      const vlm = vlmR.status === 'fulfilled' ? vlmR.value : { success: false, text: undefined, error: rejMsg(vlmR) };
       setTestResults({
         llm: { ok: llm.success, msg: llm.success ? (llm.text ?? 'ok') : (llm.error ?? 'Failed') },
         vlm: { ok: vlm.success, msg: vlm.success ? (vlm.text ?? 'ok') : (vlm.error ?? 'Failed') },

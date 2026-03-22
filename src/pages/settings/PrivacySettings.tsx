@@ -1,6 +1,7 @@
 import { useConfigStore } from '../../stores/configStore';
 import { Toggle, Select, Button, SettingRow } from '../../components/ui';
 import { useTranslation } from '../../i18n';
+import type { AppConfig } from '../../types/config';
 
 export function PrivacySettings() {
   const { config, set, clearHistory } = useConfigStore();
@@ -25,7 +26,7 @@ export function PrivacySettings() {
         <SettingRow label={t('settings.privacy.retention')} description={t('settings.privacy.retentionHint')}>
           <Select
             value={config.historyRetention}
-            onChange={(e) => set('historyRetention', e.target.value as any)}
+            onChange={(e) => set('historyRetention', e.target.value as AppConfig['historyRetention'])}
             options={[
               { value: 'forever', label: t('settings.privacy.forever') },
               { value: '30d', label: t('settings.privacy.30d') },

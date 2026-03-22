@@ -18,7 +18,7 @@ export function setupAutoUpdater() {
     if (typeof info.releaseNotes === 'string') {
       notes = info.releaseNotes;
     } else if (Array.isArray(info.releaseNotes)) {
-      notes = info.releaseNotes.map((n: any) => n.note || n).join('\n');
+      notes = info.releaseNotes.map((n) => n.note ?? '').join('\n');
     }
     sendToMain('updater:update-available', { version: info.version, releaseNotes: notes });
   });
