@@ -6,6 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import { smartTruncate, cursorCenteredTruncate, buildFieldContext, parseTermsResponse, buildSystemPrompt } from '../electron/llm-service';
+import { friendlyErrorMessage } from '../src/utils/friendlyError';
 import { DEFAULT_CONFIG, AppConfig } from '../src/types/config';
 
 let passed = 0;
@@ -353,6 +354,76 @@ test('parseTermsResponse with more than 3 items returns all (caller trims)', () 
 test('parseTermsResponse with non-string array elements filters them', () => {
   const result = parseTermsResponse('[1, null, "valid", true, "also valid"]');
   assert.deepEqual(result, ['valid', 'also valid']);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log('\n=== friendlyErrorMessage ===');
+
+// Stub t() that returns the key itself — lets us verify which i18n key is selected
+const t = (k: string) => k;
+
+test('maps "no api key" to errorApiKey', () => {
+  const r = friendlyErrorMessage('No API key configured for siliconflow', t);
+  assert.equal(r.title, 'recording.errorApiKey');
+  assert.equal(r.detail, 'recording.errorApiKeyDetail');
+});
+
+test('maps "api key required" to errorApiKey', () => {
+  const r = friendlyErrorMessage('API key required', t);
+  assert.equal(r.title, 'recording.errorApiKey');
+});
+
+test('maps "no stt model" to errorNoModel', () => {
+  const r = friendlyErrorMessage('No STT model selected', t);
+  assert.equal(r.title, 'recording.errorNoModel');
+});
+
+test('maps microphone errors and preserves raw message', () => {
+  const r = friendlyErrorMessage('Microphone access denied by system', t);
+  assert.equal(r.title, 'recording.errorMic');
+  assert.equal(r.detail, 'Microphone access denied by system');
+});
+
+test('maps "no speech" to errorNoSpeech', () => {
+  const r = friendlyErrorMessage('No speech detected in audio', t);
+  assert.equal(r.title, 'recording.errorNoSpeech');
+});
+
+test('maps timeout errors', () => {
+  assert.equal(friendlyErrorMessage('Request timed out', t).title, 'recording.errorTimeout');
+  assert.equal(friendlyErrorMessage('Connection timeout', t).title, 'recording.errorTimeout');
+});
+
+test('maps pipeline busy', () => {
+  assert.equal(friendlyErrorMessage('Pipeline busy', t).title, 'recording.errorBusy');
+});
+
+test('maps 401/403 auth errors', () => {
+  assert.equal(friendlyErrorMessage('401 Unauthorized', t).title, 'recording.errorAuth');
+  assert.equal(friendlyErrorMessage('403 Forbidden', t).title, 'recording.errorAuth');
+  assert.equal(friendlyErrorMessage('Invalid API key', t).title, 'recording.errorAuth');
+});
+
+test('maps 429 rate limit', () => {
+  assert.equal(friendlyErrorMessage('429 Too Many Requests', t).title, 'recording.errorRateLimit');
+  assert.equal(friendlyErrorMessage('Rate limit exceeded', t).title, 'recording.errorRateLimit');
+});
+
+test('maps 5xx server errors', () => {
+  assert.equal(friendlyErrorMessage('500 Internal Server Error', t).title, 'recording.errorServer');
+  assert.equal(friendlyErrorMessage('502 Bad Gateway', t).title, 'recording.errorServer');
+  assert.equal(friendlyErrorMessage('Service unavailable', t).title, 'recording.errorServer');
+});
+
+test('falls back to generic error with raw message', () => {
+  const r = friendlyErrorMessage('Something completely unexpected', t);
+  assert.equal(r.title, 'recording.error');
+  assert.equal(r.detail, 'Something completely unexpected');
+});
+
+test('case insensitive matching', () => {
+  assert.equal(friendlyErrorMessage('NO API KEY configured', t).title, 'recording.errorApiKey');
+  assert.equal(friendlyErrorMessage('PIPELINE BUSY', t).title, 'recording.errorBusy');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
