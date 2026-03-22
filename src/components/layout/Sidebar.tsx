@@ -33,7 +33,8 @@ const navItems: Array<{ id: PageID; i18nKey: string; icon: JSX.Element }> = [
 ];
 
 export function Sidebar({ current, onNavigate, onOpenSettings }: SidebarProps) {
-  const { config, set } = useConfigStore();
+  const config = useConfigStore((s) => s.config);
+  const set = useConfigStore((s) => s.set);
   const { t } = useTranslation();
 
   const toggleTheme = () => {

@@ -24,7 +24,9 @@ function applyTheme(theme: string) {
 export default function App() {
   const [page, setPage] = useState<PageID>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const { config, loaded, load } = useConfigStore();
+  const config = useConfigStore((s) => s.config);
+  const loaded = useConfigStore((s) => s.loaded);
+  const load = useConfigStore((s) => s.load);
   const { setLocale } = useTranslation();
 
   useEffect(() => { load(); }, []);

@@ -25,7 +25,8 @@ function useProviderField() {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export function ProviderSettings() {
-  const { config, set } = useConfigStore();
+  const config = useConfigStore((s) => s.config);
+  const set = useConfigStore((s) => s.set);
   const [testing, setTesting] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, { ok: boolean; msg: string }>>({});
   const { t } = useTranslation();

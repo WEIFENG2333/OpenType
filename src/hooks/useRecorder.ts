@@ -19,7 +19,10 @@ function playBeep(freq: number, duration: number, volume = 0.25) {
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + duration);
-    osc.onended = () => ctx.close();
+    // Close AudioContext when done — fallback timeout prevents leak if onended doesn't fire
+    const close = () => { try { ctx.close(); } catch {} };
+    osc.onended = close;
+    setTimeout(close, (duration + 0.5) * 1000);
   } catch {}
 }
 
@@ -193,7 +196,7 @@ export function useRecorder() {
         : Promise.resolve({} as Record<string, any>);
 
       const [result, context] = await Promise.all([
-        runPipeline(audioBuffer, config),
+        runPipeline(audioBuffer, configRef.current),
         contextWithTimeout,
       ]);
 
@@ -232,9 +235,9 @@ export function useRecorder() {
           screenshotPath,
           ocrDurationMs: context.ocrDurationMs,
         } : {}),
-        contextL0Enabled: config.contextL0Enabled,
-        contextL1Enabled: config.contextL1Enabled,
-        contextOcrEnabled: config.contextOcrEnabled,
+        contextL0Enabled: configRef.current.contextL0Enabled,
+        contextL1Enabled: configRef.current.contextL1Enabled,
+        contextOcrEnabled: configRef.current.contextOcrEnabled,
         systemPrompt: result.systemPrompt,
         sttProvider: result.sttProvider,
         llmProvider: result.llmProvider,
@@ -260,7 +263,7 @@ export function useRecorder() {
             if (!outputSuccess) {
               // Paste failed — write to clipboard as fallback (restore already happened immediately)
               await window.electronAPI.writeClipboard(text);
-            } else if (config.alsoWriteClipboard) {
+            } else if (configRef.current.alsoWriteClipboard) {
               // Wait for typeAtCursor's 500ms clipboard restore to complete, then write
               setTimeout(() => window.electronAPI?.writeClipboard(text), 600);
             }
@@ -336,7 +339,7 @@ export function useRecorder() {
       if (generationRef.current !== gen) return;
       setState((s) => ({ ...s, status: 'idle', error: errMsg(e) }));
     }
-  }, [config, addHistoryItem]);
+  }, [addHistoryItem]);
 
   stopRecordingRef.current = stopRecording;
 
