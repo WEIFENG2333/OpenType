@@ -33,15 +33,15 @@ const navItems: Array<{ id: PageID; i18nKey: string; icon: JSX.Element }> = [
 ];
 
 export function Sidebar({ current, onNavigate, onOpenSettings }: SidebarProps) {
-  const config = useConfigStore((s) => s.config);
+  const theme = useConfigStore((s) => s.config.theme);
   const set = useConfigStore((s) => s.set);
   const { t } = useTranslation();
 
   const toggleTheme = () => {
-    const next = config.theme === 'dark' ? 'light' : 'dark';
+    const next = theme === 'dark' ? 'light' : 'dark';
     set('theme', next);
   };
-  const isDark = config.theme === 'dark';
+  const isDark = theme === 'dark';
 
   return (
     <div className="w-[200px] bg-surface-50 dark:bg-surface-950 border-r border-surface-200 dark:border-surface-800/60 flex flex-col">

@@ -24,7 +24,8 @@ function applyTheme(theme: string) {
 export default function App() {
   const [page, setPage] = useState<PageID>('dashboard');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const config = useConfigStore((s) => s.config);
+  const theme = useConfigStore((s) => s.config.theme);
+  const uiLanguage = useConfigStore((s) => s.config.uiLanguage);
   const loaded = useConfigStore((s) => s.loaded);
   const load = useConfigStore((s) => s.load);
   const { setLocale } = useTranslation();
@@ -46,24 +47,24 @@ export default function App() {
   // Sync UI language from config to i18n context
   useEffect(() => {
     if (!loaded) return;
-    const lang = config.uiLanguage === 'auto' ? detectLocale() : config.uiLanguage as Locale;
+    const lang = uiLanguage === 'auto' ? detectLocale() : uiLanguage as Locale;
     setLocale(lang);
-  }, [loaded, config.uiLanguage, setLocale]);
+  }, [loaded, uiLanguage, setLocale]);
 
   // Apply theme on config change
   useEffect(() => {
     if (!loaded) return;
-    applyTheme(config.theme);
-  }, [loaded, config.theme]);
+    applyTheme(theme);
+  }, [loaded, theme]);
 
   // Listen for system theme changes when in 'system' mode
   useEffect(() => {
-    if (!loaded || config.theme !== 'system') return;
+    if (!loaded || theme !== 'system') return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
     const handler = () => applyTheme('system');
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
-  }, [loaded, config.theme]);
+  }, [loaded, theme]);
 
   // Check if this is the overlay window
   if (window.location.hash === '#/overlay') {
