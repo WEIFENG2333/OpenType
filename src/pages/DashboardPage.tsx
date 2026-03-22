@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useConfigStore } from '../stores/configStore';
 import { useTranslation } from '../i18n';
+import { friendlyErrorMessage } from '../utils/friendlyError';
 import type { HistoryItem } from '../types/config';
 
 const GITHUB_URL = 'https://github.com/WEIFENG2333/OpenType';
@@ -348,7 +349,7 @@ function StatCard({ icon, label, value, unit }: { icon: JSX.Element; label: stri
 /* ── Recent transcription item ── */
 function RecentItem({ item, expanded, isLast, onClick }: { item: HistoryItem; expanded: boolean; isLast: boolean; onClick: () => void }) {
   const { t } = useTranslation();
-  const text = item.processedText || item.rawText || (item.error ? t('recording.error') : '');
+  const text = item.processedText || item.rawText || (item.error ? friendlyErrorMessage(item.error, t).title : '');
   const ago = formatTimeAgo(item.timestamp, t);
   const dur = item.durationMs ? formatDuration(item.durationMs) : '';
 

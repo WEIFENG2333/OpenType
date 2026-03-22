@@ -43,7 +43,7 @@ export function PrivacySettings() {
         <Button variant="secondary" size="sm" onClick={handleClearAll}>
           {t('settings.privacy.clearAll')}
         </Button>
-        <p className="text-xs text-surface-400 dark:text-surface-600">
+        <p className="text-xs text-surface-400 dark:text-surface-500">
           {t('settings.privacy.clearAllHint')}
         </p>
       </div>

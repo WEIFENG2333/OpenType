@@ -78,7 +78,7 @@ export function ToneRulesSettings() {
 
         {/* Rules list */}
         {rules.length === 0 ? (
-          <p className="text-xs text-surface-400 dark:text-surface-600 py-2">{t('settings.tones.noRules')}</p>
+          <p className="text-xs text-surface-400 dark:text-surface-500 py-2">{t('settings.tones.noRules')}</p>
         ) : (
           <div className="space-y-1.5">
             {rules.map((rule, i) => (

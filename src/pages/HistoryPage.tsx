@@ -3,6 +3,7 @@ import { useConfigStore } from '../stores/configStore';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Button } from '../components/ui';
 import { HistoryItem } from '../types/config';
+import { friendlyErrorMessage } from '../utils/friendlyError';
 import { useTranslation } from '../i18n';
 
 // ─── Audio helpers ───────────────────────────────────────────────────────────
@@ -280,8 +281,8 @@ export function HistoryPage() {
                   <div className="flex-1 min-w-0">
                     {item.error ? (
                       <div>
-                        <p className="text-sm text-red-400">{t('recording.error')}</p>
-                        <p className="text-xs text-surface-500 dark:text-surface-400 line-clamp-1 mt-0.5">{item.error}</p>
+                        <p className="text-sm text-red-400">{friendlyErrorMessage(item.error, t).title}</p>
+                        <p className="text-xs text-surface-500 dark:text-surface-400 line-clamp-1 mt-0.5">{friendlyErrorMessage(item.error, t).detail}</p>
                       </div>
                     ) : (
                       <p className="text-sm text-surface-800 dark:text-surface-200 leading-relaxed line-clamp-2">
@@ -522,7 +523,7 @@ function DetailModal({ item, onClose, t, onDownloadAudio }: { item: HistoryItem;
             {item.rawText ? (
               <p className="text-sm text-surface-600 dark:text-surface-400 leading-relaxed whitespace-pre-wrap bg-surface-50 dark:bg-surface-900 rounded-lg p-3 border border-surface-200 dark:border-surface-800">{item.rawText}</p>
             ) : (
-              <p className="text-xs text-surface-400 italic">{isError ? item.error : t('history.noOutput')}</p>
+              <p className="text-xs text-surface-400 italic">{isError ? friendlyErrorMessage(item.error!, t).detail : t('history.noOutput')}</p>
             )}
           </PipelineStep>
 
@@ -540,7 +541,7 @@ function DetailModal({ item, onClose, t, onDownloadAudio }: { item: HistoryItem;
             ) : isError ? (
               <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-500/5 border border-red-500/10">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-red-400 flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-                <p className="text-xs text-red-400">{item.error}</p>
+                <p className="text-xs text-red-400">{friendlyErrorMessage(item.error!, t).detail}</p>
               </div>
             ) : (
               <p className="text-xs text-surface-400 italic">{t('history.noOutput')}</p>
@@ -643,7 +644,7 @@ function ContextSection({ title, enabled, hasData, t, children }: {
     }`}>
       <div className="flex items-center gap-2 mb-1">
         {isDisabled ? (
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-surface-300 dark:text-surface-600 flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-surface-300 dark:text-surface-500 flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
         ) : hasData ? (
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-green-500 flex-shrink-0"><polyline points="20 6 9 17 4 12"/></svg>
         ) : (

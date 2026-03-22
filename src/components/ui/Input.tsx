@@ -19,7 +19,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           transition-colors ${error ? 'border-red-500/50' : ''} ${className}`}
         {...props}
       />
-      {hint && !error && <p className="text-xs text-surface-400 dark:text-surface-600">{hint}</p>}
+      {hint && !error && <p className="text-xs text-surface-400 dark:text-surface-500">{hint}</p>}
       {error && <p className="text-xs text-red-500 dark:text-red-400">{error}</p>}
     </div>
   ),

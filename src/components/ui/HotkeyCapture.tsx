@@ -274,13 +274,13 @@ export function HotkeyCapture({ value, onChange, label, hint, usedKeys }: Hotkey
         ) : value ? (
           <HotkeyBadges accel={value} />
         ) : (
-          <span className="text-sm text-surface-400 dark:text-surface-600">{t('common.clickToSet')}</span>
+          <span className="text-sm text-surface-400 dark:text-surface-500">{t('common.clickToSet')}</span>
         )}
 
         {!capturing && value && (
           <button
             onClick={(e) => { e.stopPropagation(); onChange(''); }}
-            className="ml-2 text-surface-400 dark:text-surface-600 hover:text-surface-600 dark:hover:text-surface-400 flex-shrink-0"
+            className="ml-2 text-surface-400 dark:text-surface-500 hover:text-surface-600 dark:hover:text-surface-400 flex-shrink-0"
             tabIndex={-1}
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -289,7 +289,7 @@ export function HotkeyCapture({ value, onChange, label, hint, usedKeys }: Hotkey
           </button>
         )}
       </div>
-      {hint && <p className="text-xs text-surface-400 dark:text-surface-600">{hint}</p>}
+      {hint && <p className="text-xs text-surface-400 dark:text-surface-500">{hint}</p>}
     </div>
   );
 }

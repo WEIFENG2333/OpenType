@@ -113,7 +113,7 @@ export function Select({ label, hint, value, onChange, options, className = '', 
         document.body,
       )}
 
-      {hint && <p className="text-xs text-surface-400 dark:text-surface-600">{hint}</p>}
+      {hint && <p className="text-xs text-surface-400 dark:text-surface-500">{hint}</p>}
     </div>
   );
 }
