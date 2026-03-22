@@ -160,11 +160,9 @@ export function useRecorder() {
     if (configRef.current.soundEnabled) playBeep(520, 0.15);
     setState((s) => ({ ...s, status: 'processing', audioLevel: 0 }));
 
+    let audioPath: string | undefined;
     try {
       const audioBuffer = await recorder.stop();
-
-      // Save audio to file (not inline base64 — keeps config.json small)
-      let audioPath: string | undefined;
       if (window.electronAPI) {
         try {
           const audioBytes = new Uint8Array(audioBuffer);
@@ -337,7 +335,20 @@ export function useRecorder() {
       }
     } catch (e) {
       if (generationRef.current !== gen) return;
-      setState((s) => ({ ...s, status: 'idle', error: errMsg(e) }));
+      const errorMsg = errMsg(e);
+      setState((s) => ({ ...s, status: 'idle', error: errorMsg }));
+      // Save error to history (matches the result.success===false path)
+      const errorItem: HistoryItem = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        timestamp: Date.now(),
+        rawText: '',
+        processedText: '',
+        durationMs,
+        wordCount: 0,
+        audioPath,
+        error: errorMsg,
+      };
+      addHistoryItem(errorItem);
     }
   }, [addHistoryItem]);
 
