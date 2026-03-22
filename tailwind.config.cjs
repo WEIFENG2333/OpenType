@@ -35,24 +35,10 @@ module.exports = {
         },
       },
       animation: {
-        'pulse-ring': 'pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite',
-        'wave-1': 'wave 0.8s ease-in-out infinite',
-        'wave-2': 'wave 0.8s ease-in-out 0.1s infinite',
-        'wave-3': 'wave 0.8s ease-in-out 0.2s infinite',
-        'wave-4': 'wave 0.8s ease-in-out 0.3s infinite',
-        'wave-5': 'wave 0.8s ease-in-out 0.4s infinite',
         'fade-in': 'fadeIn 0.2s ease-out',
         'slide-up': 'slideUp 0.3s ease-out',
       },
       keyframes: {
-        'pulse-ring': {
-          '0%': { transform: 'scale(0.9)', opacity: '0.8' },
-          '100%': { transform: 'scale(1.8)', opacity: '0' },
-        },
-        wave: {
-          '0%, 100%': { transform: 'scaleY(0.4)' },
-          '50%': { transform: 'scaleY(1.2)' },
-        },
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
