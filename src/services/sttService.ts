@@ -42,16 +42,15 @@ async function browserFetchSTT(
     formData.append('language', options.language);
   }
 
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
     const res = await fetch(`${baseUrl}/audio/transcriptions`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}` },
       body: formData,
       signal: controller.signal,
     });
-    clearTimeout(timeout);
     if (!res.ok) {
       const err = await res.text();
       return { success: false, error: `STT ${res.status}: ${err.slice(0, 300)}` };
@@ -60,5 +59,7 @@ async function browserFetchSTT(
     return { success: true, text: json.text ?? '' };
   } catch (e) {
     return { success: false, error: e instanceof Error && e.name === 'AbortError' ? 'Request timed out (30s)' : errMsg(e) };
+  } finally {
+    clearTimeout(timeout);
   }
 }

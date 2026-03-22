@@ -30,66 +30,72 @@ export class AudioRecorder {
 
     this.stream = await navigator.mediaDevices.getUserMedia(micConstraints(deviceId));
 
-    // Audio analysis for level metering
-    this.audioContext = new AudioContext();
-    if (this.audioContext.state === 'suspended') await this.audioContext.resume();
-    const source = this.audioContext.createMediaStreamSource(this.stream);
-    this.analyser = this.audioContext.createAnalyser();
-    this.analyser.fftSize = 256;
-    source.connect(this.analyser);
-    this.monitorLevel();
+    try {
+      // Audio analysis for level metering
+      this.audioContext = new AudioContext();
+      if (this.audioContext.state === 'suspended') await this.audioContext.resume();
+      const source = this.audioContext.createMediaStreamSource(this.stream);
+      this.analyser = this.audioContext.createAnalyser();
+      this.analyser.fftSize = 256;
+      source.connect(this.analyser);
+      this.monitorLevel();
 
-    // Real-time PCM streaming for Realtime STT
-    if (onPCMChunk) {
-      this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
-      source.connect(this.scriptProcessor);
-      // Must connect to destination for onaudioprocess to fire, but use a silent gain node
-      // to prevent mic audio from playing through speakers (feedback loop)
-      const silentGain = this.audioContext.createGain();
-      silentGain.gain.value = 0;
-      this.scriptProcessor.connect(silentGain);
-      silentGain.connect(this.audioContext.destination);
+      // Real-time PCM streaming for Realtime STT
+      if (onPCMChunk) {
+        this.scriptProcessor = this.audioContext.createScriptProcessor(4096, 1, 1);
+        source.connect(this.scriptProcessor);
+        // Must connect to destination for onaudioprocess to fire, but use a silent gain node
+        // to prevent mic audio from playing through speakers (feedback loop)
+        const silentGain = this.audioContext.createGain();
+        silentGain.gain.value = 0;
+        this.scriptProcessor.connect(silentGain);
+        silentGain.connect(this.audioContext.destination);
 
-      this.scriptProcessor.onaudioprocess = (e) => {
-        const input = e.inputBuffer.getChannelData(0);
-        const inputRate = this.audioContext!.sampleRate;
-        const outputRate = targetSampleRate;
-        const ratio = outputRate / inputRate;
-        const outputLength = Math.ceil(input.length * ratio);
-        const output = new Int16Array(outputLength);
+        this.scriptProcessor.onaudioprocess = (e) => {
+          const input = e.inputBuffer.getChannelData(0);
+          const inputRate = this.audioContext!.sampleRate;
+          const outputRate = targetSampleRate;
+          const ratio = outputRate / inputRate;
+          const outputLength = Math.ceil(input.length * ratio);
+          const output = new Int16Array(outputLength);
 
-        // Linear interpolation resampling + float32 → int16
-        for (let i = 0; i < outputLength; i++) {
-          const srcIdx = i / ratio;
-          const idx0 = Math.floor(srcIdx);
-          const idx1 = Math.min(idx0 + 1, input.length - 1);
-          const frac = srcIdx - idx0;
-          const sample = input[idx0] * (1 - frac) + input[idx1] * frac;
-          const clamped = Math.max(-1, Math.min(1, sample));
-          output[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF;
-        }
+          // Linear interpolation resampling + float32 → int16
+          for (let i = 0; i < outputLength; i++) {
+            const srcIdx = i / ratio;
+            const idx0 = Math.floor(srcIdx);
+            const idx1 = Math.min(idx0 + 1, input.length - 1);
+            const frac = srcIdx - idx0;
+            const sample = input[idx0] * (1 - frac) + input[idx1] * frac;
+            const clamped = Math.max(-1, Math.min(1, sample));
+            output[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7FFF;
+          }
 
-        // Convert to base64
-        const bytes = new Uint8Array(output.buffer);
-        let binary = '';
-        const CHUNK = 8192;
-        for (let i = 0; i < bytes.length; i += CHUNK) {
-          binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
-        }
-        onPCMChunk(btoa(binary));
+          // Convert to base64
+          const bytes = new Uint8Array(output.buffer);
+          let binary = '';
+          const CHUNK = 8192;
+          for (let i = 0; i < bytes.length; i += CHUNK) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+          }
+          onPCMChunk(btoa(binary));
+        };
+      }
+
+      // MediaRecorder (always active — needed for WAV export and non-streaming fallback)
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/webm';
+
+      this.mediaRecorder = new MediaRecorder(this.stream, { mimeType });
+      this.mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) this.audioChunks.push(e.data);
       };
+      this.mediaRecorder.start(100);
+    } catch (e) {
+      // Cleanup partially-initialized resources (stream, audioContext) on setup failure
+      this.cleanup();
+      throw e;
     }
-
-    // MediaRecorder (always active — needed for WAV export and non-streaming fallback)
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-      ? 'audio/webm;codecs=opus'
-      : 'audio/webm';
-
-    this.mediaRecorder = new MediaRecorder(this.stream, { mimeType });
-    this.mediaRecorder.ondataavailable = (e) => {
-      if (e.data.size > 0) this.audioChunks.push(e.data);
-    };
-    this.mediaRecorder.start(100);
   }
 
   private monitorLevel() {
