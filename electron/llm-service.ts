@@ -14,8 +14,10 @@ type ChatMessage = { role: string; content: ChatContent };
 /** Smart truncation: keeps beginning + end of long text, with ellipsis in middle */
 export function smartTruncate(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text;
-  const keepEach = Math.floor((maxLen - 20) / 2);
-  return text.slice(0, keepEach) + '\n... [truncated] ...\n' + text.slice(-keepEach);
+  const ELLIPSIS = '\n... [truncated] ...\n';
+  const keepEach = Math.max(0, Math.floor((maxLen - ELLIPSIS.length) / 2));
+  if (keepEach === 0) return text.slice(0, Math.max(1, maxLen));
+  return text.slice(0, keepEach) + ELLIPSIS + text.slice(-keepEach);
 }
 
 /** Truncation limits for each context field (in characters) */
@@ -31,23 +33,26 @@ const CONTEXT_LIMITS = {
 
 /** Truncate text centered around the cursor position, keeping context on both sides */
 export function cursorCenteredTruncate(text: string, cursorPos: number, maxLen: number): { text: string; adjustedPos: number } {
-  if (text.length <= maxLen) return { text, adjustedPos: cursorPos };
+  // Clamp cursorPos to valid range
+  const clampedCursor = Math.max(0, Math.min(cursorPos, text.length));
+  if (text.length <= maxLen) return { text, adjustedPos: clampedCursor };
 
   const ellipsis = '\n... [truncated] ...\n';
-  const halfWindow = Math.floor((maxLen - ellipsis.length * 2) / 2);
-  let start = Math.max(0, cursorPos - halfWindow);
-  let end = Math.min(text.length, cursorPos + halfWindow);
+  const halfWindow = Math.max(0, Math.floor((maxLen - ellipsis.length * 2) / 2));
+  if (halfWindow === 0) return { text: text.slice(0, Math.max(1, maxLen)), adjustedPos: Math.min(clampedCursor, Math.max(1, maxLen)) };
+  let start = Math.max(0, clampedCursor - halfWindow);
+  let end = Math.min(text.length, clampedCursor + halfWindow);
 
   // If one side is shorter, give more to the other
   if (start === 0) end = Math.min(text.length, maxLen - ellipsis.length);
   if (end === text.length) start = Math.max(0, text.length - maxLen + ellipsis.length);
 
   let result = '';
-  let adjustedPos = cursorPos;
+  let adjustedPos = clampedCursor;
 
   if (start > 0) {
     result = ellipsis;
-    adjustedPos = cursorPos - start + result.length;
+    adjustedPos = clampedCursor - start + result.length;
     result += text.slice(start, end);
   } else {
     result = text.slice(0, end);

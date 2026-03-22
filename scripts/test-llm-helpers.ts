@@ -304,6 +304,58 @@ test('no context produces clean prompt', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+console.log('\n=== Edge cases: smartTruncate ===');
+
+test('smartTruncate with maxLen=0 returns empty or minimal', () => {
+  const result = smartTruncate('hello world', 0);
+  assert.ok(result.length <= 25, `Expected very short result, got ${result.length} chars`);
+});
+
+test('smartTruncate with maxLen=1 returns single char', () => {
+  const result = smartTruncate('hello world', 1);
+  assert.equal(result, 'h');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log('\n=== Edge cases: cursorCenteredTruncate ===');
+
+test('cursorCenteredTruncate with negative cursorPos', () => {
+  const { text: result, adjustedPos } = cursorCenteredTruncate('hello world', -1, 100);
+  assert.equal(result, 'hello world');
+  assert.ok(adjustedPos >= 0, 'adjustedPos should not be negative');
+});
+
+test('cursorCenteredTruncate with cursorPos beyond text length', () => {
+  const { text: result, adjustedPos } = cursorCenteredTruncate('hello', 999, 100);
+  assert.equal(result, 'hello');
+  assert.ok(adjustedPos <= result.length);
+});
+
+test('cursorCenteredTruncate with maxLen=0', () => {
+  const { text: result } = cursorCenteredTruncate('hello world', 5, 0);
+  assert.ok(result.length <= 25, 'Should handle maxLen=0 gracefully');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+console.log('\n=== Edge cases: parseTermsResponse ===');
+
+test('parseTermsResponse with nested array returns flat strings', () => {
+  const result = parseTermsResponse('[["nested"], "valid"]');
+  // Should only include string elements, not arrays
+  assert.ok(result.every(t => typeof t === 'string'));
+});
+
+test('parseTermsResponse with more than 3 items returns all (caller trims)', () => {
+  const result = parseTermsResponse('["a","b","c","d","e"]');
+  assert.equal(result.length, 5);
+});
+
+test('parseTermsResponse with non-string array elements filters them', () => {
+  const result = parseTermsResponse('[1, null, "valid", true, "also valid"]');
+  assert.deepEqual(result, ['valid', 'also valid']);
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
 console.log(`\n${'='.repeat(50)}`);
 console.log(`Results: ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

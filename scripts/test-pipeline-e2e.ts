@@ -14,7 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import { DEFAULT_CONFIG, AppConfig } from '../src/types/config';
 import { buildSystemPrompt, LLMService } from '../electron/llm-service';
-import { buildOpenAIConfig, buildQwenASRConfig, STTService } from '../electron/stt-service';
+import { buildOpenAIConfig, buildQwenASRConfig, STTService, parseApiError } from '../electron/stt-service';
 
 let passed = 0;
 let failed = 0;
@@ -193,6 +193,54 @@ test('custom tone prompt injected', () => {
 });
 
 // buildFieldContext + smartTruncate tested thoroughly in test-llm-helpers.ts
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 3b. parseApiError — pure function for human-readable API error extraction
+// ═══════════════════════════════════════════════════════════════════════════
+console.log('\n=== parseApiError ===');
+
+test('parses OpenAI-style JSON error', () => {
+  const result = parseApiError(401, '{"error":{"message":"Invalid API key"}}');
+  assert.equal(result, '401: Invalid API key');
+});
+
+test('parses flat message JSON', () => {
+  const result = parseApiError(429, '{"message":"Rate limit exceeded"}');
+  assert.equal(result, '429: Rate limit exceeded');
+});
+
+test('parses error as string field', () => {
+  const result = parseApiError(500, '{"error":"Internal server error"}');
+  assert.equal(result, '500: Internal server error');
+});
+
+test('handles non-string error object', () => {
+  const result = parseApiError(400, '{"error":{"type":"invalid_request","message":"Bad input"}}');
+  assert.equal(result, '400: Bad input');
+});
+
+test('falls back to plain text for non-JSON body', () => {
+  const result = parseApiError(502, 'Bad Gateway');
+  assert.equal(result, '502: Bad Gateway');
+});
+
+test('truncates long plain text body to 200 chars', () => {
+  const longBody = 'X'.repeat(500);
+  const result = parseApiError(500, longBody);
+  assert.ok(result.startsWith('500: '));
+  assert.ok(result.length <= 210); // "500: " + 200 chars
+});
+
+test('handles empty body', () => {
+  const result = parseApiError(404, '');
+  assert.equal(result, '404: ');
+});
+
+test('handles JSON with no recognized error fields', () => {
+  const result = parseApiError(500, '{"status":"failed","code":123}');
+  // No error/message fields → falls through to plain text
+  assert.ok(result.startsWith('500: '));
+});
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 4. LLMService.process — empty input guard (calls real code)

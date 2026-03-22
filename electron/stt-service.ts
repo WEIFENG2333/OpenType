@@ -467,7 +467,7 @@ class ParaformerRealtimeSession implements IRealtimeSession {
 }
 
 /** Extract human-readable error from API response body (JSON or plain text) */
-function parseApiError(status: number, body: string): string {
+export function parseApiError(status: number, body: string): string {
   try {
     const json = JSON.parse(body);
     const msg = json?.error?.message || json?.message || json?.error || '';
