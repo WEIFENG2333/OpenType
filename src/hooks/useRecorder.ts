@@ -20,7 +20,7 @@ function playBeep(freq: number, duration: number, volume = 0.25) {
     osc.start(ctx.currentTime);
     osc.stop(ctx.currentTime + duration);
     // Close AudioContext when done — fallback timeout prevents leak if onended doesn't fire
-    const close = () => { try { ctx.close(); } catch {} };
+    const close = () => { ctx.close().catch(() => {}); };
     osc.onended = close;
     setTimeout(close, (duration + 0.5) * 1000);
   } catch {}

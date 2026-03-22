@@ -27,7 +27,7 @@ function PermissionBadge({ status, grantedTip, neededTip, onClick }: {
             : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-pointer hover:bg-amber-500/20'
           }`}
         role={!granted && onClick ? 'button' : undefined}
-        tabIndex={!granted && onClick ? -1 : undefined}
+        tabIndex={!granted && onClick ? 0 : undefined}
       >
         {granted ? (
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>

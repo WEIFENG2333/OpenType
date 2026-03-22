@@ -11,6 +11,8 @@ export function Toggle({ checked, onChange, label, description, disabled, badge 
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
       onClick={() => !disabled && onChange(!checked)}
       disabled={disabled}
       className="flex items-center justify-between gap-6 w-full text-left group disabled:opacity-50 py-0.5"
