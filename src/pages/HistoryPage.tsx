@@ -279,7 +279,10 @@ export function HistoryPage() {
 
                   <div className="flex-1 min-w-0">
                     {item.error ? (
-                      <p className="text-sm text-red-400 italic">{t('recording.error')}</p>
+                      <div>
+                        <p className="text-sm text-red-400">{t('recording.error')}</p>
+                        <p className="text-xs text-surface-500 dark:text-surface-400 line-clamp-1 mt-0.5">{item.error}</p>
+                      </div>
                     ) : (
                       <p className="text-sm text-surface-800 dark:text-surface-200 leading-relaxed line-clamp-2">
                         {item.processedText || item.rawText}

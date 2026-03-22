@@ -100,7 +100,7 @@ export function DictationPage() {
                 </h1>
                 <p className="text-[13px] text-surface-400 dark:text-surface-500">
                   {t('dictation.clickOrPress')}{' '}
-                  <kbd className="inline-block px-1.5 py-0.5 bg-surface-100 dark:bg-surface-600 border border-surface-200 dark:border-surface-500 rounded text-[11px] text-surface-500 dark:text-surface-200 font-mono shadow-sm">
+                  <kbd className="inline-block px-2 py-0.5 bg-white dark:bg-surface-700 border border-surface-200 dark:border-surface-600 rounded-md text-[12px] text-surface-600 dark:text-surface-200 font-mono shadow-sm">
                     {hotkey}
                   </kbd>
                 </p>

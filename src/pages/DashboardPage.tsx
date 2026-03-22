@@ -294,7 +294,7 @@ export function DashboardPage({ onNavigate }: { onNavigate?: (page: string) => v
       </div>
 
       {/* ── Footer ── */}
-      <div className="px-8 py-3 border-t border-surface-100 dark:border-surface-800/30 flex items-center justify-between text-[11px] text-surface-400 dark:text-surface-600 flex-shrink-0">
+      <div className="px-8 py-3 border-t border-surface-100 dark:border-surface-800/30 flex items-center justify-between text-[11px] text-surface-400 dark:text-surface-500 flex-shrink-0">
         <div className="flex items-center gap-3">
           <span>OpenType {version || ''}</span>
           <button
