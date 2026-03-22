@@ -97,12 +97,12 @@ export function DictionaryPage() {
       {/* Grid */}
       <div className="flex-1 overflow-y-auto px-6 pb-6">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-surface-400 dark:text-surface-600">
+          <div className="flex flex-col items-center justify-center py-20 text-surface-400 dark:text-surface-500">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-4 opacity-40">
               <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
             </svg>
             <p className="text-base">{search ? t('history.noMatches') : t('dictionary.noTerms')}</p>
-            <p className="text-sm mt-1 text-surface-500 dark:text-surface-700">{!search && t('dictionary.noTermsHint')}</p>
+            <p className="text-sm mt-1 text-surface-500 dark:text-surface-400">{!search && t('dictionary.noTermsHint')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-2">
@@ -124,6 +124,7 @@ export function DictionaryPage() {
                 <span className="flex-1 text-sm text-surface-700 dark:text-surface-300 truncate">{entry.word}</span>
                 <button
                   onClick={() => removeWord(entry.word)}
+                  aria-label={`${t('dictionary.remove')} ${entry.word}`}
                   className="text-surface-400 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all flex-shrink-0"
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>

@@ -255,10 +255,10 @@ export function HistoryPage() {
 
       <div className="flex-1 overflow-y-auto">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-surface-400 dark:text-surface-600 px-6">
+          <div className="flex flex-col items-center justify-center h-full text-surface-400 dark:text-surface-500 px-6">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-4 opacity-40"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
             <p className="text-base">{search ? t('history.noMatches') : t('history.noHistory')}</p>
-            <p className="text-sm mt-1 text-surface-500 dark:text-surface-700">{search ? t('history.tryDifferent') : t('history.willAppearHere')}</p>
+            <p className="text-sm mt-1 text-surface-500 dark:text-surface-400">{search ? t('history.tryDifferent') : t('history.willAppearHere')}</p>
           </div>
         ) : (
           Array.from(grouped.entries()).map(([dateLabel, items]) => (
