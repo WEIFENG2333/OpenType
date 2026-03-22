@@ -444,8 +444,8 @@ function DetailModal({ item, onClose }: { item: HistoryItem; onClose: () => void
           )}
           {item.error && (
             <div>
-              <div className="text-[11px] uppercase tracking-wider text-red-400 mb-2">{t('history.error')}</div>
-              <p className="text-[13px] text-red-500">{item.error}</p>
+              <div className="text-[11px] uppercase tracking-wider text-red-400 mb-2">{friendlyErrorMessage(item.error, t).title}</div>
+              <p className="text-[13px] text-red-500">{friendlyErrorMessage(item.error, t).detail}</p>
             </div>
           )}
         </div>
