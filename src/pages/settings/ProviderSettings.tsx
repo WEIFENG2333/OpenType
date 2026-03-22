@@ -295,7 +295,7 @@ function ModelInput({ value, onChange, presets, labels, badges }: {
           className="w-full bg-white dark:bg-surface-850 border border-surface-300 dark:border-surface-700 rounded-lg px-3.5 py-2 text-sm text-surface-800 dark:text-surface-200 text-left flex items-center justify-between focus:outline-none focus:border-brand-500 transition-colors cursor-pointer"
         >
           {badges?.[selected] && <ModeBadge mode={badges[selected]} />}
-          <span className="truncate font-mono text-xs">{labels?.[selected] ?? selected}</span>
+          <span className="truncate font-mono text-xs min-w-0">{labels?.[selected] ?? selected}</span>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
             className={`shrink-0 ml-auto text-surface-400 transition-transform ${dropOpen ? 'rotate-180' : ''}`}>
             <path d="m6 9 6 6 6-6"/>

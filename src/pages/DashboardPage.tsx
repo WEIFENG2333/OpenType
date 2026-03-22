@@ -358,7 +358,7 @@ function RecentItem({ item, expanded, isLast, onClick }: { item: HistoryItem; ex
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left flex items-center gap-3.5 px-5 transition-colors hover:bg-surface-50 dark:hover:bg-surface-850
+      className={`w-full text-left flex items-center gap-3.5 px-5 transition-colors hover:bg-surface-50 dark:hover:bg-surface-850 focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-inset outline-none
         ${expanded ? 'py-5' : 'py-3.5'}
         ${!isLast ? 'border-b border-surface-100 dark:border-surface-800/50' : ''}
         ${item.error ? 'border-l-2 border-l-red-400' : ''}`}
