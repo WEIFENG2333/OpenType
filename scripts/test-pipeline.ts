@@ -34,8 +34,8 @@ async function run(name: string, baseUrl: string, key: string, model: string, te
     if (!r.ok) { console.log(`  [${name}] \x1b[31mFAIL\x1b[0m ${ms}ms — HTTP ${r.status}`); return; }
     const j = await r.json();
     console.log(`  [${name}] \x1b[32mOK\x1b[0m ${ms}ms → "${j.choices?.[0]?.message?.content?.trim()}"`);
-  } catch (e: any) {
-    console.log(`  [${name}] \x1b[31mFAIL\x1b[0m — ${e.message}`);
+  } catch (e) {
+    console.log(`  [${name}] \x1b[31mFAIL\x1b[0m — ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 

@@ -22,7 +22,7 @@ const skipped: string[] = [];
 
 function test(name: string, fn: () => void) {
   try { fn(); passed++; console.log(`  ✓ ${name}`); }
-  catch (e: any) { failed++; console.log(`  ✗ ${name}\n    ${e.message}`); }
+  catch (e) { failed++; console.log(`  ✗ ${name}\n    ${e instanceof Error ? e.message : String(e)}`); }
 }
 
 function skip(name: string, reason: string) {
@@ -271,7 +271,7 @@ async function runIntegrationTests() {
       console.log(`  ✓ DashScope STT (${Date.now() - t0}ms): "${text}"`);
       assert.ok(text.length > 3, 'Expected at least a few characters from 3.2s audio');
       passed++;
-    } catch (e: any) { failed++; console.log(`  ✗ DashScope STT: ${e.message}`); }
+    } catch (e) { failed++; console.log(`  ✗ DashScope STT: ${e instanceof Error ? e.message : String(e)}`); }
   } else { skip('DashScope STT', 'DASHSCOPE_KEY not set'); }
 
   // SiliconFlow STT
@@ -284,7 +284,7 @@ async function runIntegrationTests() {
       console.log(`  ✓ SiliconFlow STT (${Date.now() - t0}ms): "${text}"`);
       assert.ok(text.length > 3, 'Expected at least a few characters from 3.2s audio');
       passed++;
-    } catch (e: any) { failed++; console.log(`  ✗ SiliconFlow STT: ${e.message}`); }
+    } catch (e) { failed++; console.log(`  ✗ SiliconFlow STT: ${e instanceof Error ? e.message : String(e)}`); }
   } else { skip('SiliconFlow STT', 'SILICONFLOW_KEY not set'); }
 
   // Full pipeline: STT → LLM
@@ -303,7 +303,7 @@ async function runIntegrationTests() {
       console.log(`    Processed: "${processed}"`);
       assert.ok(processed.length > 0, 'LLM returned empty');
       passed++;
-    } catch (e: any) { failed++; console.log(`  ✗ Full pipeline: ${e.message}`); }
+    } catch (e) { failed++; console.log(`  ✗ Full pipeline: ${e instanceof Error ? e.message : String(e)}`); }
   } else { skip('Full pipeline', 'SILICONFLOW_KEY not set'); }
 }
 

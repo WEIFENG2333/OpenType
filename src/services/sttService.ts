@@ -6,6 +6,7 @@
  */
 
 import { AppConfig, getSTTProviderOpts } from '../types/config';
+import { errMsg } from '../utils/errMsg';
 
 export interface STTResult {
   success: boolean;
@@ -57,7 +58,7 @@ async function browserFetchSTT(
     }
     const json = await res.json();
     return { success: true, text: json.text ?? '' };
-  } catch (e: any) {
-    return { success: false, error: e.name === 'AbortError' ? 'Request timed out (30s)' : e.message };
+  } catch (e) {
+    return { success: false, error: e instanceof Error && e.name === 'AbortError' ? 'Request timed out (30s)' : errMsg(e) };
   }
 }

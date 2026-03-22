@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { autoUpdater } from 'electron-updater';
 import { state, isMac } from './app-state';
+import { errMsg } from './utils';
 import { registerShortcuts, toggleRecording } from './shortcut-manager';
 import { captureScreenAndOcr } from './context-capture';
 import { restartFnMonitor } from './fn-monitor';
@@ -113,9 +114,9 @@ export function setupIPC() {
       const text = await state.sttService!.transcribe(Buffer.from(buf), state.configStore!.getAll(), opts);
       console.log('[STT] result:', text.slice(0, 100));
       return { success: true, text };
-    } catch (e: any) {
-      console.error('[STT] error:', e.message);
-      return { success: false, error: e.message };
+    } catch (e) {
+      console.error('[STT] error:', errMsg(e));
+      return { success: false, error: errMsg(e) };
     }
   });
 
@@ -124,8 +125,8 @@ export function setupIPC() {
     try {
       const cfg = state.configStore!.getAll();
       return await state.sttService!.testConnection(cfg);
-    } catch (e: any) {
-      return { success: false, error: e.message };
+    } catch (e) {
+      return { success: false, error: errMsg(e) };
     }
   });
 
@@ -167,9 +168,9 @@ export function setupIPC() {
       }
       realtimeSession = session;
       return { success: true, sampleRate };
-    } catch (e: any) {
-      console.error('[RealtimeSTT] start failed:', e.message);
-      return { success: false, error: e.message };
+    } catch (e) {
+      console.error('[RealtimeSTT] start failed:', errMsg(e));
+      return { success: false, error: errMsg(e) };
     }
   });
 
@@ -202,8 +203,8 @@ export function setupIPC() {
     try {
       const result = await state.llmService!.process(text, state.configStore!.getAll(), ctx);
       return { success: true, text: result.text };
-    } catch (e: any) {
-      return { success: false, error: e.message };
+    } catch (e) {
+      return { success: false, error: errMsg(e) };
     }
   });
 
@@ -221,8 +222,8 @@ export function setupIPC() {
           state.lastCapturedContext.screenshotDataUrl = ocrResult.screenshot;
           state.lastCapturedContext.ocrDurationMs = ocrResult.durationMs;
         }
-      } catch (e: any) {
-        console.error('[OCR] await error:', e.message);
+      } catch (e) {
+        console.error('[OCR] await error:', errMsg(e));
       }
       state.ocrPromise = null;
     }
@@ -329,7 +330,7 @@ export function setupIPC() {
         sttProvider, llmProvider, sttModel, llmModel,
         sttDurationMs, llmDurationMs,
       };
-    } catch (e: any) {
+    } catch (e) {
       state.isRecording = false;
       sendPhase('done');
       // Clean up realtime session if it was in use
@@ -337,7 +338,7 @@ export function setupIPC() {
         realtimeSession.close();
         realtimeSession = null;
       }
-      return { success: false, rawText: '', processedText: '', error: e.message, sttProvider, llmProvider, sttModel, llmModel, sttDurationMs, llmDurationMs };
+      return { success: false, rawText: '', processedText: '', error: errMsg(e), sttProvider, llmProvider, sttModel, llmModel, sttDurationMs, llmDurationMs };
     } finally {
       pipelineRunning = false;
     }
@@ -348,8 +349,8 @@ export function setupIPC() {
     try {
       const result = await state.llmService!.rewrite(text, instruction, state.configStore!.getAll());
       return { success: true, text: result };
-    } catch (e: any) {
-      return { success: false, error: e.message };
+    } catch (e) {
+      return { success: false, error: errMsg(e) };
     }
   });
 
@@ -394,9 +395,9 @@ export function setupIPC() {
 
       recordTypedText(text);
       return { success: true };
-    } catch (e: any) {
-      console.error('[TypeText] error:', e.message);
-      return { success: false, error: e.message };
+    } catch (e) {
+      console.error('[TypeText] error:', errMsg(e));
+      return { success: false, error: errMsg(e) };
     } finally {
       // Always restore clipboard after a delay (even on error)
       // Only restore if we actually modified it and paste completed
@@ -495,8 +496,8 @@ export function setupIPC() {
     try {
       const result = await captureScreenAndOcr(cfg);
       return result?.text || null;
-    } catch (e: any) {
-      console.error('[Context OCR] error:', e.message);
+    } catch (e) {
+      console.error('[Context OCR] error:', errMsg(e));
       return null;
     }
   });
@@ -506,8 +507,8 @@ export function setupIPC() {
     try {
       const msg = await state.llmService!.testConnection(state.configStore!.getAll(), provider);
       return { success: true, message: msg };
-    } catch (e: any) {
-      return { success: false, error: e.message };
+    } catch (e) {
+      return { success: false, error: errMsg(e) };
     }
   });
 
@@ -515,8 +516,8 @@ export function setupIPC() {
     try {
       const msg = await state.llmService!.testVLMConnection(state.configStore!.getAll());
       return { success: true, message: msg };
-    } catch (e: any) {
-      return { success: false, error: e.message };
+    } catch (e) {
+      return { success: false, error: errMsg(e) };
     }
   });
 

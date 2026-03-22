@@ -5,6 +5,7 @@
 
 import { AppConfig, LLMProviderID, getLLMProviderOpts } from '../src/types/config';
 import type { CapturedContext } from './context-capture';
+import { errMsg } from './utils';
 
 /** Smart truncation: keeps beginning + end of long text, with ellipsis in middle */
 export function smartTruncate(text: string, maxLen: number): string {
@@ -254,8 +255,8 @@ export class LLMService {
       const content = json.choices?.[0]?.message?.content?.trim();
       if (!content) throw new Error('Empty LLM response');
       return content;
-    } catch (e: any) {
-      if (e.name === 'AbortError') throw new Error('LLM request timed out (30s)');
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') throw new Error('LLM request timed out (30s)');
       throw e;
     } finally {
       clearTimeout(timeout);
@@ -363,8 +364,8 @@ export class LLMService {
         maxTokens: 300,
       });
       return this.parseTermsResponse(content).slice(0, 3);
-    } catch (e: any) {
-      console.error('[ExtractTerms] error:', e.message);
+    } catch (e) {
+      console.error('[ExtractTerms] error:', errMsg(e));
       return [];
     }
   }
@@ -387,8 +388,8 @@ export class LLMService {
         },
       ]);
       return this.parseTermsResponse(content).slice(0, 3);
-    } catch (e: any) {
-      console.error('[ExtractTermsWithImage] VLM error:', e.message);
+    } catch (e) {
+      console.error('[ExtractTermsWithImage] VLM error:', errMsg(e));
       return [];
     }
   }

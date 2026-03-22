@@ -36,3 +36,4 @@ export const state = {
 export const isDev = !require('electron').app.isPackaged;
 export const isMac = process.platform === 'darwin';
 export const isWin = process.platform === 'win32';
+

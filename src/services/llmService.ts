@@ -6,6 +6,7 @@
  */
 
 import { AppConfig, TonePreset, getLLMProviderOpts, getSTTProviderOpts, LLMProviderID } from '../types/config';
+import { errMsg } from '../utils/errMsg';
 
 export interface LLMResult {
   success: boolean;
@@ -129,8 +130,8 @@ async function browserFetchLLM(
     const content = json.choices?.[0]?.message?.content?.trim();
     if (!content) return { success: false, error: 'No content in LLM response' };
     return { success: true, text: content };
-  } catch (e: any) {
-    return { success: false, error: e.name === 'AbortError' ? 'Request timed out (30s)' : e.message };
+  } catch (e) {
+    return { success: false, error: e instanceof Error && e.name === 'AbortError' ? 'Request timed out (30s)' : errMsg(e) };
   } finally {
     clearTimeout(timeout);
   }

@@ -16,10 +16,10 @@ function test(name: string, fn: () => void) {
     fn();
     passed++;
     console.log(`  ✓ ${name}`);
-  } catch (e: any) {
+  } catch (e) {
     failed++;
     console.log(`  ✗ ${name}`);
-    console.log(`    ${e.message}`);
+    console.log(`    ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 

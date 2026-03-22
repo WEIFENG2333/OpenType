@@ -11,6 +11,7 @@
 import WebSocket from 'ws';
 import { randomUUID } from 'node:crypto';
 import { AppConfig, getSTTProviderOpts, getProviderConfig, getSTTModelMode, getSTTModelDef, getDefaultBatchProtocol, STTProtocol } from '../src/types/config';
+import { errMsg } from './utils';
 
 // ─── Public interface for all realtime sessions ─────────────────────────────
 
@@ -538,9 +539,9 @@ export class STTService {
         body: JSON.stringify(body),
         signal: controller.signal,
       });
-    } catch (e: any) {
+    } catch (e) {
       clearTimeout(timeout);
-      throw new Error(e.name === 'AbortError' ? 'DashScope STT request timed out (30s)' : e.message);
+      throw new Error(e instanceof Error && e.name === 'AbortError' ? 'DashScope STT request timed out (30s)' : errMsg(e));
     }
     clearTimeout(timeout);
 
@@ -580,9 +581,9 @@ export class STTService {
         body: formData,
         signal: controller.signal,
       });
-    } catch (e: any) {
+    } catch (e) {
       clearTimeout(timeout);
-      throw new Error(e.name === 'AbortError' ? 'STT request timed out (30s)' : e.message);
+      throw new Error(e instanceof Error && e.name === 'AbortError' ? 'STT request timed out (30s)' : errMsg(e));
     }
     clearTimeout(timeout);
 
@@ -646,8 +647,8 @@ export class STTService {
           new Promise<string>((_, reject) => setTimeout(() => reject(new Error('Test timeout')), 15000)),
         ]);
         return { success: true, text: `${Date.now() - t0}ms` };
-      } catch (e: any) {
-        return { success: false, error: e.message };
+      } catch (e) {
+        return { success: false, error: errMsg(e) };
       } finally {
         session.close();
       }
@@ -657,8 +658,8 @@ export class STTService {
       const wav = makeSilentWav(0.5);
       await this.transcribe(Buffer.from(wav), config);
       return { success: true, text: `${Date.now() - t0}ms` };
-    } catch (e: any) {
-      const msg = e.message || '';
+    } catch (e) {
+      const msg = errMsg(e);
       if (msg.includes('No speech') || msg.includes('no_speech') || msg.includes('empty')) {
         return { success: true, text: `${Date.now() - t0}ms` };
       }

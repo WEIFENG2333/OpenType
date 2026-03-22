@@ -5,6 +5,7 @@ import { PROVIDERS, STTProviderID, LLMProviderID, getProviderConfig, ProviderCon
 import { testLLMConnection, testVLMConnection, testSTTConnection } from '../../services/llmService';
 import { Button, Select, PasswordInput, Input, SettingRow } from '../../components/ui';
 import { useTranslation } from '../../i18n';
+import { errMsg } from '../../utils/errMsg';
 
 // ─── Helper: update a single field inside providers[id] ─────────────────────
 
@@ -49,8 +50,8 @@ export function ProviderSettings() {
       try {
         const r = await testSTTConnection(config.sttProvider, config);
         setTestResults({ stt: { ok: r.success, msg: r.success ? r.text! : (r.error || 'Failed') } });
-      } catch (e: any) {
-        setTestResults({ stt: { ok: false, msg: e.message } });
+      } catch (e) {
+        setTestResults({ stt: { ok: false, msg: errMsg(e) } });
       }
     }
     setTesting(null);

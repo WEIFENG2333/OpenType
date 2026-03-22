@@ -62,8 +62,8 @@ async function main() {
     const j = await r.json();
     console.log(`\x1b[32mPASS\x1b[0m (${ms}ms)`);
     console.log('Result:', JSON.stringify(j));
-  } catch (e: any) {
-    console.log(`\x1b[31mFAIL\x1b[0m:`, e.message);
+  } catch (e) {
+    console.log(`\x1b[31mFAIL\x1b[0m:`, e instanceof Error ? e.message : String(e));
     process.exit(1);
   }
 }

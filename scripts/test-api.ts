@@ -28,8 +28,8 @@ async function testLLM(
     if (!r.ok) return { provider: name, ok: false, msg: `HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`, ms };
     const j = await r.json();
     return { provider: name, ok: true, msg: `${model} → "${j.choices?.[0]?.message?.content}"`, ms };
-  } catch (e: any) {
-    return { provider: name, ok: false, msg: e.message, ms: Date.now() - t };
+  } catch (e) {
+    return { provider: name, ok: false, msg: e instanceof Error ? e.message : String(e), ms: Date.now() - t };
   }
 }
 

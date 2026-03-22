@@ -4,6 +4,7 @@ import { runPipeline } from '../services/pipeline';
 import { useConfigStore } from '../stores/configStore';
 import { HistoryItem, getSTTProviderOpts, getSTTModelMode } from '../types/config';
 import { countWords } from '../utils/wordCount';
+import { errMsg } from '../utils/errMsg';
 
 function playBeep(freq: number, duration: number, volume = 0.25) {
   try {
@@ -128,8 +129,8 @@ export function useRecorder() {
         maxTimerRef.current = null;
         stopRecordingRef.current();
       }, 600000);
-    } catch (e: any) {
-      setState((s) => ({ ...s, status: 'idle', error: `Microphone error: ${e.message}` }));
+    } catch (e) {
+      setState((s) => ({ ...s, status: 'idle', error: `Microphone error: ${errMsg(e)}` }));
       window.electronAPI?.cancelRealtimeSTT(); // sync main process state.isRecording = false
     }
   }, []);
@@ -331,9 +332,9 @@ export function useRecorder() {
         };
         addHistoryItem(failItem);
       }
-    } catch (e: any) {
+    } catch (e) {
       if (generationRef.current !== gen) return;
-      setState((s) => ({ ...s, status: 'idle', error: e.message }));
+      setState((s) => ({ ...s, status: 'idle', error: errMsg(e) }));
     }
   }, [config, addHistoryItem]);
 

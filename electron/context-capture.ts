@@ -3,6 +3,7 @@ import { exec, execSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { state, isMac } from './app-state';
+import { errMsg } from './utils';
 import { AppConfig } from '../src/types/config';
 
 function execAsync(cmd: string, opts: { input?: string; timeout?: number } = {}): Promise<string> {
@@ -342,8 +343,8 @@ function captureScreenMac(): string | null {
     const base64 = buf.toString('base64');
     console.log(`[OCR] macOS screencapture → ${pw}x${ph}, ${Math.round(buf.length / 1024)}KB`);
     return `data:image/jpeg;base64,${base64}`;
-  } catch (e: any) {
-    console.error('[OCR] screencapture failed:', e.message);
+  } catch (e) {
+    console.error('[OCR] screencapture failed:', errMsg(e));
     return null;
   } finally {
     try { if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath); } catch {}
@@ -391,8 +392,8 @@ export async function captureScreenAndOcr(config: AppConfig): Promise<{ text: st
     const durationMs = Date.now() - t0;
     console.log(`[OCR] ${model} → ${durationMs}ms, ${ocrResult.length} chars`);
     return { text: ocrResult, screenshot: dataUrl, durationMs };
-  } catch (e: any) {
-    console.error('[OCR] error:', e.message);
+  } catch (e) {
+    console.error('[OCR] error:', errMsg(e));
     return null;
   }
 }
