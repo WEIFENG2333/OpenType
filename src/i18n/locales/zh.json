@@ -74,7 +74,6 @@
     "willAppearHere": "您的转录记录将显示在这里",
     "polished": "润色后",
     "raw": "原始文本",
-    "rawTranscription": "原始转录",
     "justNow": "刚刚",
     "mAgo": "{n}分钟前",
     "hAgo": "{n}小时前",
@@ -136,7 +135,8 @@
     "search": "搜索词条...",
     "filterAll": "全部",
     "filterManual": "手动添加",
-    "filterAuto": "自动学习"
+    "filterAuto": "自动学习",
+    "remove": "删除"
   },
   "recording": {
     "copy": "复制",

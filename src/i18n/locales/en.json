@@ -74,7 +74,6 @@
     "willAppearHere": "Your transcriptions will appear here",
     "polished": "Polished",
     "raw": "Raw",
-    "rawTranscription": "Raw transcription",
     "justNow": "Just now",
     "mAgo": "{n}m ago",
     "hAgo": "{n}h ago",
@@ -136,7 +135,8 @@
     "search": "Search terms...",
     "filterAll": "All",
     "filterManual": "Manual",
-    "filterAuto": "Auto-learned"
+    "filterAuto": "Auto-learned",
+    "remove": "Remove"
   },
   "recording": {
     "copy": "Copy",
