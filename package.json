@@ -7,7 +7,9 @@
     "email": "liangweifeng@bytedance.com"
   },
   "license": "MIT",
-  "engines": { "node": ">=20.0.0" },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "main": "dist-electron/electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -99,9 +101,7 @@
     }
   },
   "dependencies": {
-    "electron-store": "^8.2.0",
     "electron-updater": "^6.8.3",
-    "openai": "^6.25.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "ws": "^8.19.0",
