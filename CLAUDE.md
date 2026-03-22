@@ -80,13 +80,13 @@ src/                     → React renderer (ESM, bundled by Vite to dist/)
 
 scripts/                 → Test scripts
   # Unit tests (run via `npm test`, no API keys needed)
-  test-config-helpers.ts → Provider resolution, STT model mode/protocol, defaults (48 tests)
+  test-config-helpers.ts → Provider resolution, STT model mode/protocol, defaults (44 tests)
   test-migration.ts      → Config migration: all edge cases, idempotency (17 tests)
   test-llm-helpers.ts    → Truncation, cursor markers, term parsing (38 tests)
-  test-auto-dict.ts      → Skip logic, prompt building (25 tests)
+  test-auto-dict.ts      → Skip logic, prompt building (24 tests)
   test-word-count.ts     → CJK/Latin/mixed word counting (23 tests)
-  test-i18n.ts           → resolve, interpolate, locale file structure (23 tests)
-  test-pipeline-e2e.ts   → STT config builders, protocol dispatch, prompt assembly + real API integration (31 tests)
+  test-i18n.ts           → resolve, interpolate, locale file structure (21 tests)
+  test-pipeline-e2e.ts   → STT config builders, protocol dispatch, prompt assembly + real API integration (23 tests)
   # Integration tests (require API keys / network, not in `npm test`)
   test-api.ts            → API connectivity test
   test-stt.ts            → STT transcription test
@@ -119,7 +119,7 @@ Running `tsc --noEmit` alone only checks frontend — Electron errors will be mi
 npm run dev              # Vite dev server (frontend only, http://localhost:5173)
 npm run electron:dev     # Full Electron dev mode (Vite + Electron)
 npm run typecheck        # Check BOTH frontend + electron TypeScript
-npm test                 # Run all 202 unit tests (7 suites)
+npm test                 # Run all 190 unit tests (7 suites)
 npm run check            # typecheck + all unit tests (use before committing)
 npm run build            # Build frontend (vite build) + compile electron (tsc)
 npm run electron:build   # Full package (build + electron-builder, auto-detects platform)
