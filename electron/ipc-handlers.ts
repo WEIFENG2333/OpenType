@@ -26,6 +26,10 @@ export function setupIPC() {
   ipcMain.handle('config:get', (_e, key: keyof AppConfig) => state.configStore!.get(key));
   ipcMain.handle('config:set', (event, key: keyof AppConfig, val: any) => {
     state.configStore!.set(key, val);
+    // Sync launch-on-startup with OS when setting changes
+    if (key === 'launchOnStartup') {
+      app.setLoginItemSettings({ openAtLogin: !!val });
+    }
     // Broadcast history changes to all OTHER windows so they stay in sync
     if (key === 'history') {
       const senderId = event.sender.id;

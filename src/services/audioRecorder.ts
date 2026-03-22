@@ -3,9 +3,11 @@
  * Records microphone input, monitors audio level, outputs WAV buffer.
  */
 
-const MIC_CONSTRAINTS: MediaStreamConstraints = {
-  audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 },
-};
+function micConstraints(deviceId?: string): MediaStreamConstraints {
+  const audio: MediaTrackConstraints = { echoCancellation: true, noiseSuppression: true, sampleRate: 16000 };
+  if (deviceId) audio.deviceId = { exact: deviceId };
+  return { audio };
+}
 
 export class AudioRecorder {
   private mediaRecorder: MediaRecorder | null = null;
@@ -21,11 +23,12 @@ export class AudioRecorder {
     onLevelChange?: (level: number) => void,
     onPCMChunk?: (pcm16Base64: string) => void,
     targetSampleRate = 24000,
+    deviceId?: string,
   ): Promise<void> {
     this.onLevelChange = onLevelChange;
     this.audioChunks = [];
 
-    this.stream = await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
+    this.stream = await navigator.mediaDevices.getUserMedia(micConstraints(deviceId));
 
     // Audio analysis for level metering
     this.audioContext = new AudioContext();

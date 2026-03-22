@@ -543,16 +543,6 @@ function DetailModal({ item, onClose, t, onDownloadAudio }: { item: HistoryItem;
               <p className="text-xs text-surface-400 italic">{t('history.noOutput')}</p>
             )}
 
-            {/* Auto-learned terms */}
-            {ctx?.autoLearnedTerms && ctx.autoLearnedTerms.length > 0 && (
-              <div className="mt-3 flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-medium text-surface-400">{t('history.autoLearnedTerms')}:</span>
-                {ctx.autoLearnedTerms.map((term, i) => (
-                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-500/10 text-green-500 border border-green-500/20">{term}</span>
-                ))}
-              </div>
-            )}
-
             {/* System prompt (collapsible) */}
             {ctx?.systemPrompt && (
               <div className="mt-3">

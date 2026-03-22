@@ -106,6 +106,10 @@ app.whenReady().then(() => {
   state.sttService = new STTService();
   state.llmService = new LLMService();
 
+  // Sync launch-on-startup setting with OS
+  const launchOnStartup = state.configStore.get('launchOnStartup');
+  app.setLoginItemSettings({ openAtLogin: launchOnStartup });
+
   setupPermissions();
 
   if (isMac) {

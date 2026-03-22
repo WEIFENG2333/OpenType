@@ -113,7 +113,6 @@
     "clipboardContent": "Clipboard content at capture time",
     "recentTranscriptions": "Recent Transcriptions",
     "recentTranscriptionsDesc": "Previous transcriptions for continuity context",
-    "autoLearnedTerms": "Auto-learned terms",
     "sttDuration": "STT Duration",
     "llmDuration": "LLM Duration",
     "cursorAt": "Cursor at position",
@@ -256,10 +255,6 @@
       "startSoundDesc": "Play a sound when recording begins",
       "endSound": "Recording end sound",
       "endSoundDesc": "Play a sound when recording ends",
-      "whisperMode": "Whisper Mode",
-      "enableWhisper": "Enable Whisper Mode",
-      "whisperDesc": "Increased sensitivity for quiet environments — speak softly and still be heard",
-      "whisperSensitivity": "Whisper Sensitivity",
       "autoMute": "Auto-Mute",
       "autoMuteToggle": "Mute system audio during recording",
       "autoMuteDesc": "Automatically mute other audio while recording to reduce background noise interference"

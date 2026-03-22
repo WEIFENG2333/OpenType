@@ -183,11 +183,11 @@ test('preserves non-provider config fields', () => {
   const { config } = migrateConfig({
     theme: 'dark',
     globalHotkey: 'F5',
-    inputVolume: 42,
+    soundEnabled: false,
   });
   assert.equal(config.theme, 'dark');
   assert.equal(config.globalHotkey, 'F5');
-  assert.equal(config.inputVolume, 42);
+  assert.equal(config.soundEnabled, false);
 });
 
 test('unknown fields are passed through', () => {

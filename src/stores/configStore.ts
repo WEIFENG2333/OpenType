@@ -24,7 +24,7 @@ interface ConfigStore {
   deleteHistoryItem: (id: string) => void;
 
   /** Add a word to personal dictionary */
-  addDictionaryWord: (word: string, source?: 'manual' | 'auto') => void;
+  addDictionaryWord: (word: string, source?: DictionaryEntry['source']) => void;
 
   /** Remove a word from personal dictionary */
   removeDictionaryWord: (word: string) => void;
@@ -106,11 +106,16 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
   addHistoryItem: (item) => {
     set((state) => {
       if (!state.config.historyEnabled) return state;
-      const history = [item, ...state.config.history].slice(0, 500);
-      const totalWordsThisWeek = state.config.totalWordsThisWeek + item.wordCount;
+      let history = [item, ...state.config.history].slice(0, 500);
+      // Apply retention policy
+      const retention = state.config.historyRetention;
+      if (retention !== 'forever') {
+        const ms: Record<string, number> = { '1h': 3600e3, '24h': 86400e3, '7d': 604800e3, '30d': 2592000e3 };
+        const cutoff = Date.now() - (ms[retention] ?? Infinity);
+        history = history.filter(h => h.timestamp >= cutoff);
+      }
       persist('history', history);
-      persist('totalWordsThisWeek', totalWordsThisWeek);
-      return { config: { ...state.config, history, totalWordsThisWeek } };
+      return { config: { ...state.config, history } };
     });
   },
 
@@ -129,7 +134,7 @@ export const useConfigStore = create<ConfigStore>((set, get) => ({
     });
   },
 
-  addDictionaryWord: (word: string, source: 'manual' | 'auto' = 'manual') => {
+  addDictionaryWord: (word: string, source: DictionaryEntry['source'] = 'manual') => {
     set((state) => {
       const trimmed = word.trim();
       if (!trimmed || state.config.personalDictionary.some((e) => e.word.toLowerCase() === trimmed.toLowerCase())) return state;

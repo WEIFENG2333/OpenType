@@ -372,7 +372,7 @@ test('all boolean AppConfig fields have explicit defaults', () => {
     'llmPostProcessing', 'autoFormatting', 'selfCorrectionDetection',
     'fillerWordRemoval', 'repetitionElimination', 'autoLearnDictionary',
     'launchOnStartup', 'alsoWriteClipboard', 'soundEnabled', 'muteSystemAudio',
-    'whisperMode', 'historyEnabled', 'contextL0Enabled', 'contextL1Enabled', 'contextOcrEnabled',
+    'historyEnabled', 'contextL0Enabled', 'contextL1Enabled', 'contextOcrEnabled',
   ];
   for (const field of boolFields) {
     assert.equal(typeof DEFAULT_CONFIG[field], 'boolean', `DEFAULT_CONFIG.${field} should be boolean`);

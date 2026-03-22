@@ -113,7 +113,6 @@
     "clipboardContent": "捕获时的剪贴板内容",
     "recentTranscriptions": "最近转录",
     "recentTranscriptionsDesc": "用于上下文连续性的近期转录记录",
-    "autoLearnedTerms": "自动学习词条",
     "sttDuration": "STT 耗时",
     "llmDuration": "LLM 耗时",
     "cursorAt": "光标位于位置",
@@ -256,10 +255,6 @@
       "startSoundDesc": "录音开始时播放提示音",
       "endSound": "录音结束提示音",
       "endSoundDesc": "录音结束时播放提示音",
-      "whisperMode": "耳语模式",
-      "enableWhisper": "启用耳语模式",
-      "whisperDesc": "提高安静环境下的灵敏度——轻声说话也能被识别",
-      "whisperSensitivity": "耳语灵敏度",
       "autoMute": "自动静音",
       "autoMuteToggle": "录音时静音系统音频",
       "autoMuteDesc": "录音时自动静音其他音频，减少背景噪音干扰"

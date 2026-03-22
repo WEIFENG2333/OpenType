@@ -21,7 +21,6 @@ export interface PipelineResult {
   llmModel?: string;
   sttDurationMs?: number;
   llmDurationMs?: number;
-  autoLearnedTerms?: string[];
 }
 
 export async function runPipeline(

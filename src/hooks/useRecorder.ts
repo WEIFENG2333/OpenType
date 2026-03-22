@@ -117,6 +117,7 @@ export function useRecorder() {
           ? (pcm16Base64) => window.electronAPI?.sendAudioChunk(pcm16Base64)
           : undefined,
         sttSampleRate,
+        configRef.current.selectedMicrophoneId || undefined,
       );
 
       if (configRef.current.soundEnabled) playBeep(880, 0.12);
@@ -241,7 +242,6 @@ export function useRecorder() {
         llmModel: result.llmModel,
         sttDurationMs: result.sttDurationMs,
         llmDurationMs: result.llmDurationMs,
-        autoLearnedTerms: result.autoLearnedTerms,
       });
 
       if (result.success && !result.skipped) {

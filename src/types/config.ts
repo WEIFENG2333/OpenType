@@ -297,8 +297,6 @@ export interface HistoryContext {
   sttDurationMs?: number;      // how long STT took
   llmDurationMs?: number;      // how long LLM post-processing took
 
-  // Auto-learned dictionary terms
-  autoLearnedTerms?: string[]; // terms auto-added in this transcription
 }
 
 export interface HistoryItem {
@@ -320,7 +318,7 @@ export interface HistoryItem {
 
 export interface DictionaryEntry {
   word: string;
-  source: 'manual' | 'auto' | 'auto-llm' | 'auto-diff';
+  source: 'manual' | 'auto-llm' | 'auto-diff';
   addedAt?: number;  // Unix timestamp ms
 }
 
@@ -348,11 +346,8 @@ export interface AppConfig {
 
   // Audio
   selectedMicrophoneId: string;    // '' = default
-  inputVolume: number;             // 0-100
   soundEnabled: boolean;           // play beep on recording start/stop
   muteSystemAudio: boolean;        // mute system audio during recording (macOS)
-  whisperMode: boolean;
-  whisperSensitivity: number;      // 0-100
 
   // Tone Rules
   toneRules: ToneRule[];
@@ -384,11 +379,6 @@ export interface AppConfig {
   // History data
   history: HistoryItem[];
 
-  // Stats
-  totalWordsThisWeek: number;
-  totalTimeSavedSeconds: number;
-  averageWPM: number;
-  weekStartTimestamp: number;
 }
 
 // ─── Provider Resolution Helpers ────────────────────────────────────────────
@@ -442,11 +432,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   pasteLastKey: 'CommandOrControl+Shift+V',
 
   selectedMicrophoneId: '',
-  inputVolume: 80,
   soundEnabled: true,
   muteSystemAudio: true,
-  whisperMode: false,
-  whisperSensitivity: 50,
 
   toneRules: [
     { appPattern: 'gmail', tone: 'professional' },
@@ -479,9 +466,4 @@ export const DEFAULT_CONFIG: AppConfig = {
   personalDictionary: [],
 
   history: [],
-
-  totalWordsThisWeek: 0,
-  totalTimeSavedSeconds: 0,
-  averageWPM: 0,
-  weekStartTimestamp: 0,
 };
