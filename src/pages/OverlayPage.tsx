@@ -69,7 +69,7 @@ function useTypewriter(source: string, active: boolean) {
     const tick = (now: number) => {
       const s = stateRef.current;
       const behind = s.target.length - s.pos;
-      if (behind <= 0) { raf = requestAnimationFrame(tick); return; }
+      if (behind <= 0) return; // caught up — RAF restarts via useEffect when source changes
       // Always 1 char at a time; shorten the interval when falling behind
       const interval = behind > 20 ? 10 : behind > 10 ? 18 : behind > 4 ? 25 : 35;
       if (now - s.lastTime >= interval) {
@@ -81,7 +81,7 @@ function useTypewriter(source: string, active: boolean) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [active]);
+  }, [active, source]);
 
   return display;
 }
@@ -174,7 +174,7 @@ export function OverlayPage() {
         setCopied(false);
         window.electronAPI?.hideOverlay();
       }, 1200);
-    } catch {}
+    } catch (e) { console.error('[Overlay] clipboard write failed:', e); }
   }, [rec.processedText]);
 
   const handleDismiss = useCallback(() => window.electronAPI?.hideOverlay(), []);
