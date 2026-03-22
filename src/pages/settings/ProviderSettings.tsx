@@ -210,10 +210,11 @@ function ProviderSection({ icon, title, tooltip, children }: {
 
 /** Tiny text badge indicating streaming or non-streaming mode */
 function ModeBadge({ mode }: { mode: string }) {
+  const { t } = useTranslation();
   if (mode === 'streaming') {
     return (
       <span className="shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium leading-none bg-brand-500/10 text-brand-600 dark:text-brand-400">
-        实时
+        {t('settings.providers.realtime')}
       </span>
     );
   }

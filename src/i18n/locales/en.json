@@ -4,7 +4,9 @@
     "dictation": "Dictation",
     "history": "History",
     "dictionary": "Dictionary",
-    "settings": "Settings"
+    "settings": "Settings",
+    "lightMode": "Light mode",
+    "darkMode": "Dark mode"
   },
   "dashboard": {
     "timeSaved": "Time saved",
@@ -162,6 +164,7 @@
       "copied": "Copied",
       "custom": "Custom",
       "customModelPlaceholder": "e.g. deepseek-ai/DeepSeek-V3",
+      "realtime": "Realtime",
       "presets": "Presets",
       "sttTitle": "Speech Recognition",
       "sttTooltip": "Converts your voice into raw text. This is the first step — choose a provider that supports your language.",

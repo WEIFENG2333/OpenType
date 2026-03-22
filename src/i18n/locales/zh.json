@@ -4,7 +4,9 @@
     "dictation": "听写",
     "history": "历史记录",
     "dictionary": "词典",
-    "settings": "设置"
+    "settings": "设置",
+    "lightMode": "浅色模式",
+    "darkMode": "深色模式"
   },
   "dashboard": {
     "timeSaved": "节省时间",
@@ -162,6 +164,7 @@
       "copied": "已复制",
       "custom": "自定义",
       "customModelPlaceholder": "如 deepseek-ai/DeepSeek-V3",
+      "realtime": "实时",
       "presets": "预设",
       "sttTitle": "STT 语音识别",
       "sttTooltip": "将语音转为原始文字，这是第一步——选择支持你所用语言的提供商。",
