@@ -81,7 +81,7 @@ export interface ElectronAPI {
   }>;
 
   // ─── LLM ──────────────────────────────────────────────
-  processText: (rawText: string, context?: any) => Promise<{
+  processText: (rawText: string, context?: Partial<CapturedContext>) => Promise<{
     success: boolean;
     text?: string;
     error?: string;
@@ -115,8 +115,8 @@ export interface ElectronAPI {
   testVLM: () => Promise<APITestResult>;
 
   // ─── Auto Updater ───────────────────────────────────────
-  checkForUpdates: () => Promise<any>;
-  downloadUpdate: () => Promise<any>;
+  checkForUpdates: () => Promise<unknown>;
+  downloadUpdate: () => Promise<unknown>;
   installUpdate: () => Promise<void>;
   getVersion: () => Promise<string>;
   onUpdateAvailable: (callback: (info: { version: string; releaseNotes?: string }) => void) => () => void;

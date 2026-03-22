@@ -32,19 +32,23 @@ export interface IRealtimeSession {
 // Protocol 1: OpenAI-compatible Realtime (OpenAI + DashScope Qwen-ASR)
 // ═════════════════════════════════════════════════════════════════════════════
 
+/** WebSocket JSON message — structure varies by provider protocol */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type WSMessage = Record<string, any>;
+
 interface OpenAIRealtimeConfig {
   wsUrl: string;
   headers: Record<string, string>;
   sampleRate: number;
-  sessionUpdateEvent: any;
+  sessionUpdateEvent: WSMessage;
   sessionReadyTypes: string[];
   deltaType: string;
   completedType: string;
-  extractDelta: (event: any, accumulated: string) => { text: string; accumulated: string };
-  extractTranscript: (event: any) => string;
+  extractDelta: (event: WSMessage, accumulated: string) => { text: string; accumulated: string };
+  extractTranscript: (event: WSMessage) => string;
   usesVAD: boolean;
-  finishEvent?: any;
-  commitEvent?: any;
+  finishEvent?: WSMessage;
+  commitEvent?: WSMessage;
 }
 
 export function buildOpenAIConfig(apiKey: string, model: string): OpenAIRealtimeConfig {
@@ -166,7 +170,7 @@ class OpenAIRealtimeSession implements IRealtimeSession {
     });
   }
 
-  private handleEvent(event: any) {
+  private handleEvent(event: WSMessage) {
     const type = event.type;
 
     if (this.config.sessionReadyTypes.includes(type)) {
@@ -361,7 +365,7 @@ class ParaformerRealtimeSession implements IRealtimeSession {
     });
   }
 
-  private handleEvent(msg: any) {
+  private handleEvent(msg: WSMessage) {
     const event = msg.header?.event;
 
     if (event === 'task-started') {
@@ -517,7 +521,7 @@ export class STTService {
     const url = `${baseUrl || 'https://dashscope.aliyuncs.com/compatible-mode/v1'}/chat/completions`;
     console.log(`[STT] dashscope batch → ${url} model=${model}`);
 
-    const body: any = {
+    const body: Record<string, unknown> = {
       model,
       messages: [{
         role: 'user',

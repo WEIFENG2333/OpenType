@@ -113,7 +113,7 @@ export function setupIPC() {
   });
 
   // STT
-  ipcMain.handle('stt:transcribe', async (_e, buf: ArrayBuffer, opts: any) => {
+  ipcMain.handle('stt:transcribe', async (_e, buf: ArrayBuffer, opts?: { language?: string }) => {
     try {
       const text = await state.sttService!.transcribe(Buffer.from(buf), state.configStore!.getAll(), opts);
       console.log('[STT] result:', text.slice(0, 100));
@@ -203,7 +203,7 @@ export function setupIPC() {
   });
 
   // LLM
-  ipcMain.handle('llm:process', async (_e, text: string, ctx: any) => {
+  ipcMain.handle('llm:process', async (_e, text: string, ctx?: Record<string, unknown>) => {
     try {
       const result = await state.llmService!.process(text, state.configStore!.getAll(), ctx);
       return { success: true, text: result.text };
@@ -262,7 +262,7 @@ export function setupIPC() {
 
     try {
       let raw: string;
-      let ctx: any;
+      let ctx: import('./context-capture').CapturedContext;
 
       if (realtimeSession) {
         // ── Realtime streaming mode ──

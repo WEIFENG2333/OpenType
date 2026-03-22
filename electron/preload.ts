@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resumeShortcuts: () => ipcRenderer.invoke('shortcuts:resume'),
 
   // STT
-  transcribe: (buf: ArrayBuffer, opts?: any) => ipcRenderer.invoke('stt:transcribe', buf, opts),
+  transcribe: (buf: ArrayBuffer, opts?: { language?: string }) => ipcRenderer.invoke('stt:transcribe', buf, opts),
 
   // LLM
   processText: (text: string, ctx?: any) => ipcRenderer.invoke('llm:process', text, ctx),

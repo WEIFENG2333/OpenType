@@ -7,6 +7,10 @@ import { AppConfig, LLMProviderID, getLLMProviderOpts } from '../src/types/confi
 import type { CapturedContext } from './context-capture';
 import { errMsg } from './utils';
 
+/** OpenAI-compatible message content: plain string or multimodal array */
+type ChatContent = string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>;
+type ChatMessage = { role: string; content: ChatContent };
+
 /** Smart truncation: keeps beginning + end of long text, with ellipsis in middle */
 export function smartTruncate(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text;
@@ -109,13 +113,13 @@ export function buildFieldContext(context: CapturedContext | undefined): string 
 export function parseTermsResponse(content: string): string[] {
   try {
     const parsed = JSON.parse(content);
-    if (Array.isArray(parsed)) return parsed.filter((t: any) => typeof t === 'string' && t.trim());
+    if (Array.isArray(parsed)) return parsed.filter((t: unknown) => typeof t === 'string' && t.trim());
   } catch {}
   const match = content.match(/\[([^\]]*)\]/);
   if (match) {
     try {
       const parsed = JSON.parse(match[0]);
-      if (Array.isArray(parsed)) return parsed.filter((t: any) => typeof t === 'string' && t.trim());
+      if (Array.isArray(parsed)) return parsed.filter((t: unknown) => typeof t === 'string' && t.trim());
     } catch {}
   }
   if (content.includes(',')) {
@@ -220,7 +224,7 @@ export class LLMService {
 
   private async call(opts: {
     baseUrl: string; apiKey: string; model: string;
-    messages: Array<{ role: string; content: any }>;
+    messages: ChatMessage[];
     extraHeaders?: Record<string, string>;
     temperature?: number; maxTokens?: number;
   }): Promise<string> {
@@ -311,7 +315,7 @@ export class LLMService {
     });
   }
 
-  private async callVLM(config: AppConfig, messages: any[], opts?: { temperature?: number; maxTokens?: number }): Promise<string> {
+  private async callVLM(config: AppConfig, messages: ChatMessage[], opts?: { temperature?: number; maxTokens?: number }): Promise<string> {
     if (!config.contextOcrModel) throw new Error('contextOcrModel not configured');
     const baseOpts = getLLMProviderOpts(config);
     return this.call({
