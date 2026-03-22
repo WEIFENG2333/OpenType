@@ -60,7 +60,7 @@ export interface EditDetectionParams {
 
 /** Snapshot state for edit detection. Must be called before context capture clears state. */
 export function prepareEditDetection(cfg: AppConfig): EditDetectionParams | null {
-  if (!state.lastTypedText || !cfg.autoLearnDictionary || !cfg.contextL1Enabled) return null;
+  if (!state.lastTypedText || !state.lastTypedContext || !cfg.autoLearnDictionary || !cfg.contextL1Enabled) return null;
 
   const EDIT_DETECTION_TIMEOUT_MS = 5 * 60 * 1000; // 5 min window for detecting user edits
   const timeSince = Date.now() - state.lastTypedAt;
@@ -71,7 +71,7 @@ export function prepareEditDetection(cfg: AppConfig): EditDetectionParams | null
 
   const params: EditDetectionParams = {
     lastTypedText: state.lastTypedText,
-    lastCtx: state.lastTypedContext!,
+    lastCtx: state.lastTypedContext,
   };
   state.lastTypedText = null; // clear immediately to prevent re-trigger
   return params;

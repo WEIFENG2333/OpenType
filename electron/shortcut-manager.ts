@@ -7,6 +7,7 @@ import { prepareEditDetection, runEditDetection } from './auto-dict';
 import { updateTrayMenu } from './tray-manager';
 
 let lastToggleTime = 0;
+let contextGeneration = 0; // guards against stale context capture overwriting new recording's data
 const DEBOUNCE_MS = 300;
 
 export function registerShortcuts() {
@@ -79,11 +80,14 @@ export function toggleRecording() {
     state.contextPromise = null;
     state.ocrPromise = null;
     state.lastCapturedContext = {};
+    const ctxGen = ++contextGeneration;
 
     setTimeout(() => {
       state.contextPromise = (async () => {
         const ctxStart = Date.now();
         const ctx = await captureFullContext(cfg);
+        // Guard: if a new recording started while we were capturing, discard stale result
+        if (ctxGen !== contextGeneration) return;
         state.lastCapturedContext = ctx;
         const ctxMs = Date.now() - ctxStart;
 

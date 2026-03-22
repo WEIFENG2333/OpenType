@@ -355,11 +355,10 @@ export function useRecorder() {
       clearTimeout(maxTimerRef.current);
       maxTimerRef.current = null;
     }
-    // Cancel Realtime STT session if active
-    if (isStreamingRef.current) {
-      window.electronAPI?.cancelRealtimeSTT();
-      isStreamingRef.current = false;
-    }
+    // Reset main process state (isRecording, system audio) and close any realtime session.
+    // Must always call — even in batch mode — to ensure state.isRecording is reset.
+    window.electronAPI?.cancelRealtimeSTT();
+    isStreamingRef.current = false;
     // Stop recorder without processing the audio
     if (recorderRef.current) {
       try { recorderRef.current.stop().catch(() => {}); } catch {}

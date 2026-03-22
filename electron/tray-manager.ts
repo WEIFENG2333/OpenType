@@ -24,10 +24,12 @@ export function createTray(onToggleRecording: () => void) {
 export function updateTrayMenu(onToggleRecording: () => void) {
   if (!state.tray) return;
   const hotkey = state.configStore?.get('globalHotkey') || 'CmdOrCtrl+Shift+Space';
+  // Electron Menu accelerator doesn't support Fn key — omit it to avoid silent failure
+  const accelerator = hotkey === 'Fn' || hotkey.startsWith('Fn+') ? undefined : hotkey;
   const menu = Menu.buildFromTemplate([
     { label: 'Show OpenType', click: () => { state.mainWindow?.show(); state.mainWindow?.focus(); } },
     { type: 'separator' },
-    { label: 'Start Dictation', accelerator: hotkey, click: onToggleRecording },
+    { label: 'Start Dictation', accelerator, click: onToggleRecording },
     { type: 'separator' },
     { label: 'Quit', click: () => { state.quitting = true; require('electron').app.quit(); } },
   ]);
