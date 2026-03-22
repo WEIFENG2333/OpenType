@@ -305,46 +305,6 @@ test('unknown provider defaults to openai-batch', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-console.log('\n=== supportsStreaming simulation ===');
-
-function simulateSupportsStreaming(cfg: AppConfig): boolean {
-  const opts = getSTTProviderOpts(cfg);
-  if (!opts.model) return false;
-  return getSTTModelMode(cfg.sttProvider, opts.model) === 'streaming';
-}
-
-test('DashScope batch model → supportsStreaming=false', () => {
-  const cfg: AppConfig = {
-    ...DEFAULT_CONFIG,
-    sttProvider: 'dashscope',
-    providers: { ...DEFAULT_CONFIG.providers, dashscope: { apiKey: 'sk-x', baseUrl: '', sttModel: 'qwen3-asr-flash', llmModel: '' } },
-  };
-  assert.equal(simulateSupportsStreaming(cfg), false);
-});
-
-test('DashScope streaming model → supportsStreaming=true', () => {
-  const cfg: AppConfig = {
-    ...DEFAULT_CONFIG,
-    sttProvider: 'dashscope',
-    providers: { ...DEFAULT_CONFIG.providers, dashscope: { apiKey: 'sk-x', baseUrl: '', sttModel: 'qwen3-asr-flash-realtime', llmModel: '' } },
-  };
-  assert.equal(simulateSupportsStreaming(cfg), true);
-});
-
-test('SiliconFlow default → supportsStreaming=false', () => {
-  assert.equal(simulateSupportsStreaming(DEFAULT_CONFIG), false);
-});
-
-test('empty model → supportsStreaming=false', () => {
-  const cfg: AppConfig = {
-    ...DEFAULT_CONFIG,
-    sttProvider: 'dashscope',
-    providers: { ...DEFAULT_CONFIG.providers, dashscope: { apiKey: 'sk-x', baseUrl: '', sttModel: '', llmModel: '' } },
-  };
-  assert.equal(simulateSupportsStreaming(cfg), false);
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
 console.log('\n=== Boolean config field defaults ===');
 
 test('llmPostProcessing defaults to true', () => {

@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
 import { DEFAULT_CONFIG, AppConfig } from '../src/types/config';
-import { buildSystemPrompt, buildFieldContext, smartTruncate, LLMService } from '../electron/llm-service';
+import { buildSystemPrompt, LLMService } from '../electron/llm-service';
 import { buildOpenAIConfig, buildQwenASRConfig, STTService } from '../electron/stt-service';
 
 let passed = 0;
@@ -192,41 +192,7 @@ test('custom tone prompt injected', () => {
   assert.ok(p.includes('请用诗歌形式回答'));
 });
 
-test('buildFieldContext cursor marker at correct position', () => {
-  const ctx: any = { fieldText: 'Hello world, how are you?', selectionRange: { location: 12, length: 0 }, fieldRole: 'TextArea' };
-  const result = buildFieldContext(ctx);
-  assert.ok(result !== null);
-  assert.ok(result!.includes('|'), 'Should contain cursor marker');
-  // The | should split "Hello world," and " how are you?"
-  assert.ok(result!.includes('Hello world,|'), `Cursor should be after comma, got: ${result!.slice(result!.indexOf('Hello'), result!.indexOf('|') + 10)}`);
-});
-
-test('buildFieldContext with selected text range', () => {
-  const ctx: any = { fieldText: 'Hello world, how are you?', selectionRange: { location: 6, length: 5 }, fieldRole: 'TextArea' };
-  const result = buildFieldContext(ctx);
-  assert.ok(result !== null);
-  assert.ok(result!.includes('[SELECTED:'), 'Should contain selection marker');
-});
-
-test('buildFieldContext without fieldText returns null', () => {
-  assert.equal(buildFieldContext({ fieldRole: 'TextArea' } as any), null);
-  assert.equal(buildFieldContext(undefined), null);
-});
-
-test('smartTruncate output is shorter than input and contains marker', () => {
-  const long = 'A'.repeat(1000);
-  const truncated = smartTruncate(long, 100);
-  // keepEach = floor((100 - 20) / 2) = 40
-  // result = 40 + '\n... [truncated] ...\n' (20 chars) + 40 = ~100
-  assert.ok(truncated.length <= 110, `Expected ~100 chars, got ${truncated.length}`);
-  assert.ok(truncated.startsWith('A'.repeat(40)), 'Should keep first 40 chars');
-  assert.ok(truncated.endsWith('A'.repeat(40)), 'Should keep last 40 chars');
-  assert.ok(truncated.includes('[truncated]'));
-});
-
-test('smartTruncate passes through short text unchanged', () => {
-  assert.equal(smartTruncate('short', 100), 'short');
-});
+// buildFieldContext + smartTruncate tested thoroughly in test-llm-helpers.ts
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 4. LLMService.process — empty input guard (calls real code)

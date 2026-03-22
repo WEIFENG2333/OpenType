@@ -142,26 +142,6 @@ test('no empty string values in zh', () => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-console.log('\n=== fallback logic ===');
-
-test('t() falls back to en when zh key missing', () => {
-  // Simulate: zh missing a key → resolve returns the key → fallback to en
-  const key = 'settings.providers.apiKey';
-  const zhResult = resolve(zh, key);
-  const enResult = resolve(en, key);
-  // Both should resolve (we verified earlier). Simulate fallback:
-  const template = zhResult === key ? enResult : zhResult;
-  assert.ok(template !== key, 'Should resolve from either locale');
-});
-
-test('t() returns key path when missing from both', () => {
-  const key = 'totally.nonexistent.key';
-  const template = resolve(en, key);
-  const resolved = template === key ? resolve(en, key) : template;
-  assert.equal(resolved, key);
-});
-
-// ═══════════════════════════════════════════════════════════════════════════
 console.log(`\n${'='.repeat(50)}`);
 console.log(`Results: ${passed} passed, ${failed} failed`);
 process.exit(failed > 0 ? 1 : 0);

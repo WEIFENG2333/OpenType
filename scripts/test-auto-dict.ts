@@ -110,14 +110,11 @@ test('no screenshot note when no screenshot', () => {
   assert.ok(!prompt.includes('屏幕截图'));
 });
 
-test('mentions max 3 terms', () => {
+test('mentions max 3 terms limit', () => {
   const prompt = buildPipelinePrompt('test', 'test', false, []);
-  assert.ok(prompt.includes('3'));
-});
-
-test('mentions returning empty array', () => {
-  const prompt = buildPipelinePrompt('test', 'test', false, []);
-  assert.ok(prompt.includes('[]'));
+  // Must mention both the number limit and empty array default
+  assert.ok(prompt.includes('最多') || prompt.includes('max') || prompt.includes('不超过'), 'Should mention term limit');
+  assert.ok(prompt.includes('[]'), 'Should mention empty array as default');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -65,8 +65,8 @@ test('Japanese hiragana', () => {
 });
 
 test('Korean', () => {
-  // Each Korean syllable counts as 1 CJK
-  assert.ok(countWords('안녕하세요') > 0);
+  // Each Korean syllable counts as 1 CJK character
+  assert.equal(countWords('안녕하세요'), 5);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
