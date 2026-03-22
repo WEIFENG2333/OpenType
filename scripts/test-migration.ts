@@ -206,9 +206,8 @@ test('migrating twice gives same result', () => {
   const first = migrateConfig(input);
   const second = migrateConfig(first.config);
   assert.equal(second.changed, false);
-  assert.equal(second.config.providers.siliconflow.apiKey, 'sk-1');
-  assert.equal(second.config.personalDictionary.length, 2);
-  assert.equal(second.config.personalDictionary[0].word, 'a');
+  // Verify entire config is identical after second migration
+  assert.deepEqual(second.config, first.config, 'Second migration should produce identical config');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

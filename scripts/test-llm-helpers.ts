@@ -306,9 +306,9 @@ test('no context produces clean prompt', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 console.log('\n=== Edge cases: smartTruncate ===');
 
-test('smartTruncate with maxLen=0 returns empty or minimal', () => {
+test('smartTruncate with maxLen=0 returns single char', () => {
   const result = smartTruncate('hello world', 0);
-  assert.ok(result.length <= 25, `Expected very short result, got ${result.length} chars`);
+  assert.equal(result.length, 1, `Expected 1 char (min clamp), got ${result.length} chars`);
 });
 
 test('smartTruncate with maxLen=1 returns single char', () => {

@@ -6,7 +6,7 @@
  */
 import assert from 'node:assert/strict';
 import {
-  AppConfig, DEFAULT_CONFIG, PROVIDERS, ProviderConfig,
+  AppConfig, DEFAULT_CONFIG, PROVIDERS, ProviderConfig, STTProtocol,
   getProviderConfig, getSTTProviderOpts, getLLMProviderOpts, getSTTModelMode,
   getSTTModelDef, getDefaultBatchProtocol,
 } from '../src/types/config';
@@ -235,10 +235,11 @@ test('getSTTModelDef returns undefined for unknown model', () => {
   assert.equal(getSTTModelDef('dashscope', 'nonexistent'), undefined);
 });
 
-test('all STT models have protocol field', () => {
+test('all STT models have valid protocol field', () => {
+  const valid: STTProtocol[] = ['openai-batch', 'dashscope-batch', 'openai-realtime', 'qwen-asr-realtime', 'paraformer-realtime'];
   for (const p of PROVIDERS) {
     for (const m of p.sttModels) {
-      assert.ok(m.protocol, `${p.id}/${m.id} missing protocol`);
+      assert.ok(valid.includes(m.protocol), `${p.id}/${m.id} has invalid protocol "${m.protocol}"`);
     }
   }
 });
