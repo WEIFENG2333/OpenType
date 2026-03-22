@@ -12,6 +12,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       {label && <label className="block text-sm font-medium text-surface-600 dark:text-surface-400">{label}</label>}
       <input
         ref={ref}
+        aria-invalid={error ? true : undefined}
         className={`w-full bg-white dark:bg-surface-850 border border-surface-300 dark:border-surface-700 rounded-lg px-3.5 py-2 text-sm
           text-surface-800 dark:text-surface-200 placeholder-surface-400 dark:placeholder-surface-600
           focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30
@@ -38,6 +39,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
         <button
           type="button"
           onClick={() => setVisible(!visible)}
+          aria-label={visible ? 'Hide password' : 'Show password'}
           className="absolute right-2.5 bottom-[7px] text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 p-1"
           tabIndex={-1}
         >

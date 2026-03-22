@@ -73,6 +73,8 @@ export function Select({ label, hint, value, onChange, options, className = '', 
         ref={triggerRef}
         type="button"
         disabled={disabled}
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
         className={`w-full bg-white dark:bg-surface-850 border border-surface-300 dark:border-surface-700 rounded-lg px-3.5 py-2 text-sm
           text-surface-800 dark:text-surface-200 text-left flex items-center justify-between
@@ -89,12 +91,15 @@ export function Select({ label, hint, value, onChange, options, className = '', 
       {open && createPortal(
         <div
           ref={dropdownRef}
+          role="listbox"
           style={style}
           className="z-[9999] overflow-y-auto bg-white dark:bg-surface-850 border border-surface-200 dark:border-surface-700 rounded-lg shadow-xl py-1 animate-fade-in"
         >
           {options.map((o) => (
             <button
               key={o.value}
+              role="option"
+              aria-selected={o.value === value}
               onClick={() => handleSelect(o.value)}
               className={`w-full text-left px-3.5 py-2 text-sm transition-colors truncate
                 ${o.value === value
