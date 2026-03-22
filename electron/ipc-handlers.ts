@@ -302,6 +302,7 @@ export function setupIPC() {
       }
 
       if (!raw.trim()) {
+        state.isRecording = false;
         sendPhase('done');
         return { success: true, rawText: '', processedText: '', skipped: true, sttProvider, llmProvider, sttModel, llmModel, sttDurationMs, llmDurationMs };
       }

@@ -405,9 +405,9 @@ class ParaformerRealtimeSession implements IRealtimeSession {
     }
 
     if (event === 'task-failed') {
-      const errMsg = msg.header?.error_message || msg.payload?.error_message || 'Paraformer task failed';
-      console.error('[Paraformer] task failed:', errMsg);
-      this.onError?.(errMsg);
+      const failureMsg = msg.header?.error_message || msg.payload?.error_message || 'Paraformer task failed';
+      console.error('[Paraformer] task failed:', failureMsg);
+      this.onError?.(failureMsg);
       this.finishedResolve?.(this.getFinalText());
       this.finishedResolve = null;
       this.close(); // must close WS after task failure to prevent resource leak

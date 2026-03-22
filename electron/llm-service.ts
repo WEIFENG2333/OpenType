@@ -9,7 +9,7 @@ import { errMsg } from './utils';
 
 /** OpenAI-compatible message content: plain string or multimodal array */
 type ChatContent = string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>;
-type ChatMessage = { role: string; content: ChatContent };
+type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: ChatContent };
 
 /** Smart truncation: keeps beginning + end of long text, with ellipsis in middle */
 export function smartTruncate(text: string, maxLen: number): string {
@@ -72,7 +72,6 @@ export function buildFieldContext(context: CapturedContext | undefined): string 
   if (!fieldText) return null;
 
   const range = context.selectionRange;
-  const placeholder = context.fieldPlaceholder;
   const label = context.fieldLabel;
   const roleDesc = context.fieldRoleDescription || context.fieldRole || 'input field';
 
